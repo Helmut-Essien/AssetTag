@@ -1,0 +1,6 @@
+@AssetTag_HostAddress = http://localhost:5226
+
+GET {{AssetTag_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
