@@ -1,11 +1,13 @@
-﻿namespace AssetTag.Models
+﻿using NUlid;
+
+namespace AssetTag.Models
 {
     public class Category
     {
-        public Guid CategoryId { get; set; }
-        public string Name { get; set; }
+        public string CategoryId { get; set; } = Ulid.NewUlid().ToString();
+        public required string Name { get; set; }
         public string? Description { get; set; }
 
-        public ICollection<Asset> Assets { get; set; }
+        public required ICollection<Asset> Assets { get; set; }
     }
 }

@@ -1,9 +1,11 @@
-﻿namespace AssetTag.Models
+﻿using NUlid;
+
+namespace AssetTag.Models
 {
     public class AssetHistory
     {
-        public Guid HistoryId { get; set; }
-        public Guid AssetId { get; set; }
+        public string HistoryId { get; set; } = Ulid.NewUlid().ToString();
+        public string AssetId { get; set; }
         public string UserId { get; set; }
         public string Action { get; set; }
         public string Description { get; set; }
