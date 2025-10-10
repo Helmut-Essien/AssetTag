@@ -8,6 +8,6 @@ namespace AssetTag.Models
         public required string Name { get; set; }
         public string? Description { get; set; }
 
-        public required ICollection<Asset> Assets { get; set; }
+        public required ICollection<Asset> Assets { get; set; } = new List<Asset>();
     }
 }

@@ -11,6 +11,6 @@ namespace AssetTag.Models
         public string? Building { get; set; }
         public string? Room { get; set; }
 
-        public required ICollection<Asset> Assets { get; set; }
+        public required ICollection<Asset> Assets { get; set; } = new List<Asset>();
     }
 }

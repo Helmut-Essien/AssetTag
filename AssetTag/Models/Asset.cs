@@ -11,19 +11,21 @@ namespace AssetTag.Models
         public string? Description { get; set; }
         public required string CategoryId { get; set; }
         public required string LocationId { get; set; }
+        public required string DepartmentId { get; set; }
         public DateTime? PurchaseDate { get; set; }
         public decimal? PurchasePrice { get; set; }
         public decimal? CurrentValue { get; set; }
         public required string Status { get; set; }
         public string? AssignedToUserId { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime UpdatedAt { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime DateModified { get; set; } = DateTime.UtcNow;
         public string? SerialNumber { get; set; }
+        public required string Condition { get; set; }
 
         public required Category Category { get; set; }
         public required Location Location { get; set; }
+        public required Department Department { get; set; }
         public ApplicationUser? AssignedToUser { get; set; }
-        public required ICollection<AssetHistory> AssetHistories { get; set; }
+        public required ICollection<AssetHistory> AssetHistories { get; set; } = new List<AssetHistory>();
     }
-
 }
