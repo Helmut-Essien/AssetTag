@@ -46,6 +46,10 @@ namespace AssetTag.Data
                 .HasKey(a => a.AssetId);
 
             modelBuilder.Entity<Asset>()
+                .HasIndex(a => a.AssetTag)
+                .IsUnique();
+
+            modelBuilder.Entity<Asset>()
                 .HasOne(a => a.Category)
                 .WithMany(c => c.Assets)
                 .HasForeignKey(a => a.CategoryId)
@@ -99,10 +103,18 @@ namespace AssetTag.Data
             modelBuilder.Entity<Department>()
                 .HasKey(d => d.DepartmentId);
 
+            modelBuilder.Entity<Department>()
+                .HasIndex(d => d.Name)
+                .IsUnique();
+
 
             // Location configurations
             modelBuilder.Entity<Location>()
                 .HasKey(l => l.LocationId);
+
+            modelBuilder.Entity<Location>()
+                .HasIndex(l => new { l.Name, l.Campus })
+                .IsUnique();
 
             // RefreshTokens configurations
             modelBuilder.Entity<RefreshTokens>()
