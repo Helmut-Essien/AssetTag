@@ -87,7 +87,7 @@ namespace AssetTag.Data
                 .HasOne(h => h.OldLocation)
                 .WithMany()
                 .HasForeignKey(h => h.OldLocationId)
-                .OnDelete(DeleteBehavior.SetNull);
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<AssetHistory>()
                 .HasOne(h => h.NewLocation)
@@ -95,7 +95,7 @@ namespace AssetTag.Data
                 .HasForeignKey(h => h.NewLocationId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            // Category configurations
+            // Category DeleteBehavior.Restrict
             modelBuilder.Entity<Category>()
                 .HasKey(c => c.CategoryId);
 
