@@ -51,6 +51,7 @@ namespace AssetTag.Services
             var jwtsettings = _configuration.GetSection("JwtSettings");
             var randomBytes = new byte[64];
             using var rng = RandomNumberGenerator.Create();
+            rng.GetBytes(randomBytes);
 
             return new RefreshTokens
             {

@@ -5,4 +5,5 @@
     public record TokenRequestDTO(string AccessToken, string RefreshToken);
     public record TokenResponseDTO(string AccessToken, string RefreshToken);
     public record AssignRoleDTO(string Email, string RoleName);
+    public record CreateRoleDTO(string RoleName);
 }

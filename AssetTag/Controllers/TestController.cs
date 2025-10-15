@@ -8,7 +8,7 @@ namespace AssetTag.Controllers
     [ApiController]
     public class TestController : ControllerBase
     {
-        [HttpGet]
+        [HttpGet("public")]
         public IActionResult Public()
         {
             return Ok("This is a public endpoint");

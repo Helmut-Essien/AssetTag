@@ -20,19 +20,19 @@ namespace AssetTag.Controllers
         }
 
         [HttpPost("Create")]
-        public async Task<IActionResult> CreateRole([FromBody] string roleName)
+        public async Task<IActionResult> CreateRole([FromBody] CreateRoleDTO dto)
         {
-            if (await _roleManager.RoleExistsAsync(roleName))
+            if (await _roleManager.RoleExistsAsync(dto.RoleName))
             {
-                return BadRequest($"Role '{roleName}'already exists.");
+                return BadRequest($"Role '{dto.RoleName}'already exists.");
             }
 
-            var result = await _roleManager.CreateAsync(new IdentityRole(roleName));
+            var result = await _roleManager.CreateAsync(new IdentityRole(dto.RoleName));
             if (!result.Succeeded)
             {
                 return BadRequest(result.Errors);
             }
-            return Ok($"Role '{roleName}' created successfully.");
+            return Ok($"Role '{dto.RoleName}' created successfully.");
         }
 
         [HttpPost("Assign")]
