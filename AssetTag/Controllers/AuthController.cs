@@ -30,7 +30,9 @@ namespace AssetTag.Controllers
             var user = new ApplicationUser
             {
                 UserName = dto.Username,
-                Email = dto.Email
+                Email = dto.Email,
+                FirstName = dto.FirstName,
+                Surname = dto.Surname
             };
 
             var result = await _userManager.CreateAsync(user, dto.Password);
