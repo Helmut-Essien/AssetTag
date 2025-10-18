@@ -1,4 +1,4 @@
-﻿using AssetTag.DTOs;
+﻿using Shared.DTOs;
 using AssetTag.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;

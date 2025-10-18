@@ -1,4 +1,4 @@
-﻿namespace AssetTag.DTOs
+﻿namespace Shared.DTOs
 {
     public record RegisterDTO (string Username, string Email, string Password, string FirstName, string Surname);
     public record LoginDTO (string Email, string Password);

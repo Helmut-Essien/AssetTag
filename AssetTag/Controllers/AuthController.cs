@@ -1,5 +1,5 @@
 ﻿using AssetTag.Data;
-using AssetTag.DTOs;
+using Shared.DTOs;
 using AssetTag.Models;
 using AssetTag.Services;
 using Microsoft.AspNetCore.Http;

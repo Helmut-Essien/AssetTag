@@ -1,6 +1,6 @@
 using System;
 
-namespace AssetTag.DTOs;
+namespace Shared.DTOs;
 
 public record RefreshTokenReadDTO
 {
