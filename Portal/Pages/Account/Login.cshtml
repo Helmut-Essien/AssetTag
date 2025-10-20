@@ -1,58 +1,66 @@
-﻿@page
+﻿@* Login.cshtml *@
+@page
 @model Portal.Pages.Account.LoginModel
 @{
+    Layout = "_AuthLayout";
     ViewData["Title"] = "Login";
 }
 
-<div class="container d-flex justify-content-center align-items-center min-vh-100">
-    <div class="card shadow-sm border-0" style="width: 100%; max-width: 448px;">
-        <div class="card-body p-4 p-md-5">
-            <!-- Logo (Replace with your app's logo) -->
-            <div class="text-center mb-4">
-                <img src="~/Resources/mlogo1.jpeg" alt="App Logo" style="max-width: 100px;" />
-                <h1 class="h4 fw-normal mt-3">Sign in</h1>
-                <p class="text-muted">to continue to Your App Name</p>
-            </div>
+<!-- Logo with shield inspiration -->
+<img src="~/Resources/mlogo.jpeg" alt="Methodist University Ghana Logo" class="logo-img mb-4" />
+<h1 class="h4 fw-bold">Sign in</h1>
+<p class="text-muted">to continue to Methodist University Asset Portal</p>
+<p class="values">Excellence • Morality • Service</p>
 
-            <!-- Error Message -->
-            @if (!string.IsNullOrEmpty(Model.ErrorMessage))
-            {
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    @Model.ErrorMessage
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            }
-
-            <!-- Login Form -->
-            <form method="post">
-                <input type="hidden" asp-for="@Model.Input.RememberMe" value="false" />
-                <div class="mb-3">
-                    <input asp-for="Input.Email" class="form-control form-control-lg rounded-pill" placeholder="Email or phone" />
-                    <span asp-validation-for="Input.Email" class="text-danger"></span>
-                </div>
-                <div class="mb-3">
-                    <input asp-for="Input.Password" class="form-control form-control-lg rounded-pill" placeholder="Password" />
-                    <span asp-validation-for="Input.Password" class="text-danger"></span>
-                </div>
-                <div class="form-check mb-4">
-                    <input asp-for="Input.RememberMe" class="form-check-input" />
-                    <label asp-for="Input.RememberMe" class="form-check-label">Show me on this computer</label>
-                </div>
-                <div class="d-grid">
-                    <button type="submit" class="btn btn-primary btn-lg rounded-pill">Sign in</button>
-                </div>
-            </form>
-
-            <!-- Additional Links -->
-            <div class="text-center mt-4">
-                <a href="#" class="text-primary text-decoration-none">Forgot password?</a>
-                <p class="text-muted mt-2">Not your computer? Use Guest mode to sign in privately. <a href="#" class="text-primary text-decoration-none">Learn more</a></p>
-                <p class="mt-3">Don't have an account? <a asp-page="/Account/Register" class="text-primary text-decoration-none">Create account</a></p>
-            </div>
-        </div>
+<!-- Error Message -->
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @Model.ErrorMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
+}
+
+<!-- Login Form -->
+<form method="post">
+    <input type="hidden" asp-for="@Model.Input.RememberMe" value="false" />
+    <div class="form-group mb-3">
+        <input asp-for="Input.Email" class="form-control form-control-lg" placeholder="Email or phone" />
+        <span asp-validation-for="Input.Email" class="text-danger"></span>
+    </div>
+    <div class="form-group mb-3 position-relative">
+        <input asp-for="Input.Password" type="password" class="form-control form-control-lg" placeholder="Password" id="passwordInput" />
+        <span asp-validation-for="Input.Password" class="text-danger"></span>
+        <span class="password-toggle" onclick="togglePassword()">👁️</span>
+    </div>
+    <div class="form-check mb-4">
+        <input asp-for="Input.RememberMe" class="form-check-input" />
+        <label asp-for="Input.RememberMe" class="form-check-label">Show me on this computer</label>
+    </div>
+    <div class="d-grid">
+        <button type="submit" class="btn btn-primary btn-lg">Sign in</button>
+    </div>
+</form>
+
+<!-- Additional Links -->
+<div class="text-center mt-4">
+    <a href="#" class="text-primary text-decoration-none">Forgot password?</a>
+    @* <p class="text-muted mt-2">Not your computer? Use Guest mode to sign in privately. <a href="#" class="text-primary text-decoration-none">Learn more</a></p>
+    <p class="mt-3">Don't have an account? <a asp-page="/Account/Register" class="text-primary text-decoration-none">Create account</a></p> *@
 </div>
 
 @section Scripts {
-    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function togglePassword() {
+            const passwordInput = document.getElementById('passwordInput');
+            const toggleIcon = document.querySelector('.password-toggle');
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.textContent = '🙈';
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.textContent = '👁️';
+            }
+        }
+    </script>
 }

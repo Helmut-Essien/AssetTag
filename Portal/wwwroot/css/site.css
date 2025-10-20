@@ -71,6 +71,13 @@
     min-height: 100vh;
 }*/
 
+
+
+
+
+
+
+
 /* Import Google Fonts (Roboto) */
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap');
 
@@ -78,6 +85,7 @@
 body {
     font-family: 'Roboto', sans-serif;
     background-color: #f8f9fa;
+    
 }
 
 /* Card styling */
