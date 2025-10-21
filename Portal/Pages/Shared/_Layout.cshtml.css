@@ -1,48 +1,166 @@
-﻿/* Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
-for details on configuring this project to bundle and minify static web assets. */
-
-a.navbar-brand {
-  white-space: normal;
-  text-align: center;
-  word-break: break-all;
+﻿
+body {
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
 }
 
-a {
-  color: #0077cc;
+.sidebar {
+    background-color: #343a40;
+    color: white;
+    height: 100vh;
+    width: 250px;
+    position: fixed;
+    top: 0;
+    left: -250px;
+    transition: left 0.3s ease;
+    z-index: 1000;
+    padding-top: 20px;
+    padding-left: 10px;
+    padding-right: 10px;
 }
 
-.btn-primary {
-  color: #fff;
-  background-color: #1b6ec2;
-  border-color: #1861ac;
+    .sidebar hr {
+        border: none;
+        border-top: 3px solid white;
+        border-radius: 5px;
+        background-color: white;
+        color: white;
+    }
+
+    .sidebar.active {
+        left: 0;
+    }
+
+    .sidebar .nav-link {
+        color: white;
+    }
+
+        .sidebar .nav-link.active {
+            background-color: #495057;
+        }
+
+.nav-link i {
+    margin-right: 10px; /* Adjust as needed */
 }
 
-.nav-pills .nav-link.active, .nav-pills .show > .nav-link {
-  color: #fff;
-  background-color: #1b6ec2;
-  border-color: #1861ac;
+.content {
+    padding: 20px;
+    transition: margin-left 0.3s ease;
 }
 
-.border-top {
-  border-top: 1px solid #e5e5e5;
-}
-.border-bottom {
-  border-bottom: 1px solid #e5e5e5;
+
+@media (min-width: 769px) {
+    .sidebar {
+        left: 0;
+        width: 250px;
+    }
+
+    .content {
+        margin-left: 250px;
+        padding: 20px;
+        transition: margin-left 0.3s ease;
+    }
+
+    .navbar-toggler {
+        display: none;
+    }
 }
 
-.box-shadow {
-  box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .05);
-}
+@media (max-width: 768px) {
+    body {
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+    }
 
-button.accept-policy {
-  font-size: 1rem;
-  line-height: inherit;
-}
+    .sidebar {
+        background-color: #343a40;
+        color: white;
+        height: 100vh;
+        width: 250px;
+        position: fixed;
+        top: 0;
+        left: -250px;
+        transition: left 0.3s ease;
+        z-index: 1000;
+        padding-top: 20px;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
 
-.footer {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  white-space: nowrap;
-  line-height: 60px;
+        .sidebar hr {
+            border: none;
+            border-top: 3px solid white;
+            border-radius: 5px;
+            background-color: white;
+            color: white;
+        }
+
+        .sidebar.active {
+            left: 0;
+        }
+
+        .sidebar .nav-link {
+            color: white;
+        }
+
+            .sidebar .nav-link.active {
+                background-color: #495057;
+            }
+
+    .navbar-toggler {
+        padding: .25rem .75rem;
+        font-size: 1.25rem;
+        line-height: 1;
+        background-color: transparent;
+        border: 1px solid transparent;
+        border-radius: .25rem;
+        transition: box-shadow .15s ease-in-out;
+    }
+
+    .nav-link i {
+        margin-right: 10px; /* Adjust as needed */
+    }
+
+    .content {
+        padding: 20px;
+        transition: margin-left 0.3s ease;
+    }
+
+
+    @media (min-width: 769px) {
+        .sidebar {
+            left: 0;
+            width: 250px;
+        }
+
+        .content {
+            margin-left: 250px;
+            padding: 20px;
+            transition: margin-left 0.3s ease;
+        }
+
+        .navbar-toggler {
+            display: none;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .navbar-toggler {
+            display: block;
+            background-color: #343a40;
+            color: white;
+            border: none;
+            margin: 10px;
+        }
+    }
+
+    .navbar-toggler {
+        display: block;
+        background-color: #343a40;
+        color: white;
+        border: none;
+        margin: 10px;
+    }
 }

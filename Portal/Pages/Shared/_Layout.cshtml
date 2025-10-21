@@ -4,49 +4,134 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Portal</title>
-    <script type="importmap"></script>
+    <!-- Include Bootstrap CSS for responsiveness -->
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/Portal.styles.css" asp-append-version="true" />
+    @* <link href="~/css/site.css" rel="stylesheet" /> *@
+    <link href="~/css/admin.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    @RenderSection("Styles", required: false)
+    <link rel="shortcut icon" href="~/Resources/mlogo.jpeg" type="image/x-icon" />
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container">
-                <a class="navbar-brand" asp-area="" asp-page="/Index">Portal</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Privacy">Privacy</a>
-                        </li>
-                    </ul>
-                </div>
+    <div>
+        <!-- Sidebar Toggle for mobile view -->
+        <button class="navbar-toggler" type="button" onclick="toggleSidebar()">
+            ☰ Menu
+        </button>
+
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <h4>Dashboard</h4>
+            <hr />
+            <!-- Navigation sidebar -->
+            <ul class="nav flex-column" id="dashboardSidebar">
+                <li class="nav-item">
+                    <a class="nav-link" asp-area="" asp-page="/Account/Login">
+                        <i class="bi bi-house-fill me-2"></i>
+                        <span>Admin Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" asp-area="" asp-page="Assets/Index">
+                        <i class="bi bi-people-fill me-2"></i>
+                        <span>Assets</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" asp-area="" asp-page="/Privacy">
+                        <i class="bi bi-shield-lock-fill me-2"></i>
+                        <span>Privacy</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" asp-area="" asp-page="Users/Index">
+                        <i class="bi bi-file-text-fill me-2"></i>
+                        <span>Users</span>
+                    </a>
+                </li>
+                @* <li class="nav-item">
+                    <a class="nav-link" asp-area="" asp-page="/Privacy">
+                        <i class="bi bi-calendar-check-fill me-2"></i>
+                        <span>Meeting Days</span>
+                    </a>
+                </li> *@
+            </ul>
+
+            <!-- Button to navigate to the Index page -->
+            <div class="text-center mt-4">
+                <a href="/" class="btn btn-primary btn-block">Go to Homepage</a>
             </div>
-        </nav>
-    </header>
-    <div class="container">
-        <main role="main" class="pb-3">
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="content" onclick="hideSidebarOnOutsideClick(event)">
             @RenderBody()
-        </main>
+            <hr />
+            <footer>
+                <p>&copy; @DateTime.Now.Year - My ASP.NET Application</p>
+            </footer>
+        </div>
     </div>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2025 - Portal - <a asp-area="" asp-page="/Privacy">Privacy</a>
-        </div>
-    </footer>
-
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <!-- Include jQuery and Bootstrap JS -->
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/lib/jquery/jquery.min.js"></script>
+    <script src="~/lib/modernizr/modernizr-2.8.3.js"></script>
 
-    @await RenderSectionAsync("Scripts", required: false)
+    <!-- Custom JavaScript for sidebar toggle and active link -->
+    <script>
+        function toggleSidebar() {
+            var sidebar = document.getElementById("sidebar");
+            sidebar.classList.toggle("active");
+        }
+        // Function to hide sidebar on outside click
+        function hideSidebarOnOutsideClick(event) {
+            var sidebar = document.getElementById("sidebar");
+            if (window.innerWidth <= 768) { // Only apply this behavior on mobile
+                if (sidebar.classList.contains('active') && !sidebar.contains(event.target)) {
+                    sidebar.classList.remove('active');
+                }
+            }
+        }
+
+        // Close sidebar if clicking outside of it
+        document.addEventListener('click', function (event) {
+            var sidebar = document.getElementById("sidebar");
+            var toggleButton = document.querySelector('.navbar-toggler');
+
+            if (window.innerWidth <= 768) { // Only apply this behavior on mobile
+                if (sidebar.classList.contains('active') && !sidebar.contains(event.target) && !toggleButton.contains(event.target)) {
+                    sidebar.classList.remove('active');
+                }
+            }
+        });
+
+        // Get the current page path
+        const activePage = window.location.pathname;
+
+        // Highlight the active link in the sidebar, including child links
+        const navLinks = document.querySelectorAll('#dashboardSidebar .nav-link');
+        navLinks.forEach(link => {
+            // Check if the href contains a part of the current path (e.g., /Users/)
+            if (activePage.includes('/Index') && link.href.includes('/Index')) {
+                link.classList.add('active');
+            } else if (activePage.includes('/Assets') && link.href.includes('/Assets')) {
+                link.classList.add('active');
+            } else if (activePage.includes('/Privacy') && link.href.includes('/Privacy')) {
+                link.classList.add('active');
+            } else if (activePage.includes('/Users') && link.href.includes('/Users')) {
+                link.classList.add('active');
+            // } else if (activePage.includes('/Index') && link.href.includes('/Index')) {
+            //     link.classList.add('active');
+            }
+            else {
+                link.classList.remove('active');
+            }
+        });
+
+    </script>
+
+    @RenderSection("Scripts", required: false)
 </body>
 </html>
+
