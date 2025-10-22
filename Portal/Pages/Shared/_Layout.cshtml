@@ -32,7 +32,7 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" asp-area="" asp-page="Assets/Index">
+                    <a class="nav-link" asp-area="" asp-page="/Assets/Index">
                         <i class="bi bi-people-fill me-2"></i>
                         <span>Assets</span>
                     </a>
@@ -44,7 +44,7 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" asp-area="" asp-page="Users/Index">
+                    <a class="nav-link" asp-area="" asp-page="/Users/Index">
                         <i class="bi bi-file-text-fill me-2"></i>
                         <span>Users</span>
                     </a>
@@ -109,23 +109,18 @@
         // Get the current page path
         const activePage = window.location.pathname;
 
-        // Highlight the active link in the sidebar, including child links
+            // Highlight the active link in the sidebar
         const navLinks = document.querySelectorAll('#dashboardSidebar .nav-link');
         navLinks.forEach(link => {
-            // Check if the href contains a part of the current path (e.g., /Users/)
-            if (activePage.includes('/Index') && link.href.includes('/Index')) {
+            // Extract the pathname from the link's href (normalizes to relative path)
+            const linkPath = new URL(link.href, window.location.origin).pathname;
+
+            // Remove active class from all links first (resets previous state)
+            link.classList.remove('active');
+
+            // Add active if exact match OR current path is a child of link path
+            if (activePage === linkPath || activePage.startsWith(linkPath + '/')) {
                 link.classList.add('active');
-            } else if (activePage.includes('/Assets') && link.href.includes('/Assets')) {
-                link.classList.add('active');
-            } else if (activePage.includes('/Privacy') && link.href.includes('/Privacy')) {
-                link.classList.add('active');
-            } else if (activePage.includes('/Users') && link.href.includes('/Users')) {
-                link.classList.add('active');
-            // } else if (activePage.includes('/Index') && link.href.includes('/Index')) {
-            //     link.classList.add('active');
-            }
-            else {
-                link.classList.remove('active');
             }
         });
 

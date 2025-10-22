@@ -85,7 +85,7 @@ namespace Portal.Pages.Account
                 authProperties);
 
             // Redirect to returnUrl or home page
-            returnUrl = returnUrl ?? Url.Content("~/Privacy.cshtml");
+            returnUrl = returnUrl ?? Url.Content("~/Index.cshtml");
             return LocalRedirect(returnUrl);
         }
     }
