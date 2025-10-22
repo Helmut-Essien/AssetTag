@@ -46,6 +46,14 @@ namespace Portal.Pages.Account
         {
             if (!ModelState.IsValid)
             {
+                // Collect model state errors to display so you can see why validation failed
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => string.IsNullOrWhiteSpace(e.ErrorMessage) ? e.Exception?.Message : e.ErrorMessage)
+                    .Where(m => !string.IsNullOrWhiteSpace(m))
+                    .ToArray();
+
+                ErrorMessage = errors.Length == 0 ? "Form validation failed." : string.Join(" ", errors);
                 return Page();
             }
 
@@ -85,8 +93,10 @@ namespace Portal.Pages.Account
                 authProperties);
 
             // Redirect to returnUrl or home page
-            returnUrl = returnUrl ?? Url.Content("~/Index.cshtml");
-            return LocalRedirect(returnUrl);
+            //returnUrl = returnUrl ?? Url.Content("~/Index.cshtml");
+            //return LocalRedirect(returnUrl);
+            // For Razor Pages use RedirectToPage to avoid using .cshtml paths
+            return RedirectToPage("/Index");
         }
     }
 }

@@ -22,7 +22,7 @@
 }
 
 <!-- Login Form -->
-<form method="post">
+<form method="post" id="loginForm" asp-antiforgery="true" novalidate>
     <input type="hidden" asp-for="@Model.Input.RememberMe" value="false" />
     <div class="form-group mb-3">
         <input asp-for="Input.Email" class="form-control form-control-lg" placeholder="Email or phone" />
@@ -38,7 +38,9 @@
         <label asp-for="Input.RememberMe" class="form-check-label">Show me on this computer</label>
     </div>
     <div class="d-grid">
-        <button type="submit" class="btn btn-primary btn-lg">Sign in</button>
+        <button type="submit" class="btn btn-primary btn-lg button" id="signinButton" aria-live="polite">
+            <span class="button__text">Sign in</span>
+        </button>
     </div>
 </form>
 
@@ -62,5 +64,46 @@
                 toggleIcon.textContent = '👁️';
             }
         }
+
+        // Attach submit handler to show spinner and prevent double submit
+        (function () {
+            const form = document.getElementById('loginForm');
+            const btn = document.getElementById('signinButton');
+
+            if (!form || !btn) return;
+
+            form.addEventListener('submit', function (e) {
+                // let client-side validation run first
+                // if form is invalid, do not show loading state
+                if (!form.checkValidity()) {
+                    // let browser show validation UI
+                    return;
+                }
+
+                // Add loading state
+                btn.classList.add('button--loading');
+                btn.disabled = true;
+
+                // // Disable only interactive inputs (skip hidden antiforgery token and any hidden fields)
+                // Array.from(form.elements).forEach(el => {
+                //     try {
+                //         const tag = (el.tagName || '').toUpperCase();
+                //         const type = (el.type || '').toLowerCase();
+                //         const name = el.name || '';
+
+                //         // don't disable buttons (submit), don't disable hidden inputs, don't disable the antiforgery token
+                //         if (tag === 'BUTTON') return;
+                //         if (type === 'hidden') return;
+                //         if (name === '__RequestVerificationToken') return;
+
+                //         // disable the element
+                //         el.disabled = true;
+                //     } catch {
+                //         // ignore elements that can't be processed
+                //     }
+                // });
+            }, { passive: true });
+        })();
     </script>
+    <partial name="_ValidationScriptsPartial" />
 }
