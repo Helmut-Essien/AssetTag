@@ -4,6 +4,7 @@ using Microsoft.Net.Http.Headers;
 var builder = WebApplication.CreateBuilder(args);
 
 // register typed HttpClient for API calls (set Api:BaseUrl in Portal appsettings)
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient("AssetTagApi", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Api:BaseUrl"] ?? "https://localhost:7135/");
@@ -31,6 +32,7 @@ builder.Services.AddRazorPages(options =>
 });
 
 builder.Services.AddScoped<Portal.Services.IApiAuthService, Portal.Services.ApiAuthService>();
+builder.Services.AddTransient<Portal.Services.TokenRefreshHandler>();
 
 var app = builder.Build();
 
