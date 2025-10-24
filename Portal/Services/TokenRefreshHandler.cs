@@ -8,7 +8,7 @@ using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
-using AssetTag.DTOs; // if your Shared DTOs live under Shared.DTOs adjust namespace
+ // if your Shared DTOs live under Shared.DTOs adjust namespace
 using Portal.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;

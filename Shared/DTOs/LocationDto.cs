@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace AssetTag.DTOs;
+namespace Shared.DTOs;
 
 public record LocationCreateDTO
 {

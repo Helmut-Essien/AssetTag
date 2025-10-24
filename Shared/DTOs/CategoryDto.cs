@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace AssetTag.DTOs;
+namespace Shared.DTOs;
 
 public record CategoryCreateDTO
 {
@@ -17,9 +17,5 @@ public record CategoryUpdateDTO
     public string? Description { get; init; }
 }
 
-public record CategoryReadDTO
-{
-    public string CategoryId { get; init; } = string.Empty;
-    public string Name { get; init; } = string.Empty;
-    public string? Description { get; init; }
-}
+// Positional read DTO (immutable, good for EF projection)
+public record CategoryReadDTO(string CategoryId, string Name, string? Description);
