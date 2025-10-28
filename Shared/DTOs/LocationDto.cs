@@ -24,8 +24,8 @@ public record LocationCreateDTO
 
 public record LocationUpdateDTO
 {
-    [Required]
-    public string LocationId { get; init; } = string.Empty;
+    //[Required]
+    //public string LocationId { get; init; } = string.Empty;
     public string? Name { get; init; }
     public string? Description { get; init; }
     public string? Campus { get; init; }
@@ -37,14 +37,4 @@ public record LocationUpdateDTO
     public double? Longitude { get; init; }
 }
 
-public record LocationReadDTO
-{
-    public string LocationId { get; init; } = string.Empty;
-    public string Name { get; init; } = string.Empty;
-    public string? Description { get; init; }
-    public string Campus { get; init; } = string.Empty;
-    public string? Building { get; init; }
-    public string? Room { get; init; }
-    public double? Latitude { get; init; }
-    public double? Longitude { get; init; }
-}
+public record LocationReadDTO(string LocationId, string Name, string? Description, string Campus, string? Building, string? Room, double? Latitude, double? Longitude);
