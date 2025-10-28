@@ -17,9 +17,4 @@ public record DepartmentUpdateDTO
     public string? Description { get; init; }
 }
 
-public record DepartmentReadDTO
-{
-    public string DepartmentId { get; init; } = string.Empty;
-    public string Name { get; init; } = string.Empty;
-    public string? Description { get; init; }
-}
+public record DepartmentReadDTO(string DepartmentId, string Name, string? Description);
