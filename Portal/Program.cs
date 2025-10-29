@@ -5,13 +5,17 @@ var builder = WebApplication.CreateBuilder(args);
 
 // register typed HttpClient for API calls (set Api:BaseUrl in Portal appsettings)
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<Portal.Services.IApiAuthService, Portal.Services.ApiAuthService>();
+builder.Services.AddTransient<Portal.Services.TokenRefreshHandler>();
 builder.Services.AddHttpClient("AssetTagApi", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Api:BaseUrl"] ?? "https://localhost:7135/");
     client.DefaultRequestHeaders.Accept.Clear();
     client.DefaultRequestHeaders.Accept.Add(
         new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-});
+})
+    .AddHttpMessageHandler<Portal.Services.TokenRefreshHandler>(); // <--- attach handler here
+
 
 // cookie auth for portal users
 builder.Services.AddAuthentication("PortalCookie")
@@ -31,8 +35,6 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AllowAnonymousToFolder("/Account"); // except login/register pages
 });
 
-builder.Services.AddScoped<Portal.Services.IApiAuthService, Portal.Services.ApiAuthService>();
-builder.Services.AddTransient<Portal.Services.TokenRefreshHandler>();
 
 var app = builder.Build();
 
