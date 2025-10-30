@@ -1,8 +1,182 @@
 ﻿@page
 @model Portal.Pages.Departments.IndexModel
 @{
-    ViewData["Title"] = "Departments page";
-
+    ViewData["Title"] = "Departments";
 }
 
-<h1 class="text-center my-4">Departments</h1>
+<div class="container my-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="mb-0">Departments (@Model.Departments.Count Total)</h1>
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createModal">
+            <i class="bi bi-plus-lg me-2"></i>Add Department
+        </button>
+    </div>
+
+    <div>
+        <div asp-validation-summary="All" class="text-danger mb-3"></div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var d in Model.Departments)
+                {
+                    <tr>
+                        <td>@d.Name</td>
+                        <td>@d.Description</td>
+                        <td>
+                            <button class="btn btn-primary btn-sm me-2"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#editModal"
+                                    data-id="@d.DepartmentId"
+                                    data-name="@d.Name"
+                                    data-desc="@d.Description">
+                                <i class="bi bi-pencil"></i> Edit
+                            </button>
+                            <button class="btn btn-danger btn-sm"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#deleteModal"
+                                    data-id="@d.DepartmentId">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Create Modal -->
+<div class="modal fade" id="createModal" tabindex="-1" aria-labelledby="createModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createModalLabel">Create New Department</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="post" asp-page-handler="Create">
+                    <div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+                    <div class="mb-3">
+                        <label asp-for="CreateDto.Name" class="form-label"></label>
+                        <input asp-for="CreateDto.Name" class="form-control" />
+                        <span asp-validation-for="CreateDto.Name" class="text-danger"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="CreateDto.Description" class="form-label"></label>
+                        <input asp-for="CreateDto.Description" class="form-control" />
+                        <span asp-validation-for="CreateDto.Description" class="text-danger"></span>
+                    </div>
+                    <button type="submit" class="btn btn-success">Create</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editModalLabel">Edit Department</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="post" asp-page-handler="Update">
+                    <div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+                    <input type="hidden" asp-for="UpdateDto.DepartmentId" />
+                    <div class="mb-3">
+                        <label asp-for="UpdateDto.Name" class="form-label"></label>
+                        <input asp-for="UpdateDto.Name" class="form-control" />
+                        <span asp-validation-for="UpdateDto.Name" class="text-danger"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="UpdateDto.Description" class="form-label"></label>
+                        <input asp-for="UpdateDto.Description" class="form-control" />
+                        <span asp-validation-for="UpdateDto.Description" class="text-danger"></span>
+                    </div>
+                    <button type="submit" class="btn btn-success">Update</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this department?</p>
+                <form method="post" asp-page-handler="Delete">
+                    <input type="hidden" name="id" id="deleteId" />
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Edit Modal population
+            var editModal = document.getElementById('editModal');
+            if (editModal) {
+                editModal.addEventListener('show.bs.modal', function (event) {
+                    var button = event.relatedTarget;
+                    var id = button.getAttribute('data-id');
+                    var name = button.getAttribute('data-name');
+                    var desc = button.getAttribute('data-desc') || '';
+
+                    var idElem = document.getElementById('UpdateDto_DepartmentId');
+                    var nameElem = document.getElementById('UpdateDto_Name');
+                    var descElem = document.getElementById('UpdateDto_Description');
+
+                    if (idElem) idElem.value = id;
+                    if (nameElem) nameElem.value = name;
+                    if (descElem) descElem.value = desc;
+                });
+            }
+
+            // Delete Modal population
+            var deleteModal = document.getElementById('deleteModal');
+            if (deleteModal) {
+                deleteModal.addEventListener('show.bs.modal', function (event) {
+                    var button = event.relatedTarget;
+                    var id = button.getAttribute('data-id');
+                    var deleteId = document.getElementById('deleteId');
+                    if (deleteId) deleteId.value = id;
+                });
+            }
+
+            // Show modal if ActiveModal set by server
+            @if (!string.IsNullOrEmpty(Model.ActiveModal))
+            {
+                <text>
+                var modalElement = document.getElementById('@(Model.ActiveModal)Modal');
+                if (modalElement) {
+                    var modal = new bootstrap.Modal(modalElement);
+                    modal.show();
+                }
+                </text>
+            }
+        });
+    </script>
+}

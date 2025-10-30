@@ -13,7 +13,7 @@ public record DepartmentUpdateDTO
 {
     [Required]
     public string DepartmentId { get; init; } = string.Empty;
-    public string? Name { get; init; }
+    public string Name { get; init; }
     public string? Description { get; init; }
 }
 
