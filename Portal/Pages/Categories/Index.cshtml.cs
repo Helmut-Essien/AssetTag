@@ -19,10 +19,8 @@ namespace Portal.Pages.Categories
 
         public List<CategoryReadDTO> Categories { get; set; } = new();
 
-        [BindProperty]
         public CategoryCreateDTO CreateDto { get; set; } = new CategoryCreateDTO();
 
-        [BindProperty]
         public CategoryUpdateDTO UpdateDto { get; set; } = new CategoryUpdateDTO();
 
         public string? ActiveModal { get; set; }
@@ -33,20 +31,26 @@ namespace Portal.Pages.Categories
             return Page();
         }
 
-        public async Task<IActionResult> OnPostCreateAsync()
+        public async Task<IActionResult> OnPostCreateAsync([Bind(Prefix = "CreateDto")] CategoryCreateDTO dto)
         {
             if (!ModelState.IsValid)
             {
                 ActiveModal = "create";
+                CreateDto = dto;
                 await OnGetAsync();
                 return Page();
             }
 
-            var response = await _httpClient.PostAsJsonAsync("api/categories", CreateDto);
+            var response = await _httpClient.PostAsJsonAsync("api/categories", dto);
             if (response.IsSuccessStatusCode)
             {
                 return RedirectToPage();
             }
+
+            // Always read error content for logging/debugging
+            var errorContent = await response.Content.ReadAsStringAsync();
+            ModelState.AddModelError("", $"Failed to create category: {response.StatusCode} - {errorContent}");
+
 
             if (response.StatusCode == HttpStatusCode.Conflict)
             {
@@ -55,35 +59,46 @@ namespace Portal.Pages.Categories
             // Handle other errors if needed
 
             ActiveModal = "create";
+            CreateDto = dto;
             await OnGetAsync();
             return Page();
         }
 
-        public async Task<IActionResult> OnPostUpdateAsync()
+        public async Task<IActionResult> OnPostUpdateAsync([Bind(Prefix = "UpdateDto")] CategoryUpdateDTO dto)
         {
-            if (string.IsNullOrEmpty(UpdateDto.CategoryId))
+            if (string.IsNullOrEmpty(dto.CategoryId))
             {
                 ActiveModal = "edit";
+                UpdateDto = dto;
                 await OnGetAsync();
                 return Page();
             }
 
-            var response = await _httpClient.PutAsJsonAsync($"api/categories/{UpdateDto.CategoryId}", UpdateDto);
+            if (!ModelState.IsValid)
+            {
+                ActiveModal = "edit";
+                UpdateDto = dto;
+                await OnGetAsync();
+                return Page();
+            }
+
+            var response = await _httpClient.PutAsJsonAsync($"api/categories/{dto.CategoryId}", dto);
             if (response.IsSuccessStatusCode)
             {
                 return RedirectToPage();
             }
 
+            // map any API errors into ModelState (prefix with UpdateDto.)
             if (response.StatusCode == HttpStatusCode.Conflict)
-            {
                 ModelState.AddModelError("UpdateDto.Name", "Category name already exists.");
-            }
-            else if (response.StatusCode == HttpStatusCode.NotFound)
+            else
             {
-                // Handle not found, perhaps TempData message
+                var text = await response.Content.ReadAsStringAsync();
+                ModelState.AddModelError(string.Empty, text ?? "Failed to update category");
             }
 
             ActiveModal = "edit";
+            UpdateDto = dto;
             await OnGetAsync();
             return Page();
         }
