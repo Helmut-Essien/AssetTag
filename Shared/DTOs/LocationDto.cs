@@ -24,8 +24,8 @@ public record LocationCreateDTO
 
 public record LocationUpdateDTO
 {
-    //[Required]
-    //public string LocationId { get; init; } = string.Empty;
+    [Required]
+    public string LocationId { get; init; } = string.Empty;
     public string? Name { get; init; }
     public string? Description { get; init; }
     public string? Campus { get; init; }
