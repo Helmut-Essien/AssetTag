@@ -22,6 +22,22 @@ namespace AssetTag.Models
         public string? SerialNumber { get; set; }
         public required string Condition { get; set; }
 
+        // New fields from Excel
+        public string? VendorName { get; set; }
+        public string? InvoiceNumber { get; set; }
+        public int Quantity { get; set; } = 1;
+        public decimal? CostPerUnit { get; set; }
+        public decimal? TotalCost { get; set; }
+        public decimal? DepreciationRate { get; set; }
+        public decimal? AccumulatedDepreciation { get; set; }
+        public decimal? NetBookValue { get; set; }
+        public int? UsefulLifeYears { get; set; }
+        public DateTime? WarrantyExpiry { get; set; }
+        public DateTime? DisposalDate { get; set; }
+        public decimal? DisposalValue { get; set; }
+        public string? Remarks { get; set; }
+
+        // Navigation properties
         public required Category Category { get; set; }
         public required Location Location { get; set; }
         public required Department Department { get; set; }

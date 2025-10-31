@@ -34,6 +34,21 @@ public record AssetCreateDTO
 
     [Required]
     public string Condition { get; init; } = string.Empty;
+
+    // New fields from Excel
+    public string? VendorName { get; init; }
+    public string? InvoiceNumber { get; init; }
+    public int Quantity { get; init; } = 1;
+    public decimal? CostPerUnit { get; init; }
+    public decimal? TotalCost { get; init; }
+    public decimal? DepreciationRate { get; init; }
+    public decimal? AccumulatedDepreciation { get; init; }
+    public decimal? NetBookValue { get; init; }
+    public int? UsefulLifeYears { get; init; }
+    public DateTime? WarrantyExpiry { get; init; }
+    public DateTime? DisposalDate { get; init; }
+    public decimal? DisposalValue { get; init; }
+    public string? Remarks { get; init; }
 }
 
 public record AssetUpdateDTO
@@ -53,6 +68,21 @@ public record AssetUpdateDTO
     public string? AssignedToUserId { get; init; }
     public string? SerialNumber { get; init; }
     public string? Condition { get; init; }
+
+    // New fields from Excel
+    public string? VendorName { get; init; }
+    public string? InvoiceNumber { get; init; }
+    public int? Quantity { get; init; }
+    public decimal? CostPerUnit { get; init; }
+    public decimal? TotalCost { get; init; }
+    public decimal? DepreciationRate { get; init; }
+    public decimal? AccumulatedDepreciation { get; init; }
+    public decimal? NetBookValue { get; init; }
+    public int? UsefulLifeYears { get; init; }
+    public DateTime? WarrantyExpiry { get; init; }
+    public DateTime? DisposalDate { get; init; }
+    public decimal? DisposalValue { get; init; }
+    public string? Remarks { get; init; }
 }
 
 public record AssetReadDTO
@@ -73,4 +103,19 @@ public record AssetReadDTO
     public DateTime DateModified { get; init; }
     public string? SerialNumber { get; init; }
     public string Condition { get; init; } = string.Empty;
+
+    // New fields from Excel
+    public string? VendorName { get; init; }
+    public string? InvoiceNumber { get; init; }
+    public int Quantity { get; init; } = 1;
+    public decimal? CostPerUnit { get; init; }
+    public decimal? TotalCost { get; init; }
+    public decimal? DepreciationRate { get; init; }
+    public decimal? AccumulatedDepreciation { get; init; }
+    public decimal? NetBookValue { get; init; }
+    public int? UsefulLifeYears { get; init; }
+    public DateTime? WarrantyExpiry { get; init; }
+    public DateTime? DisposalDate { get; init; }
+    public decimal? DisposalValue { get; init; }
+    public string? Remarks { get; init; }
 }
