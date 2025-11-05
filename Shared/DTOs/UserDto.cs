@@ -34,37 +34,3 @@ public record UserUpdateDTO
     public bool? IsActive { get; init; }
     public string? DepartmentId { get; init; }
 }
-
-// Additional DTOs
-public record UserActivationDTO
-{
-    [Required]
-    public bool IsActive { get; init; }
-}
-
-public record UserRolesDTO
-{
-    public string UserId { get; init; } = string.Empty;
-    public string Email { get; init; } = string.Empty;
-    public string UserName { get; init; } = string.Empty;
-    public List<string> Roles { get; init; } = new();
-}
-
-public record AddUserToRoleDTO
-{
-    [Required]
-    public string RoleName { get; init; } = string.Empty;
-}
-
-public record RemoveUserFromRoleDTO
-{
-    [Required]
-    public string RoleName { get; init; } = string.Empty;
-}
-
-public record ResetPasswordDTO
-{
-    [Required]
-    [MinLength(6)]
-    public string NewPassword { get; init; } = string.Empty;
-}
