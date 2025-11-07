@@ -7,6 +7,7 @@
 <div class="container my-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="mb-0">Users (@Model.TotalCount Total)</h1>
+        <button class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#manageRolesModal">Manage Roles</button>
     </div>
 
     <form method="get" class="mb-3">
@@ -62,10 +63,14 @@
                         <td>@user.Email</td>
                         <td>@user.JobRole</td>
                         <td>@Model.Departments.FirstOrDefault(d => d.Value == user.DepartmentId)?.Text</td>
-                        <td>@(user.IsActive ? "Yes" : "No")</td>
+                        <td>
+                            <span class="badge @(user.IsActive ? "bg-success" : "bg-danger")">
+                                @(user.IsActive ? "Yes" : "No")
+                            </span>
+                        </td>
                         <td>@user.DateCreated.ToShortDateString()</td>
                         <td>
-                            <button class="btn btn-primary btn-sm me-2"
+                            <button class="btn btn-primary btn-sm me-1"
                                     data-bs-toggle="modal"
                                     data-bs-target="#editModal"
                                     data-id="@user.Id"
@@ -80,17 +85,17 @@
                                     data-departmentid="@user.DepartmentId">
                                 <i class="bi bi-pencil"></i> Edit
                             </button>
-                            <button class="btn btn-warning btn-sm me-2"
+                            <button class="btn @(user.IsActive ? "btn-warning" : "btn-success") btn-sm me-1"
                                     data-bs-toggle="modal"
                                     data-bs-target="#@(user.IsActive ? "deactivateModal" : "activateModal")"
                                     data-id="@user.Id">
                                 <i class="bi bi-power"></i> @(user.IsActive ? "Deactivate" : "Activate")
                             </button>
-                            <!-- Change the Roles button to use data attributes instead of anchor tag -->
-                            <button class="btn btn-info btn-sm me-2 roles-btn"
+                            <button class="btn btn-info btn-sm me-1 roles-btn"
                                     data-bs-toggle="modal"
                                     data-bs-target="#rolesModal"
-                                    data-userid="@user.Id">
+                                    data-userid="@user.Id"
+                                    data-username="@user.FirstName @user.Surname">
                                 <i class="bi bi-key"></i> Roles
                             </button>
                             <button class="btn btn-secondary btn-sm"
@@ -134,24 +139,24 @@
                 <h5 class="modal-title" id="editModalLabel">Edit User</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <form method="post" asp-page-handler="Update">
-                    <div asp-validation-summary="All" class="text-danger mb-3"></div>
-                    <input type="hidden" asp-for="UpdateDto.Id" />
+            <form method="post" id="editUserForm">
+                <div class="modal-body">
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                    <input type="hidden" id="editUserId" name="id" />
 
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label asp-for="UpdateDto.FirstName" class="form-label"></label>
-                                <input asp-for="UpdateDto.FirstName" class="form-control" />
-                                <span asp-validation-for="UpdateDto.FirstName" class="text-danger"></span>
+                                <label for="editFirstName" class="form-label">First Name</label>
+                                <input type="text" id="editFirstName" name="firstName" class="form-control" />
+                                <span class="text-danger" id="editFirstNameValidation"></span>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label asp-for="UpdateDto.Surname" class="form-label"></label>
-                                <input asp-for="UpdateDto.Surname" class="form-control" />
-                                <span asp-validation-for="UpdateDto.Surname" class="text-danger"></span>
+                                <label for="editSurname" class="form-label">Surname</label>
+                                <input type="text" id="editSurname" name="surname" class="form-control" />
+                                <span class="text-danger" id="editSurnameValidation"></span>
                             </div>
                         </div>
                     </div>
@@ -159,39 +164,39 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label asp-for="UpdateDto.OtherNames" class="form-label"></label>
-                                <input asp-for="UpdateDto.OtherNames" class="form-control" />
-                                <span asp-validation-for="UpdateDto.OtherNames" class="text-danger"></span>
+                                <label for="editOtherNames" class="form-label">Other Names</label>
+                                <input type="text" id="editOtherNames" name="otherNames" class="form-control" />
+                                <span class="text-danger" id="editOtherNamesValidation"></span>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label asp-for="UpdateDto.DateOfBirth" class="form-label"></label>
-                                <input asp-for="UpdateDto.DateOfBirth" type="date" class="form-control" />
-                                <span asp-validation-for="UpdateDto.DateOfBirth" class="text-danger"></span>
+                                <label for="editDateOfBirth" class="form-label">Date of Birth</label>
+                                <input type="date" id="editDateOfBirth" name="dateOfBirth" class="form-control" />
+                                <span class="text-danger" id="editDateOfBirthValidation"></span>
                             </div>
                         </div>
                     </div>
 
                     <div class="mb-3">
-                        <label asp-for="UpdateDto.Address" class="form-label"></label>
-                        <textarea asp-for="UpdateDto.Address" class="form-control" rows="3"></textarea>
-                        <span asp-validation-for="UpdateDto.Address" class="text-danger"></span>
+                        <label for="editAddress" class="form-label">Address</label>
+                        <textarea id="editAddress" name="address" class="form-control" rows="3"></textarea>
+                        <span class="text-danger" id="editAddressValidation"></span>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label asp-for="UpdateDto.JobRole" class="form-label"></label>
-                                <input asp-for="UpdateDto.JobRole" class="form-control" />
-                                <span asp-validation-for="UpdateDto.JobRole" class="text-danger"></span>
+                                <label for="editJobRole" class="form-label">Job Role</label>
+                                <input type="text" id="editJobRole" name="jobRole" class="form-control" />
+                                <span class="text-danger" id="editJobRoleValidation"></span>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label asp-for="UpdateDto.ProfileImage" class="form-label"></label>
-                                <input asp-for="UpdateDto.ProfileImage" class="form-control" />
-                                <span asp-validation-for="UpdateDto.ProfileImage" class="text-danger"></span>
+                                <label for="editProfileImage" class="form-label">Profile Image URL</label>
+                                <input type="text" id="editProfileImage" name="profileImage" class="form-control" />
+                                <span class="text-danger" id="editProfileImageValidation"></span>
                             </div>
                         </div>
                     </div>
@@ -199,34 +204,33 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label asp-for="UpdateDto.IsActive" class="form-label"></label>
-                                <select asp-for="UpdateDto.IsActive" class="form-select">
+                                <label for="editIsActive" class="form-label">Status</label>
+                                <select id="editIsActive" name="isActive" class="form-select">
                                     <option value="true">Active</option>
                                     <option value="false">Inactive</option>
                                 </select>
-                                <span asp-validation-for="UpdateDto.IsActive" class="text-danger"></span>
+                                <span class="text-danger" id="editIsActiveValidation"></span>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label asp-for="UpdateDto.DepartmentId" class="form-label">Department</label>
-                                <select asp-for="UpdateDto.DepartmentId" class="form-select">
+                                <label for="editDepartmentId" class="form-label">Department</label>
+                                <select id="editDepartmentId" name="departmentId" class="form-select">
                                     @foreach (var department in Model.Departments)
                                     {
                                         <option value="@department.Value">@department.Text</option>
                                     }
                                 </select>
-                                <span asp-validation-for="UpdateDto.DepartmentId" class="text-danger"></span>
+                                <span class="text-danger" id="editDepartmentIdValidation"></span>
                             </div>
                         </div>
                     </div>
-
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-success">Update</button>
-                    </div>
-                </form>
-            </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Update</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -241,13 +245,13 @@
             </div>
             <div class="modal-body">
                 <p>Are you sure you want to deactivate this user?</p>
-                <form method="post" asp-page-handler="ToggleActivation">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="post" asp-page-handler="ToggleActivation" style="display: inline;">
                     <input type="hidden" name="id" id="deactivateId" />
                     <input type="hidden" name="isActive" value="false" />
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-danger">Deactivate</button>
-                    </div>
+                    <button type="submit" class="btn btn-danger">Deactivate</button>
                 </form>
             </div>
         </div>
@@ -264,82 +268,29 @@
             </div>
             <div class="modal-body">
                 <p>Are you sure you want to activate this user?</p>
-                <form method="post" asp-page-handler="ToggleActivation">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="post" asp-page-handler="ToggleActivation" style="display: inline;">
                     <input type="hidden" name="id" id="activateId" />
                     <input type="hidden" name="isActive" value="true" />
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-success">Activate</button>
-                    </div>
+                    <button type="submit" class="btn btn-success">Activate</button>
                 </form>
             </div>
         </div>
     </div>
 </div>
 
-@* <!-- Roles Modal -->
-@if (!string.IsNullOrEmpty(Model.SelectedUserId))
-{
-    <div class="modal @(Model.ActiveModal == "roles" ? "show d-block" : "fade")" id="rolesModal" tabindex="-1" aria-labelledby="rolesModalLabel" aria-hidden="true" style="@(Model.ActiveModal == "roles" ? "background-color: rgba(0,0,0,0.5);" : "")">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="rolesModalLabel">Manage Roles for User</h5>
-                    <a asp-page="./Index" class="btn-close" aria-label="Close"></a>
-                </div>
-                <div class="modal-body">
-                    <div asp-validation-summary="All" class="text-danger mb-3"></div>
-
-                    <h6>Current Roles:</h6>
-                    @if (Model.Roles.Any())
-                    {
-                        <ul class="list-group mb-3">
-                            @foreach (var role in Model.Roles)
-                            {
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    @role
-                                    <form method="post" asp-page-handler="RemoveRole">
-                                        <input type="hidden" name="id" value="@Model.SelectedUserId" />
-                                        <input type="hidden" name="roleName" value="@role" />
-                                        <button type="submit" class="btn btn-danger btn-sm">Remove</button>
-                                    </form>
-                                </li>
-                            }
-                        </ul>
-                    }
-                    else
-                    {
-                        <p class="text-muted">No roles assigned.</p>
-                    }
-
-                    <h6>Add New Role:</h6>
-                    <form method="post" asp-page-handler="AddRole">
-                        <input type="hidden" name="id" value="@Model.SelectedUserId" />
-                        <div class="input-group mb-3">
-                            <input name="roleName" class="form-control" placeholder="Role Name" required />
-                            <button type="submit" class="btn btn-success">Add Role</button>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <a asp-page="./Index" class="btn btn-secondary">Close</a>
-                </div>
-            </div>
-        </div>
-    </div>
-} *@
-
 <!-- Roles Modal -->
 <div class="modal fade" id="rolesModal" tabindex="-1" aria-labelledby="rolesModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="rolesModalLabel">Manage Roles for User</h5>
+                <h5 class="modal-title" id="rolesModalLabel">Manage Roles for <span id="rolesUserName"></span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div id="rolesModalMessage"></div>
-                <div asp-validation-summary="All" class="text-danger mb-3"></div>
 
                 <h6>Current Roles:</h6>
                 <ul class="list-group mb-3" id="currentRolesList">
@@ -350,7 +301,9 @@
                 <form id="addRoleForm">
                     <input type="hidden" id="rolesUserId" name="id" />
                     <div class="input-group mb-3">
-                        <input id="newRoleName" name="roleName" class="form-control" placeholder="Role Name" required />
+                        <select id="newRoleName" name="roleName" class="form-select" required>
+                            <option value="">Select a role...</option>
+                        </select>
                         <button type="submit" class="btn btn-success">Add Role</button>
                     </div>
                     <span id="roleNameValidation" class="text-danger"></span>
@@ -362,6 +315,39 @@
         </div>
     </div>
 </div>
+
+<!-- Manage Roles Modal -->
+<div class="modal fade" id="manageRolesModal" tabindex="-1" aria-labelledby="manageRolesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="manageRolesModalLabel">Manage System Roles</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="manageRolesMessage"></div>
+
+                <h6>Current Roles:</h6>
+                <ul class="list-group mb-3" id="systemRolesList">
+                    <!-- Roles will be populated via JavaScript -->
+                </ul>
+
+                <h6>Create New Role:</h6>
+                <form id="createRoleForm">
+                    <div class="input-group mb-3">
+                        <input type="text" id="newSystemRoleName" name="roleName" class="form-control" placeholder="Role Name" required />
+                        <button type="submit" class="btn btn-success">Create Role</button>
+                    </div>
+                    <span id="systemRoleNameValidation" class="text-danger"></span>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Reset Password Modal -->
 <div class="modal fade" id="resetModal" tabindex="-1" aria-labelledby="resetModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -372,12 +358,12 @@
             </div>
             <div class="modal-body">
                 <p>Are you sure you want to reset the password for this user? A reset token will be generated.</p>
-                <form method="post" asp-page-handler="ResetPassword">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="post" asp-page-handler="ResetPassword" style="display: inline;">
                     <input type="hidden" name="id" id="resetId" />
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-warning">Reset Password</button>
-                    </div>
+                    <button type="submit" class="btn btn-warning">Reset Password</button>
                 </form>
             </div>
         </div>
@@ -385,6 +371,7 @@
 </div>
 
 @section Scripts {
+    <partial name="_ValidationScriptsPartial" />
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Edit Modal
@@ -433,9 +420,6 @@
                 });
             }
 
-            
-
-
             // Roles Modal - Enhanced with AJAX
             var rolesModal = document.getElementById('rolesModal');
             if (rolesModal) {
@@ -449,11 +433,25 @@
                     // Clear previous roles and message
                     document.getElementById('currentRolesList').innerHTML = '';
                     document.getElementById('rolesModalMessage').innerHTML = '';
-                    document.getElementById('newRoleName').value = '';
+                    document.getElementById('newRoleName').innerHTML = '<option value="">Loading roles...</option>';
                     document.getElementById('roleNameValidation').textContent = '';
 
-                    // Load user roles via AJAX
+                    // Load user roles and available roles
                     loadUserRoles(userId);
+                    loadAvailableRoles();
+                });
+            }
+
+            // Manage Roles Modal
+            var manageRolesModal = document.getElementById('manageRolesModal');
+            if (manageRolesModal) {
+                manageRolesModal.addEventListener('show.bs.modal', function (event) {
+                    document.getElementById('manageRolesMessage').innerHTML = '';
+                    document.getElementById('systemRoleNameValidation').textContent = '';
+                    document.getElementById('newSystemRoleName').value = '';
+                    
+                    // Load all system roles
+                    loadAllSystemRoles();
                 });
             }
 
@@ -467,13 +465,32 @@
                     var roleName = document.getElementById('newRoleName').value;
 
                     if (!roleName.trim()) {
-                        document.getElementById('roleNameValidation').textContent = 'Role name is required.';
+                        document.getElementById('roleNameValidation').textContent = 'Please select a role.';
                         return;
                     }
 
                     addUserRole(userId, roleName);
                 });
             }
+
+            // Create Role Form Submission
+            var createRoleForm = document.getElementById('createRoleForm');
+            if (createRoleForm) {
+                createRoleForm.addEventListener('submit', function (event) {
+                    event.preventDefault();
+
+                    var roleName = document.getElementById('newSystemRoleName').value.trim();
+
+                    if (!roleName) {
+                        document.getElementById('systemRoleNameValidation').textContent = 'Role name is required.';
+                        return;
+                    }
+
+                    createSystemRole(roleName);
+                });
+            }
+
+            // ========== ROLE MANAGEMENT FUNCTIONS ==========
 
             // Function to load user roles via AJAX
             function loadUserRoles(userId) {
@@ -488,15 +505,51 @@
                         displayUserRoles(data.roles, data.userId);
                     })
                     .catch(error => {
-                        console.error('Error loading roles:', error);
-                        document.getElementById('rolesModalMessage').innerHTML =
-                            '<div class="alert alert-danger">Error loading roles. Please try again.</div>';
+                        console.error('Error loading user roles:', error);
+                        showRolesMessage('Error loading user roles. Please try again.', 'danger');
+                    });
+            }
+
+            // Function to load available roles for dropdown
+            function loadAvailableRoles() {
+                fetch('?handler=AllRolesData')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(roles => {
+                        populateRolesDropdown(roles);
+                    })
+                    .catch(error => {
+                        console.error('Error loading available roles:', error);
+                        document.getElementById('newRoleName').innerHTML = '<option value="">Error loading roles</option>';
+                    });
+            }
+
+            // Function to load all system roles for management
+            function loadAllSystemRoles() {
+                fetch('?handler=AllRolesData')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(roles => {
+                        displaySystemRoles(roles);
+                    })
+                    .catch(error => {
+                        console.error('Error loading system roles:', error);
+                        showManageRolesMessage('Error loading system roles. Please try again.', 'danger');
                     });
             }
 
             // Function to display user roles
             function displayUserRoles(roles, userId) {
                 var rolesList = document.getElementById('currentRolesList');
+                rolesList.innerHTML = '';
 
                 if (roles && roles.length > 0) {
                     roles.forEach(function(role) {
@@ -525,7 +578,57 @@
                 }
             }
 
-            // Function to add role via AJAX
+            // Function to populate roles dropdown
+            function populateRolesDropdown(roles) {
+                var select = document.getElementById('newRoleName');
+                select.innerHTML = '<option value="">Select a role...</option>';
+                
+                if (roles && roles.length > 0) {
+                    roles.forEach(role => {
+                        var option = document.createElement('option');
+                        option.value = role;
+                        option.textContent = role;
+                        select.appendChild(option);
+                    });
+                } else {
+                    select.innerHTML = '<option value="">No roles available</option>';
+                }
+            }
+
+            // Function to display system roles in management modal
+            function displaySystemRoles(roles) {
+                var rolesList = document.getElementById('systemRolesList');
+                rolesList.innerHTML = '';
+
+                if (roles && roles.length > 0) {
+                    roles.forEach(function(role) {
+                        var listItem = document.createElement('li');
+                        listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                        listItem.innerHTML = `
+                            ${role}
+                            <button type="button" class="btn btn-danger btn-sm delete-system-role-btn"
+                                    data-rolename="${role}">
+                                Delete
+                            </button>
+                        `;
+                        rolesList.appendChild(listItem);
+                    });
+
+                    // Add event listeners to delete buttons
+                    document.querySelectorAll('.delete-system-role-btn').forEach(button => {
+                        button.addEventListener('click', function() {
+                            var roleName = this.getAttribute('data-rolename');
+                            if (confirm(`Are you sure you want to delete the role "${roleName}"?`)) {
+                                deleteSystemRole(roleName);
+                            }
+                        });
+                    });
+                } else {
+                    rolesList.innerHTML = '<li class="list-group-item text-muted">No roles in system.</li>';
+                }
+            }
+
+            // Function to add role to user via AJAX
             function addUserRole(userId, roleName) {
                 var formData = new FormData();
                 formData.append('id', userId);
@@ -545,23 +648,21 @@
                     throw new Error('Network response was not ok');
                 })
                 .then(message => {
-                    // Reload the roles list
+                    // Reload the roles list and refresh dropdown
                     loadUserRoles(userId);
+                    loadAvailableRoles();
                     document.getElementById('newRoleName').value = '';
                     document.getElementById('roleNameValidation').textContent = '';
-
-                    // Show success message
-                    document.getElementById('rolesModalMessage').innerHTML =
-                        '<div class="alert alert-success">Role added successfully.</div>';
+                    
+                    showRolesMessage('Role added successfully.', 'success');
                 })
                 .catch(error => {
                     console.error('Error adding role:', error);
-                    document.getElementById('rolesModalMessage').innerHTML =
-                        '<div class="alert alert-danger">Error adding role. Please try again.</div>';
+                    showRolesMessage('Error adding role. Please try again.', 'danger');
                 });
             }
 
-            // Function to remove role via AJAX
+            // Function to remove role from user via AJAX
             function removeUserRole(userId, roleName) {
                 var formData = new FormData();
                 formData.append('id', userId);
@@ -581,19 +682,276 @@
                     throw new Error('Network response was not ok');
                 })
                 .then(message => {
-                    // Reload the roles list
+                    // Reload the roles list and refresh dropdown
                     loadUserRoles(userId);
-
-                    // Show success message
-                    document.getElementById('rolesModalMessage').innerHTML =
-                        '<div class="alert alert-success">Role removed successfully.</div>';
+                    loadAvailableRoles();
+                    
+                    showRolesMessage('Role removed successfully.', 'success');
                 })
                 .catch(error => {
                     console.error('Error removing role:', error);
-                    document.getElementById('rolesModalMessage').innerHTML =
-                        '<div class="alert alert-danger">Error removing role. Please try again.</div>';
+                    showRolesMessage('Error removing role. Please try again.', 'danger');
                 });
+            }
+
+            // Function to create system role via AJAX
+            function createSystemRole(roleName) {
+                var formData = new FormData();
+                formData.append('roleName', roleName);
+
+                fetch('?handler=CreateRole', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        return response.text();
+                    }
+                    throw new Error('Network response was not ok');
+                })
+                .then(message => {
+                    // Refresh system roles list and clear form
+                    loadAllSystemRoles();
+                    document.getElementById('newSystemRoleName').value = '';
+                    document.getElementById('systemRoleNameValidation').textContent = '';
+                    
+                    showManageRolesMessage('Role created successfully.', 'success');
+                })
+                .catch(error => {
+                    console.error('Error creating role:', error);
+                    showManageRolesMessage('Error creating role. Please try again.', 'danger');
+                });
+            }
+
+            // Function to delete system role via AJAX
+            function deleteSystemRole(roleName) {
+                var formData = new FormData();
+                formData.append('roleName', roleName);
+
+                fetch('?handler=DeleteRole', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        return response.text();
+                    }
+                    throw new Error('Network response was not ok');
+                })
+                .then(message => {
+                    // Refresh system roles list
+                    loadAllSystemRoles();
+                    
+                    showManageRolesMessage('Role deleted successfully.', 'success');
+                })
+                .catch(error => {
+                    console.error('Error deleting role:', error);
+                    showManageRolesMessage('Error deleting role. Please try again.', 'danger');
+                });
+            }
+
+            // Helper functions for showing messages
+            function showRolesMessage(message, type) {
+                var messageDiv = document.getElementById('rolesModalMessage');
+                messageDiv.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>`;
+            }
+
+            function showManageRolesMessage(message, type) {
+                var messageDiv = document.getElementById('manageRolesMessage');
+                messageDiv.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>`;
             }
         });
     </script>
+}
+
+
+
+   @*  <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Edit Modal
+            var editModal = document.getElementById('editModal');
+            if (editModal) {
+                editModal.addEventListener('show.bs.modal', function (event) {
+                    var button = event.relatedTarget;
+
+                    document.getElementById('editUserId').value = button.getAttribute('data-id');
+                    document.getElementById('editFirstName').value = button.getAttribute('data-firstname') || '';
+                    document.getElementById('editSurname').value = button.getAttribute('data-surname') || '';
+                    document.getElementById('editOtherNames').value = button.getAttribute('data-othernames') || '';
+                    document.getElementById('editDateOfBirth').value = button.getAttribute('data-dateofbirth') || '';
+                    document.getElementById('editAddress').value = button.getAttribute('data-address') || '';
+                    document.getElementById('editJobRole').value = button.getAttribute('data-jobrole') || '';
+                    document.getElementById('editProfileImage').value = button.getAttribute('data-profileimage') || '';
+                    document.getElementById('editIsActive').value = button.getAttribute('data-isactive');
+                    document.getElementById('editDepartmentId').value = button.getAttribute('data-departmentid') || '';
+
+                    // Clear validation messages
+                    clearValidationMessages();
+                });
+            }
+
+            // Edit Form Submission
+            var editUserForm = document.getElementById('editUserForm');
+            if (editUserForm) {
+                editUserForm.addEventListener('submit', function (event) {
+                    event.preventDefault();
+                    updateUser();
+                });
+            }
+
+            // Deactivate Modal
+            var deactivateModal = document.getElementById('deactivateModal');
+            if (deactivateModal) {
+                deactivateModal.addEventListener('show.bs.modal', function (event) {
+                    var button = event.relatedTarget;
+                    document.getElementById('deactivateId').value = button.getAttribute('data-id');
+                });
+            }
+
+            // Activate Modal
+            var activateModal = document.getElementById('activateModal');
+            if (activateModal) {
+                activateModal.addEventListener('show.bs.modal', function (event) {
+                    var button = event.relatedTarget;
+                    document.getElementById('activateId').value = button.getAttribute('data-id');
+                });
+            }
+
+            // Reset Modal
+            var resetModal = document.getElementById('resetModal');
+            if (resetModal) {
+                resetModal.addEventListener('show.bs.modal', function (event) {
+                    var button = event.relatedTarget;
+                    document.getElementById('resetId').value = button.getAttribute('data-id');
+                });
+            }
+
+            // Roles Modal
+            var rolesModal = document.getElementById('rolesModal');
+            if (rolesModal) {
+                rolesModal.addEventListener('show.bs.modal', function (event) {
+                    var button = event.relatedTarget;
+                    var userId = button.getAttribute('data-userid');
+                    var userName = button.getAttribute('data-username');
+
+                    document.getElementById('rolesUserName').textContent = userName;
+                    document.getElementById('rolesUserId').value = userId;
+                    document.getElementById('currentRolesList').innerHTML = '';
+                    document.getElementById('rolesModalMessage').innerHTML = '';
+                    document.getElementById('roleNameValidation').textContent = '';
+
+                    loadUserRoles(userId);
+                    loadAllRolesForDropdown(userId);
+                });
+            }
+
+            // Add Role Form
+            var addRoleForm = document.getElementById('addRoleForm');
+            if (addRoleForm) {
+                addRoleForm.addEventListener('submit', function (event) {
+                    event.preventDefault();
+                    var userId = document.getElementById('rolesUserId').value;
+                    var roleName = document.getElementById('newRoleName').value;
+
+                    if (!roleName) {
+                        document.getElementById('roleNameValidation').textContent = 'Please select a role.';
+                        return;
+                    }
+
+                    addUserRole(userId, roleName);
+                });
+            }
+
+            // Manage Roles Modal
+            var manageRolesModal = document.getElementById('manageRolesModal');
+            if (manageRolesModal) {
+                manageRolesModal.addEventListener('show.bs.modal', function (event) {
+                    document.getElementById('manageRolesMessage').innerHTML = '';
+                    document.getElementById('systemRoleNameValidation').textContent = '';
+                    loadAllSystemRoles();
+                });
+            }
+
+            // Create Role Form
+            var createRoleForm = document.getElementById('createRoleForm');
+            if (createRoleForm) {
+                createRoleForm.addEventListener('submit', function (event) {
+                    event.preventDefault();
+                    var roleName = document.getElementById('newSystemRoleName').value.trim();
+
+                    if (!roleName) {
+                        document.getElementById('systemRoleNameValidation').textContent = 'Role name is required.';
+                        return;
+                    }
+
+                    createSystemRole(roleName);
+                });
+            }
+
+            // Function to update user via AJAX
+            function updateUser() {
+                var formData = new FormData();
+                formData.append('id', document.getElementById('editUserId').value);
+                formData.append('firstName', document.getElementById('editFirstName').value);
+                formData.append('surname', document.getElementById('editSurname').value);
+                formData.append('otherNames', document.getElementById('editOtherNames').value);
+                formData.append('dateOfBirth', document.getElementById('editDateOfBirth').value);
+                formData.append('address', document.getElementById('editAddress').value);
+                formData.append('jobRole', document.getElementById('editJobRole').value);
+                formData.append('profileImage', document.getElementById('editProfileImage').value);
+                formData.append('isActive', document.getElementById('editIsActive').value);
+                formData.append('departmentId', document.getElementById('editDepartmentId').value);
+
+                fetch('?handler=Update', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                    }
+                })
+                .then(response => {
+                    if (response.redirected) {
+                        window.location.href = response.url;
+                    } else {
+                        return response.text();
+                    }
+                })
+                .then(() => {
+                    // If not redirected, close the modal and refresh
+                    var editModalInstance = bootstrap.Modal.getInstance(document.getElementById('editModal'));
+                    editModalInstance.hide();
+                    window.location.reload();
+                })
+                .catch(error => {
+                    console.error('Error updating user:', error);
+                    alert('Error updating user. Please try again.');
+                });
+            }
+
+            // Function to clear validation messages
+            function clearValidationMessages() {
+                var validationSpans = document.querySelectorAll('[id$="Validation"]');
+                validationSpans.forEach(span => {
+                    span.textContent = '';
+                });
+            }
+
+            // ... rest of your JavaScript functions (loadUserRoles, loadAllRolesForDropdown, etc.)
+            // Keep all the other JavaScript functions you had for roles management
+            // They should work fine with the updated HTML structure
+        });
+    </script> *@
 }

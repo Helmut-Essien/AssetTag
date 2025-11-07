@@ -1,8 +1,9 @@
-﻿using Shared.DTOs;
-using AssetTag.Models;
+﻿using AssetTag.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Shared.DTOs;
 
 namespace AssetTag.Controllers
 {
@@ -19,6 +20,13 @@ namespace AssetTag.Controllers
             _userManager = userManager;
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetAllRoles()
+        {
+            var roles = await _roleManager.Roles.Select(r => r.Name).ToListAsync();
+            return Ok(roles);
+        }
+
         [HttpPost("Create")]
         public async Task<IActionResult> CreateRole([FromBody] CreateRoleDTO dto)
         {
@@ -33,6 +41,30 @@ namespace AssetTag.Controllers
                 return BadRequest(result.Errors);
             }
             return Ok($"Role '{dto.RoleName}' created successfully.");
+        }
+
+        [HttpDelete("{roleName}")]
+        public async Task<IActionResult> DeleteRole(string roleName)
+        {
+            var role = await _roleManager.FindByNameAsync(roleName);
+            if (role == null)
+            {
+                return NotFound($"Role '{roleName}' not found.");
+            }
+
+            // Optional: Check if any users are in this role before deleting
+            var usersInRole = await _userManager.GetUsersInRoleAsync(roleName);
+            if (usersInRole.Any())
+            {
+                return BadRequest($"Cannot delete role '{roleName}' because it is assigned to users.");
+            }
+
+            var result = await _roleManager.DeleteAsync(role);
+            if (!result.Succeeded)
+            {
+                return BadRequest(result.Errors);
+            }
+            return Ok($"Role '{roleName}' deleted successfully.");
         }
 
         [HttpPost("Assign")]
