@@ -1,0 +1,145 @@
+﻿
+
+
+@page
+@model Portal.Pages.Account.RegisterModel
+@{
+    Layout = "_AuthLayout";
+    ViewData["Title"] = "Register";
+}
+
+<!-- Logo -->
+<img src="~/Resources/mlogo.jpeg" alt="Methodist University Ghana Logo" class="logo-img mb-4" />
+<h1 class="h4 fw-bold">Create Account</h1>
+<p class="text-muted">Join Methodist University Ghana Asset Portal</p>
+<p class="values">Excellence • Morality • Service</p>
+
+<!-- Success Message -->
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @Model.SuccessMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<!-- Error Message -->
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @Model.ErrorMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<!-- Registration Form -->
+<form method="post" id="registerForm" asp-antiforgery="true" novalidate>
+    <div class="row">
+        <div class="col-md-6">
+            <div class="form-group mb-3">
+                <label asp-for="Input.FirstName" class="form-label">First Name</label>
+                <input asp-for="Input.FirstName" class="form-control form-control-lg" placeholder="First Name" />
+                <span asp-validation-for="Input.FirstName" class="text-danger small"></span>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-group mb-3">
+                <label asp-for="Input.Surname" class="form-label">Surname</label>
+                <input asp-for="Input.Surname" class="form-control form-control-lg" placeholder="Surname" />
+                <span asp-validation-for="Input.Surname" class="text-danger small"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-group mb-3">
+        <label asp-for="Input.Username" class="form-label">Username</label>
+        <input asp-for="Input.Username" class="form-control form-control-lg" placeholder="Username" />
+        <span asp-validation-for="Input.Username" class="text-danger small"></span>
+    </div>
+
+    <div class="form-group mb-3">
+        <label asp-for="Input.Email" class="form-label">Email</label>
+        <input asp-for="Input.Email" class="form-control form-control-lg" placeholder="Email" />
+        <span asp-validation-for="Input.Email" class="text-danger small"></span>
+    </div>
+
+    <div class="form-group mb-3 position-relative">
+        <label asp-for="Input.Password" class="form-label">Password</label>
+        <input asp-for="Input.Password" type="password" class="form-control form-control-lg" placeholder="Password" id="passwordInput" />
+        <span asp-validation-for="Input.Password" class="text-danger small"></span>
+        <span class="password-toggle" onclick="togglePassword('passwordInput', 'passwordToggle')" id="passwordToggle">👁️</span>
+    </div>
+
+    <div class="form-group mb-4 position-relative">
+        <label asp-for="Input.ConfirmPassword" class="form-label">Confirm Password</label>
+        <input asp-for="Input.ConfirmPassword" type="password" class="form-control form-control-lg" placeholder="Confirm Password" id="confirmPasswordInput" />
+        <span asp-validation-for="Input.ConfirmPassword" class="text-danger small"></span>
+        <span class="password-toggle" onclick="togglePassword('confirmPasswordInput', 'confirmPasswordToggle')" id="confirmPasswordToggle">👁️</span>
+    </div>
+
+    <div class="d-grid">
+        <button type="submit" class="btn btn-primary btn-lg button" id="registerButton" aria-live="polite">
+            <span class="button__text">Create Account</span>
+        </button>
+    </div>
+</form>
+
+<!-- Login Link -->
+<div class="text-center mt-4">
+    <p class="text-muted">Already have an account? 
+        <a asp-page="/Account/Login" class="text-primary text-decoration-none">Sign in</a>
+    </p>
+</div>
+
+@section Scripts {
+    <script>
+        function togglePassword(inputId, toggleId) {
+            const passwordInput = document.getElementById(inputId);
+            const toggleIcon = document.getElementById(toggleId);
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.textContent = '🙈';
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.textContent = '👁️';
+            }
+        }
+
+        // Attach submit handler to show spinner and prevent double submit
+        (function () {
+            const form = document.getElementById('registerForm');
+            const btn = document.getElementById('registerButton');
+
+            if (!form || !btn) return;
+
+            form.addEventListener('submit', function (e) {
+                // Let client-side validation run first
+                if (!form.checkValidity()) {
+                    return;
+                }
+
+                // Add loading state
+                btn.classList.add('button--loading');
+                btn.disabled = true;
+            }, { passive: true });
+        })();
+
+        // Real-time password confirmation validation
+        (function () {
+            const passwordInput = document.getElementById('passwordInput');
+            const confirmPasswordInput = document.getElementById('confirmPasswordInput');
+
+            function validatePasswordMatch() {
+                if (passwordInput.value !== confirmPasswordInput.value) {
+                    confirmPasswordInput.setCustomValidity('Passwords do not match');
+                } else {
+                    confirmPasswordInput.setCustomValidity('');
+                }
+            }
+
+            passwordInput.addEventListener('input', validatePasswordMatch);
+            confirmPasswordInput.addEventListener('input', validatePasswordMatch);
+        })();
+    </script>
+    <partial name="_ValidationScriptsPartial" />
+}

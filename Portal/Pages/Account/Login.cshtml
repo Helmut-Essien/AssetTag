@@ -44,11 +44,20 @@
     </div>
 </form>
 
+<!-- Additional Links 
+<div class="text-center mt-4">
+    <a href="#" class="text-primary text-decoration-none">Forgot password?</a>
+     <p class="text-muted mt-2">Not your computer? Use Guest mode to sign in privately. <a href="#" class="text-primary text-decoration-none">Learn more</a></p>
+    <p class="mt-3">Don't have an account? <a asp-page="/Account/Register" class="text-primary text-decoration-none">Create account</a></p> 
+</div> -->
+
 <!-- Additional Links -->
 <div class="text-center mt-4">
     <a href="#" class="text-primary text-decoration-none">Forgot password?</a>
-    @* <p class="text-muted mt-2">Not your computer? Use Guest mode to sign in privately. <a href="#" class="text-primary text-decoration-none">Learn more</a></p>
-    <p class="mt-3">Don't have an account? <a asp-page="/Account/Register" class="text-primary text-decoration-none">Create account</a></p> *@
+    <p class="mt-3">
+        Don't have an account?
+        <a asp-page="/Account/Register" class="text-primary text-decoration-none">Create account</a>
+    </p>
 </div>
 
 @section Scripts {
@@ -84,24 +93,7 @@
                 btn.classList.add('button--loading');
                 btn.disabled = true;
 
-                // // Disable only interactive inputs (skip hidden antiforgery token and any hidden fields)
-                // Array.from(form.elements).forEach(el => {
-                //     try {
-                //         const tag = (el.tagName || '').toUpperCase();
-                //         const type = (el.type || '').toLowerCase();
-                //         const name = el.name || '';
-
-                //         // don't disable buttons (submit), don't disable hidden inputs, don't disable the antiforgery token
-                //         if (tag === 'BUTTON') return;
-                //         if (type === 'hidden') return;
-                //         if (name === '__RequestVerificationToken') return;
-
-                //         // disable the element
-                //         el.disabled = true;
-                //     } catch {
-                //         // ignore elements that can't be processed
-                //     }
-                // });
+               
             }, { passive: true });
         })();
     </script>

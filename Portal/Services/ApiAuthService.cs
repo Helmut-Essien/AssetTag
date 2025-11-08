@@ -29,6 +29,13 @@ public sealed class ApiAuthService : IApiAuthService
         return await res.Content.ReadFromJsonAsync<TokenResponseDTO>(cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<bool> RegisterAsync(RegisterDTO registerDto, CancellationToken cancellationToken = default)
+    {
+        var client = _http.CreateClient("AssetTagApi");
+        using var res = await client.PostAsJsonAsync("api/auth/register", registerDto, cancellationToken).ConfigureAwait(false);
+        return res.IsSuccessStatusCode;
+    }
+
     public async Task<bool> RevokeAsync(string refreshToken, CancellationToken cancellationToken = default)
     {
         var client = _http.CreateClient("AssetTagApi");

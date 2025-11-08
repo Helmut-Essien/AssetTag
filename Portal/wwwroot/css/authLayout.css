@@ -189,3 +189,21 @@ p.text-muted {
     margin-top: 1rem;
 }
 
+/* Add to your existing CSS file */
+.form-label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: #1e3a8a;
+}
+
+.text-danger.small {
+    font-size: 0.875rem;
+}
+
+/* Ensure proper spacing for the two-column layout on larger screens */
+@media (max-width: 768px) {
+    .row .col-md-6 {
+        margin-bottom: 0;
+    }
+}
+

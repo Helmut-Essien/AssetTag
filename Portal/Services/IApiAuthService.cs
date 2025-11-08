@@ -8,5 +8,7 @@ public interface IApiAuthService
 {
     Task<TokenResponseDTO?> LoginAsync(LoginDTO dto, CancellationToken cancellationToken = default);
     Task<TokenResponseDTO?> RefreshAsync(string refreshToken, CancellationToken cancellationToken = default);
+    Task<bool> RegisterAsync(RegisterDTO registerDto, CancellationToken cancellationToken = default);
+    //Task RegisterAsync(RegisterDTO registerDto);
     Task<bool> RevokeAsync(string refreshToken, CancellationToken cancellationToken = default);
 }
