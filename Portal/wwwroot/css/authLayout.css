@@ -207,3 +207,110 @@ p.text-muted {
     }
 }
 
+
+.progress-indicator {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.form-step {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 12px;
+    top: 38px;
+    cursor: pointer;
+    user-select: none;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+    .password-toggle:hover {
+        opacity: 1;
+    }
+
+.form-control-lg {
+    padding: 12px 16px;
+}
+
+.button--loading .button__text {
+    visibility: hidden;
+    opacity: 0;
+}
+
+.button--loading::after {
+    content: "";
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: auto;
+    border: 2px solid transparent;
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: button-loading-spinner 1s ease infinite;
+}
+
+@@keyframes button-loading-spinner {
+    from {
+        transform: rotate(0turn);
+    }
+
+    to {
+        transform: rotate(1turn);
+    }
+}
+
+
+
+/*
+.step-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #dee2e6;
+    margin: 0 5px;
+    transition: all 0.3s ease;
+}
+
+.step-dot.active {
+    background-color: #0d6efd;
+    transform: scale(1.2);
+}
+
+.step-dot.completed {
+    background-color: #198754;
+}
+
+.step-text {
+    font-size: 0.875rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+
+.button--loading .button__text {
+    visibility: hidden;
+    opacity: 0;
+}
+
+.button--loading .button__spinner {
+    visibility: visible;
+    opacity: 1;
+}
+
+.is-invalid {
+    border-color: #dc3545 !important;
+}
+
+.validation-error {
+    display: block;
+    margin-top: 0.25rem;
+}
+*/

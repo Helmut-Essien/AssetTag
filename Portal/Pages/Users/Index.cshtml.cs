@@ -102,7 +102,8 @@ namespace Portal.Pages.Users
                 var response = await _httpClient.PutAsJsonAsync($"api/users/{updateDto.Id}", updateDto);
                 if (response.IsSuccessStatusCode)
                 {
-                    return RedirectToPage(new { page = CurrentPage, search = Search, departmentId = DepartmentId, isActive = IsActive });
+                    return RedirectToPage("Index",new { page = CurrentPage, search = Search, departmentId = DepartmentId, isActive = IsActive });
+                    
                 }
 
                 var errorContent = await response.Content.ReadAsStringAsync();

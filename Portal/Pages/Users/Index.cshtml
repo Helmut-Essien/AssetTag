@@ -132,6 +132,7 @@
 </div>
 
 <!-- Edit Modal -->
+<!-- Edit Modal -->
 <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -139,24 +140,24 @@
                 <h5 class="modal-title" id="editModalLabel">Edit User</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form method="post" id="editUserForm">
+            <form method="post" asp-page-handler="Update" id="editUserForm">
                 <div class="modal-body">
                     <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-                    <input type="hidden" id="editUserId" name="id" />
+                    <input type="hidden" id="editUserId" asp-for="UpdateDto.Id" />
 
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="editFirstName" class="form-label">First Name</label>
-                                <input type="text" id="editFirstName" name="firstName" class="form-control" />
-                                <span class="text-danger" id="editFirstNameValidation"></span>
+                                <label asp-for="UpdateDto.FirstName" class="form-label">First Name</label>
+                                <input type="text" id="editFirstName" asp-for="UpdateDto.FirstName" class="form-control" />
+                                <span asp-validation-for="UpdateDto.FirstName" class="text-danger"></span>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="editSurname" class="form-label">Surname</label>
-                                <input type="text" id="editSurname" name="surname" class="form-control" />
-                                <span class="text-danger" id="editSurnameValidation"></span>
+                                <label asp-for="UpdateDto.Surname" class="form-label">Surname</label>
+                                <input type="text" id="editSurname" asp-for="UpdateDto.Surname" class="form-control" />
+                                <span asp-validation-for="UpdateDto.Surname" class="text-danger"></span>
                             </div>
                         </div>
                     </div>
@@ -164,39 +165,39 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="editOtherNames" class="form-label">Other Names</label>
-                                <input type="text" id="editOtherNames" name="otherNames" class="form-control" />
-                                <span class="text-danger" id="editOtherNamesValidation"></span>
+                                <label asp-for="UpdateDto.OtherNames" class="form-label">Other Names</label>
+                                <input type="text" id="editOtherNames" asp-for="UpdateDto.OtherNames" class="form-control" />
+                                <span asp-validation-for="UpdateDto.OtherNames" class="text-danger"></span>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="editDateOfBirth" class="form-label">Date of Birth</label>
-                                <input type="date" id="editDateOfBirth" name="dateOfBirth" class="form-control" />
-                                <span class="text-danger" id="editDateOfBirthValidation"></span>
+                                <label asp-for="UpdateDto.DateOfBirth" class="form-label">Date of Birth</label>
+                                <input type="date" id="editDateOfBirth" asp-for="UpdateDto.DateOfBirth" class="form-control" />
+                                <span asp-validation-for="UpdateDto.DateOfBirth" class="text-danger"></span>
                             </div>
                         </div>
                     </div>
 
                     <div class="mb-3">
-                        <label for="editAddress" class="form-label">Address</label>
-                        <textarea id="editAddress" name="address" class="form-control" rows="3"></textarea>
-                        <span class="text-danger" id="editAddressValidation"></span>
+                        <label asp-for="UpdateDto.Address" class="form-label">Address</label>
+                        <textarea id="editAddress" asp-for="UpdateDto.Address" class="form-control" rows="3"></textarea>
+                        <span asp-validation-for="UpdateDto.Address" class="text-danger"></span>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="editJobRole" class="form-label">Job Role</label>
-                                <input type="text" id="editJobRole" name="jobRole" class="form-control" />
-                                <span class="text-danger" id="editJobRoleValidation"></span>
+                                <label asp-for="UpdateDto.JobRole" class="form-label">Job Role</label>
+                                <input type="text" id="editJobRole" asp-for="UpdateDto.JobRole" class="form-control" />
+                                <span asp-validation-for="UpdateDto.JobRole" class="text-danger"></span>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="editProfileImage" class="form-label">Profile Image URL</label>
-                                <input type="text" id="editProfileImage" name="profileImage" class="form-control" />
-                                <span class="text-danger" id="editProfileImageValidation"></span>
+                                <label asp-for="UpdateDto.ProfileImage" class="form-label">Profile Image URL</label>
+                                <input type="text" id="editProfileImage" asp-for="UpdateDto.ProfileImage" class="form-control" />
+                                <span asp-validation-for="UpdateDto.ProfileImage" class="text-danger"></span>
                             </div>
                         </div>
                     </div>
@@ -204,24 +205,24 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="editIsActive" class="form-label">Status</label>
-                                <select id="editIsActive" name="isActive" class="form-select">
+                                <label asp-for="UpdateDto.IsActive" class="form-label">Status</label>
+                                <select id="editIsActive" asp-for="UpdateDto.IsActive" class="form-select">
                                     <option value="true">Active</option>
                                     <option value="false">Inactive</option>
                                 </select>
-                                <span class="text-danger" id="editIsActiveValidation"></span>
+                                <span asp-validation-for="UpdateDto.IsActive" class="text-danger"></span>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="editDepartmentId" class="form-label">Department</label>
-                                <select id="editDepartmentId" name="departmentId" class="form-select">
+                                <label asp-for="UpdateDto.DepartmentId" class="form-label">Department</label>
+                                <select id="editDepartmentId" asp-for="UpdateDto.DepartmentId" class="form-select">
                                     @foreach (var department in Model.Departments)
                                     {
                                         <option value="@department.Value">@department.Text</option>
                                     }
                                 </select>
-                                <span class="text-danger" id="editDepartmentIdValidation"></span>
+                                <span asp-validation-for="UpdateDto.DepartmentId" class="text-danger"></span>
                             </div>
                         </div>
                     </div>
@@ -375,23 +376,51 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Edit Modal
-            var editModal = document.getElementById('editModal');
-            if (editModal) {
-                editModal.addEventListener('show.bs.modal', function (event) {
-                    var button = event.relatedTarget;
+            // var editModal = document.getElementById('editModal');
+            // if (editModal) {
+            //     editModal.addEventListener('show.bs.modal', function (event) {
+            //         var button = event.relatedTarget;
 
-                    document.getElementById('UpdateDto_Id').value = button.getAttribute('data-id');
-                    document.getElementById('UpdateDto_FirstName').value = button.getAttribute('data-firstname') || '';
-                    document.getElementById('UpdateDto_Surname').value = button.getAttribute('data-surname') || '';
-                    document.getElementById('UpdateDto_OtherNames').value = button.getAttribute('data-othernames') || '';
-                    document.getElementById('UpdateDto_DateOfBirth').value = button.getAttribute('data-dateofbirth') || '';
-                    document.getElementById('UpdateDto_Address').value = button.getAttribute('data-address') || '';
-                    document.getElementById('UpdateDto_JobRole').value = button.getAttribute('data-jobrole') || '';
-                    document.getElementById('UpdateDto_ProfileImage').value = button.getAttribute('data-profileimage') || '';
-                    document.getElementById('UpdateDto_IsActive').value = button.getAttribute('data-isactive');
-                    document.getElementById('UpdateDto_DepartmentId').value = button.getAttribute('data-departmentid') || '';
-                });
-            }
+            //         document.getElementById('UpdateDto_Id').value = button.getAttribute('data-id');
+            //         document.getElementById('UpdateDto_FirstName').value = button.getAttribute('data-firstname') || '';
+            //         document.getElementById('UpdateDto_Surname').value = button.getAttribute('data-surname') || '';
+            //         document.getElementById('UpdateDto_OtherNames').value = button.getAttribute('data-othernames') || '';
+            //         document.getElementById('UpdateDto_DateOfBirth').value = button.getAttribute('data-dateofbirth') || '';
+            //         document.getElementById('UpdateDto_Address').value = button.getAttribute('data-address') || '';
+            //         document.getElementById('UpdateDto_JobRole').value = button.getAttribute('data-jobrole') || '';
+            //         document.getElementById('UpdateDto_ProfileImage').value = button.getAttribute('data-profileimage') || '';
+            //         document.getElementById('UpdateDto_IsActive').value = button.getAttribute('data-isactive');
+            //         document.getElementById('UpdateDto_DepartmentId').value = button.getAttribute('data-departmentid') || '';
+            //     });
+            // }
+                    // Edit Modal
+        var editModal = document.getElementById('editModal');
+        if (editModal) {
+            editModal.addEventListener('show.bs.modal', function (event) {
+                var button = event.relatedTarget;
+
+                // Set the form fields with the data from the button's data-* attributes
+                document.getElementById('editUserId').value = button.getAttribute('data-id');
+                document.getElementById('editFirstName').value = button.getAttribute('data-firstname') || '';
+                document.getElementById('editSurname').value = button.getAttribute('data-surname') || '';
+                document.getElementById('editOtherNames').value = button.getAttribute('data-othernames') || '';
+                document.getElementById('editDateOfBirth').value = button.getAttribute('data-dateofbirth') || '';
+                document.getElementById('editAddress').value = button.getAttribute('data-address') || '';
+                document.getElementById('editJobRole').value = button.getAttribute('data-jobrole') || '';
+                document.getElementById('editProfileImage').value = button.getAttribute('data-profileimage') || '';
+
+                // For the select elements, set the value
+                var isActiveValue = button.getAttribute('data-isactive');
+                if (isActiveValue) {
+                    document.getElementById('editIsActive').value = isActiveValue;
+                }
+
+                var departmentIdValue = button.getAttribute('data-departmentid');
+                if (departmentIdValue) {
+                    document.getElementById('editDepartmentId').value = departmentIdValue;
+                }
+            });
+        }
 
             // Deactivate Modal
             var deactivateModal = document.getElementById('deactivateModal');
@@ -778,180 +807,4 @@
 
 
 
-   @*  <partial name="_ValidationScriptsPartial" />
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Edit Modal
-            var editModal = document.getElementById('editModal');
-            if (editModal) {
-                editModal.addEventListener('show.bs.modal', function (event) {
-                    var button = event.relatedTarget;
-
-                    document.getElementById('editUserId').value = button.getAttribute('data-id');
-                    document.getElementById('editFirstName').value = button.getAttribute('data-firstname') || '';
-                    document.getElementById('editSurname').value = button.getAttribute('data-surname') || '';
-                    document.getElementById('editOtherNames').value = button.getAttribute('data-othernames') || '';
-                    document.getElementById('editDateOfBirth').value = button.getAttribute('data-dateofbirth') || '';
-                    document.getElementById('editAddress').value = button.getAttribute('data-address') || '';
-                    document.getElementById('editJobRole').value = button.getAttribute('data-jobrole') || '';
-                    document.getElementById('editProfileImage').value = button.getAttribute('data-profileimage') || '';
-                    document.getElementById('editIsActive').value = button.getAttribute('data-isactive');
-                    document.getElementById('editDepartmentId').value = button.getAttribute('data-departmentid') || '';
-
-                    // Clear validation messages
-                    clearValidationMessages();
-                });
-            }
-
-            // Edit Form Submission
-            var editUserForm = document.getElementById('editUserForm');
-            if (editUserForm) {
-                editUserForm.addEventListener('submit', function (event) {
-                    event.preventDefault();
-                    updateUser();
-                });
-            }
-
-            // Deactivate Modal
-            var deactivateModal = document.getElementById('deactivateModal');
-            if (deactivateModal) {
-                deactivateModal.addEventListener('show.bs.modal', function (event) {
-                    var button = event.relatedTarget;
-                    document.getElementById('deactivateId').value = button.getAttribute('data-id');
-                });
-            }
-
-            // Activate Modal
-            var activateModal = document.getElementById('activateModal');
-            if (activateModal) {
-                activateModal.addEventListener('show.bs.modal', function (event) {
-                    var button = event.relatedTarget;
-                    document.getElementById('activateId').value = button.getAttribute('data-id');
-                });
-            }
-
-            // Reset Modal
-            var resetModal = document.getElementById('resetModal');
-            if (resetModal) {
-                resetModal.addEventListener('show.bs.modal', function (event) {
-                    var button = event.relatedTarget;
-                    document.getElementById('resetId').value = button.getAttribute('data-id');
-                });
-            }
-
-            // Roles Modal
-            var rolesModal = document.getElementById('rolesModal');
-            if (rolesModal) {
-                rolesModal.addEventListener('show.bs.modal', function (event) {
-                    var button = event.relatedTarget;
-                    var userId = button.getAttribute('data-userid');
-                    var userName = button.getAttribute('data-username');
-
-                    document.getElementById('rolesUserName').textContent = userName;
-                    document.getElementById('rolesUserId').value = userId;
-                    document.getElementById('currentRolesList').innerHTML = '';
-                    document.getElementById('rolesModalMessage').innerHTML = '';
-                    document.getElementById('roleNameValidation').textContent = '';
-
-                    loadUserRoles(userId);
-                    loadAllRolesForDropdown(userId);
-                });
-            }
-
-            // Add Role Form
-            var addRoleForm = document.getElementById('addRoleForm');
-            if (addRoleForm) {
-                addRoleForm.addEventListener('submit', function (event) {
-                    event.preventDefault();
-                    var userId = document.getElementById('rolesUserId').value;
-                    var roleName = document.getElementById('newRoleName').value;
-
-                    if (!roleName) {
-                        document.getElementById('roleNameValidation').textContent = 'Please select a role.';
-                        return;
-                    }
-
-                    addUserRole(userId, roleName);
-                });
-            }
-
-            // Manage Roles Modal
-            var manageRolesModal = document.getElementById('manageRolesModal');
-            if (manageRolesModal) {
-                manageRolesModal.addEventListener('show.bs.modal', function (event) {
-                    document.getElementById('manageRolesMessage').innerHTML = '';
-                    document.getElementById('systemRoleNameValidation').textContent = '';
-                    loadAllSystemRoles();
-                });
-            }
-
-            // Create Role Form
-            var createRoleForm = document.getElementById('createRoleForm');
-            if (createRoleForm) {
-                createRoleForm.addEventListener('submit', function (event) {
-                    event.preventDefault();
-                    var roleName = document.getElementById('newSystemRoleName').value.trim();
-
-                    if (!roleName) {
-                        document.getElementById('systemRoleNameValidation').textContent = 'Role name is required.';
-                        return;
-                    }
-
-                    createSystemRole(roleName);
-                });
-            }
-
-            // Function to update user via AJAX
-            function updateUser() {
-                var formData = new FormData();
-                formData.append('id', document.getElementById('editUserId').value);
-                formData.append('firstName', document.getElementById('editFirstName').value);
-                formData.append('surname', document.getElementById('editSurname').value);
-                formData.append('otherNames', document.getElementById('editOtherNames').value);
-                formData.append('dateOfBirth', document.getElementById('editDateOfBirth').value);
-                formData.append('address', document.getElementById('editAddress').value);
-                formData.append('jobRole', document.getElementById('editJobRole').value);
-                formData.append('profileImage', document.getElementById('editProfileImage').value);
-                formData.append('isActive', document.getElementById('editIsActive').value);
-                formData.append('departmentId', document.getElementById('editDepartmentId').value);
-
-                fetch('?handler=Update', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
-                    }
-                })
-                .then(response => {
-                    if (response.redirected) {
-                        window.location.href = response.url;
-                    } else {
-                        return response.text();
-                    }
-                })
-                .then(() => {
-                    // If not redirected, close the modal and refresh
-                    var editModalInstance = bootstrap.Modal.getInstance(document.getElementById('editModal'));
-                    editModalInstance.hide();
-                    window.location.reload();
-                })
-                .catch(error => {
-                    console.error('Error updating user:', error);
-                    alert('Error updating user. Please try again.');
-                });
-            }
-
-            // Function to clear validation messages
-            function clearValidationMessages() {
-                var validationSpans = document.querySelectorAll('[id$="Validation"]');
-                validationSpans.forEach(span => {
-                    span.textContent = '';
-                });
-            }
-
-            // ... rest of your JavaScript functions (loadUserRoles, loadAllRolesForDropdown, etc.)
-            // Keep all the other JavaScript functions you had for roles management
-            // They should work fine with the updated HTML structure
-        });
-    </script> *@
-}
+  
