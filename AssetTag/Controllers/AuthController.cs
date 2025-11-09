@@ -127,6 +127,63 @@ namespace AssetTag.Controllers
             return Ok(new { Message = "Token revoked successfully." });
         }
 
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDTO dto)
+        {
+            var user = await _userManager.FindByEmailAsync(dto.Email);
+            if (user == null)
+            {
+                // Don't reveal that the user doesn't exist for security reasons
+                return Ok(new { Message = "If the email exists, a password reset link has been sent." });
+            }
+
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+
+            // In a real application, you would send this token via email
+            // For now, we'll return it in the response for testing purposes
+            // TODO: Remove token from response in production and implement email service
+
+            return Ok(new
+            {
+                Message = "If the email exists, a password reset link has been sent.",
+                ResetToken = token // Remove this in production
+            });
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDTO dto)
+        {
+            var user = await _userManager.FindByEmailAsync(dto.Email);
+            if (user == null)
+            {
+                // Don't reveal that the user doesn't exist
+                return BadRequest(new { Message = "Invalid reset token." });
+            }
+
+            var result = await _userManager.ResetPasswordAsync(user, dto.Token, dto.NewPassword);
+
+            if (!result.Succeeded)
+            {
+                return BadRequest(new
+                {
+                    Message = "Failed to reset password.",
+                    Errors = result.Errors.Select(e => e.Description)
+                });
+            }
+
+            // Optionally, revoke all refresh tokens for security
+            var refreshTokens = user.RefreshTokens.Where(rt => rt.IsActive).ToList();
+            foreach (var token in refreshTokens)
+            {
+                token.Revoked = DateTime.UtcNow;
+                token.RevokedByIp = GetIpAddress();
+            }
+
+            await _userManager.UpdateAsync(user);
+
+            return Ok(new { Message = "Password has been reset successfully." });
+        }
+
         private string GetIpAddress()
         {
             if (Request.Headers.ContainsKey("X-Forwarded-For"))
