@@ -43,5 +43,41 @@ public sealed class ApiAuthService : IApiAuthService
         using var res = await client.PostAsJsonAsync("api/auth/revoke", req, cancellationToken).ConfigureAwait(false);
         return res.IsSuccessStatusCode;
     }
+
+    public async Task<ForgotPasswordResponse?> ForgotPasswordAsync(ForgotPasswordDTO dto, CancellationToken cancellationToken = default)
+    {
+        var client = _http.CreateClient("AssetTagApi");
+        using var res = await client.PostAsJsonAsync("api/auth/forgot-password", dto, cancellationToken).ConfigureAwait(false);
+
+        if (res.IsSuccessStatusCode)
+        {
+            return await res.Content.ReadFromJsonAsync<ForgotPasswordResponse>(cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+
+        // Even if not successful, return a default response for security
+        return new ForgotPasswordResponse { Message = "If the email exists, a password reset link has been sent." };
+    }
+
+    public async Task<ResetPasswordResponse?> ResetPasswordAsync(ResetPasswordDTO dto, CancellationToken cancellationToken = default)
+    {
+        var client = _http.CreateClient("AssetTagApi");
+        using var res = await client.PostAsJsonAsync("api/auth/reset-password", dto, cancellationToken).ConfigureAwait(false);
+
+        if (res.IsSuccessStatusCode)
+        {
+            return new ResetPasswordResponse { Success = true, Message = "Password has been reset successfully." };
+        }
+        else
+        {
+            // Try to read error message from response
+            var errorResponse = await res.Content.ReadFromJsonAsync<ErrorResponse>(cancellationToken: cancellationToken).ConfigureAwait(false);
+            return new ResetPasswordResponse
+            {
+                Success = false,
+                Message = errorResponse?.Message ?? "Failed to reset password. The link may have expired."
+            };
+        }
+
+    }
 }
    

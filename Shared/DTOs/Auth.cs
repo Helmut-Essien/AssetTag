@@ -32,4 +32,21 @@ namespace Shared.DTOs
         [Compare("NewPassword")]
         public string ConfirmPassword { get; set; } = string.Empty;
     }
+
+    public class ForgotPasswordResponse
+    {
+        public string Message { get; set; } = string.Empty;
+        public string? ResetToken { get; set; } // Remove this in production
+    }
+
+    public class ResetPasswordResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+
+    public class ErrorResponse
+    {
+        public string? Message { get; set; }
+    }
 }
