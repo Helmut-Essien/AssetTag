@@ -16,12 +16,18 @@ namespace AssetTag.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ApplicationDbContext _context;
         private readonly ITokenService _tokenService;
+        private readonly IEmailService _emailService;
+        private readonly IConfiguration _configuration;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController(UserManager<ApplicationUser> userManager, ApplicationDbContext context, ITokenService tokenService)
+        public AuthController(UserManager<ApplicationUser> userManager, ApplicationDbContext context, ITokenService tokenService,IEmailService emailService, IConfiguration configuration, ILogger<AuthController> logger)
         {
             _userManager = userManager;
             _context = context;
             _tokenService = tokenService;
+            _emailService = emailService;
+            _configuration = configuration;
+            _logger = logger;
         }
 
         [HttpPost("register")]
@@ -134,19 +140,26 @@ namespace AssetTag.Controllers
             if (user == null)
             {
                 // Don't reveal that the user doesn't exist for security reasons
-                return Ok(new { Message = "If the email exists, a password reset link has been sent." });
+                return Ok(new { Message = "If the email exists, a password reset link has been sent.(Syke)" });
             }
 
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
 
-            // In a real application, you would send this token via email
-            // For now, we'll return it in the response for testing purposes
-            // TODO: Remove token from response in production and implement email service
+            // Send email with reset token
+            var frontendBaseUrl = _configuration["FrontendBaseUrl"] ?? "https://1qtrdwgx-44369.uks1.devtunnels.ms"; // Your Portal URL
+            var resetUrl = $"{frontendBaseUrl}/Account/ResetPassword";
+
+            var emailSent = await _emailService.SendPasswordResetEmailAsync(user.Email, token, resetUrl);
+
+            if (!emailSent)
+            {
+                // Log the error but still return success for security
+                _logger.LogWarning("Failed to send password reset email to {Email}", user.Email);
+            }
 
             return Ok(new
             {
-                Message = "If the email exists, a password reset link has been sent.",
-                ResetToken = token // Remove this in production
+                Message = "If the email exists, a password reset link has been sent."
             });
         }
 

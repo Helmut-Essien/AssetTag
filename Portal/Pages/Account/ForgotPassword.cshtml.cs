@@ -50,27 +50,29 @@ namespace Portal.Pages.Account
 
                 if (result != null)
                 {
-                    SuccessMessage = result.Message;
+                    // The API now handles email sending, we just show success message
+                    SuccessMessage = "If the email exists, a password reset link has been sent to your email address.";
 
-                    // For development/testing - remove in production
-                    if (!string.IsNullOrEmpty(result.ResetToken))
-                    {
-                        ResetToken = result.ResetToken;
-                        ShowResetToken = true;
-                        _logger.LogInformation("Password reset token for {Email}: {Token}", Input.Email, result.ResetToken);
-                    }
+                    //// For development/testing - remove in production
+                    //if (!string.IsNullOrEmpty(result.ResetToken))
+                    //{
+                    //    ResetToken = result.ResetToken;
+                    //    ShowResetToken = true;
+                    //    _logger.LogInformation("Password reset token for {Email}: {Token}", Input.Email, result.ResetToken);
+                    //}
                 }
                 else
                 {
                     // Even if the API call fails, show success message for security
-                    SuccessMessage = "If the email exists, a password reset link has been sent.";
+                    SuccessMessage = "If the email exists, a password reset link has been sent.(Syke)";
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred during forgot password for {Email}", Input.Email);
                 // For security, don't reveal the error - show success message anyway
-                SuccessMessage = "If the email exists, a password reset link has been sent.";
+                SuccessMessage = "If the email exists, a password reset link has been sent.(Syke)";
+                
             }
 
             // Clear the form
