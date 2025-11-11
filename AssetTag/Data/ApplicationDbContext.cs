@@ -12,6 +12,7 @@ namespace AssetTag.Data
         public DbSet<Department> Departments { get; set; }
         public DbSet<Location> Locations { get; set; }
         public DbSet<RefreshTokens> RefreshTokens { get; set; }
+        public DbSet<Invitation> Invitations { get; set; }
 
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options)
@@ -119,6 +120,19 @@ namespace AssetTag.Data
             // RefreshTokens configurations
             modelBuilder.Entity<RefreshTokens>()
                 .HasKey(r => r.Id);
+
+            // Configure Invitation entity
+            modelBuilder.Entity<Invitation>(entity =>
+            {
+                entity.HasIndex(i => i.Token).IsUnique();
+                entity.HasIndex(i => i.Email);
+                entity.HasIndex(i => i.IsUsed);
+
+                entity.HasOne(i => i.InvitedByUser)
+                    .WithMany()
+                    .HasForeignKey(i => i.InvitedByUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
         }
     }
 }

@@ -1,11 +1,12 @@
 ﻿using AssetTag.Data;
-using Shared.DTOs;
 using AssetTag.Models;
 using AssetTag.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Shared.DTOs;
 
 namespace AssetTag.Controllers
 {
@@ -195,6 +196,120 @@ namespace AssetTag.Controllers
             await _userManager.UpdateAsync(user);
 
             return Ok(new { Message = "Password has been reset successfully." });
+        }
+
+
+        [HttpPost("validate-invitation")]
+        [AllowAnonymous]
+        public async Task<ActionResult> ValidateInvitation([FromBody] ValidateInvitationDTO dto)
+        {
+            try
+            {
+                var invitation = await _context.Invitations
+                    .FirstOrDefaultAsync(i => i.Token == dto.Token && !i.IsUsed);
+
+                if (invitation == null)
+                {
+                    return BadRequest(new { Message = "Invalid or expired invitation token." });
+                }
+
+                if (invitation.ExpiresAt < DateTime.UtcNow)
+                {
+                    return BadRequest(new { Message = "This invitation has expired." });
+                }
+
+                return Ok(new
+                {
+                    Message = "Invitation is valid.",
+                    Email = invitation.Email,
+                    Role = invitation.Role
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error validating invitation token");
+                return StatusCode(500, new { Message = "An internal error occurred." });
+            }
+        }
+
+        [HttpPost("register-with-invitation")]
+        [AllowAnonymous]
+        public async Task<IActionResult> RegisterWithInvitation([FromBody] RegisterWithInvitationDTO dto)
+        {
+            try
+            {
+                // Validate invitation
+                var invitation = await _context.Invitations
+                    .FirstOrDefaultAsync(i => i.Token == dto.Token && !i.IsUsed);
+
+                if (invitation == null)
+                {
+                    return BadRequest(new { Message = "Invalid or expired invitation token." });
+                }
+
+                if (invitation.ExpiresAt < DateTime.UtcNow)
+                {
+                    return BadRequest(new { Message = "This invitation has expired." });
+                }
+
+                // Check if email matches
+                if (invitation.Email != dto.Email)
+                {
+                    return BadRequest(new { Message = "Email does not match the invitation." });
+                }
+
+                // Check if user already exists
+                var existingUser = await _userManager.FindByEmailAsync(dto.Email);
+                if (existingUser != null)
+                {
+                    return BadRequest(new { Message = "A user with this email already exists." });
+                }
+
+                // Create user
+                var user = new ApplicationUser
+                {
+                    UserName = dto.Username,
+                    Email = dto.Email,
+                    FirstName = dto.FirstName,
+                    Surname = dto.Surname,
+                    OtherNames = dto.OtherNames,
+                    DateOfBirth = dto.DateOfBirth,
+                    Address = dto.Address,
+                    JobRole = dto.JobRole,
+                    DepartmentId = dto.DepartmentId,
+                    IsActive = true,
+                    DateCreated = DateTime.UtcNow
+                };
+
+                var result = await _userManager.CreateAsync(user, dto.Password);
+                if (!result.Succeeded)
+                {
+                    return BadRequest(new
+                    {
+                        Message = "Failed to create user.",
+                        Errors = result.Errors.Select(e => e.Description)
+                    });
+                }
+
+                // Assign role from invitation
+                if (!string.IsNullOrEmpty(invitation.Role))
+                {
+                    await _userManager.AddToRoleAsync(user, invitation.Role);
+                }
+
+                // Mark invitation as used
+                invitation.IsUsed = true;
+                invitation.UsedAt = DateTime.UtcNow;
+                _context.Invitations.Update(invitation);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { Message = "User registered successfully. You can now login." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error registering user with invitation");
+                return StatusCode(500, new { Message = "An internal error occurred." });
+            }
         }
 
         private string GetIpAddress()

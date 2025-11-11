@@ -101,16 +101,79 @@ namespace AssetTag.Services
 
             return await SendEmailAsync(email, subject, body, true);
         }
-    }
 
-    public class EmailSettings
-    {
-        public string SmtpServer { get; set; } = "smtp.gmail.com";
-        public int Port { get; set; } = 587;
-        public string Username { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
-        public string FromEmail { get; set; } = string.Empty;
-        public string FromName { get; set; } = "Methodist University Asset Portal";
-        public bool EnableSsl { get; set; } = true;
+
+
+        public async Task<bool> SendInvitationEmailAsync(string email, string invitationToken, string invitationUrl, string invitedByUserName)
+        {
+            var fullInvitationUrl = $"{invitationUrl}?token={Uri.EscapeDataString(invitationToken)}";
+
+            var subject = "Invitation to Methodist University Asset Portal";
+            var body = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: #007bff; color: white; padding: 20px; text-align: center; }}
+        .content {{ background: #f9f9f9; padding: 20px; }}
+        .button {{ display: inline-block; padding: 12px 24px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; }}
+        .footer {{ text-align: center; padding: 20px; font-size: 12px; color: #666; }}
+        .info-box {{ background: #e7f3ff; padding: 15px; border-radius: 4px; margin: 15px 0; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h1>Methodist University Ghana</h1>
+            <p>Asset Management Portal</p>
+        </div>
+        <div class='content'>
+            <h2>You're Invited!</h2>
+            <p>Dear Colleague,</p>
+            <p>You have been invited by <strong>{invitedByUserName}</strong> to join the Methodist University Asset Management Portal.</p>
+            
+            <div class='info-box'>
+                <p><strong>What you can do:</strong></p>
+                <ul>
+                    <li>Track and manage university assets</li>
+                    <li>Request asset assignments</li>
+                    <li>Report maintenance issues</li>
+                    <li>View asset history and status</li>
+                </ul>
+            </div>
+
+            <p>Click the button below to create your account and get started:</p>
+            <p style='text-align: center;'>
+                <a href='{fullInvitationUrl}' class='button'>Accept Invitation</a>
+            </p>
+            <p>If the button doesn't work, copy and paste this link into your browser:</p>
+            <p><a href='{fullInvitationUrl}'>{fullInvitationUrl}</a></p>
+            <p><strong>This invitation link will expire in 7 days.</strong></p>
+            <p>If you didn't expect this invitation, please ignore this email.</p>
+        </div>
+        <div class='footer'>
+            <p>© {DateTime.Now.Year} Methodist University Ghana. All rights reserved.</p>
+            <p>If you need assistance, contact us at <a href='mailto:{_emailSettings.FromEmail}'>{_emailSettings.FromEmail}</a></p>
+            <p>Excellence • Morality • Service</p>
+        </div>
+    </div>
+</body>
+</html>";
+
+            return await SendEmailAsync(email, subject, body, true);
+        }
+
+        public class EmailSettings
+        {
+            public string SmtpServer { get; set; } = "smtp.gmail.com";
+            public int Port { get; set; } = 587;
+            public string Username { get; set; } = string.Empty;
+            public string Password { get; set; } = string.Empty;
+            public string FromEmail { get; set; } = string.Empty;
+            public string FromName { get; set; } = "Methodist University Asset Portal";
+            public bool EnableSsl { get; set; } = true;
+        }
     }
 }
