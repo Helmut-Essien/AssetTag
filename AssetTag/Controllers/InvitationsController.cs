@@ -74,7 +74,7 @@ namespace AssetTag.Controllers
                     Role = dto.Role,
                     InvitedByUserId = currentUser.Id,
                     CreatedAt = DateTime.UtcNow,
-                    ExpiresAt = DateTime.UtcNow.AddDays(7)
+                    ExpiresAt = DateTime.UtcNow.AddDays(2)
                 };
 
                 _context.Invitations.Add(invitation);
