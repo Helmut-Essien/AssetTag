@@ -238,23 +238,30 @@ namespace AssetTag.Controllers
         {
             try
             {
+                _logger.LogInformation("Starting registration with invitation for email: {Email}", dto.Email);
+
                 // Validate invitation
                 var invitation = await _context.Invitations
                     .FirstOrDefaultAsync(i => i.Token == dto.Token && !i.IsUsed);
 
                 if (invitation == null)
                 {
+                    _logger.LogWarning("Invalid or used invitation token: {Token}", dto.Token);
                     return BadRequest(new { Message = "Invalid or expired invitation token." });
                 }
 
                 if (invitation.ExpiresAt < DateTime.UtcNow)
                 {
+                    _logger.LogWarning("Expired invitation token: {Token}, expired at: {ExpiresAt}",
+                        dto.Token, invitation.ExpiresAt);
                     return BadRequest(new { Message = "This invitation has expired." });
                 }
 
                 // Check if email matches
-                if (invitation.Email != dto.Email)
+                if (!string.Equals(invitation.Email, dto.Email, StringComparison.OrdinalIgnoreCase))
                 {
+                    _logger.LogWarning("Email mismatch for invitation. Expected: {Expected}, Got: {Actual}",
+                        invitation.Email, dto.Email);
                     return BadRequest(new { Message = "Email does not match the invitation." });
                 }
 
@@ -262,7 +269,16 @@ namespace AssetTag.Controllers
                 var existingUser = await _userManager.FindByEmailAsync(dto.Email);
                 if (existingUser != null)
                 {
+                    _logger.LogWarning("User already exists with email: {Email}", dto.Email);
                     return BadRequest(new { Message = "A user with this email already exists." });
+                }
+
+                // Check if username is already taken
+                var existingUsername = await _userManager.FindByNameAsync(dto.Username);
+                if (existingUsername != null)
+                {
+                    _logger.LogWarning("Username already taken: {Username}", dto.Username);
+                    return BadRequest(new { Message = "Username is already taken. Please choose a different username." });
                 }
 
                 // Create user
@@ -281,12 +297,17 @@ namespace AssetTag.Controllers
                     DateCreated = DateTime.UtcNow
                 };
 
+                _logger.LogInformation("Creating user: {Username}, {Email}", dto.Username, dto.Email);
+
                 var result = await _userManager.CreateAsync(user, dto.Password);
                 if (!result.Succeeded)
                 {
+                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    _logger.LogError("Failed to create user {Email}. Errors: {Errors}", dto.Email, errors);
+
                     return BadRequest(new
                     {
-                        Message = "Failed to create user.",
+                        Message = "Failed to create user account.",
                         Errors = result.Errors.Select(e => e.Description)
                     });
                 }
@@ -294,7 +315,15 @@ namespace AssetTag.Controllers
                 // Assign role from invitation
                 if (!string.IsNullOrEmpty(invitation.Role))
                 {
-                    await _userManager.AddToRoleAsync(user, invitation.Role);
+                    _logger.LogInformation("Assigning role {Role} to user {Email}", invitation.Role, dto.Email);
+                    var roleResult = await _userManager.AddToRoleAsync(user, invitation.Role);
+                    if (!roleResult.Succeeded)
+                    {
+                        var roleErrors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
+                        _logger.LogWarning("Failed to assign role {Role} to user {Email}. Errors: {Errors}",
+                            invitation.Role, dto.Email, roleErrors);
+                        // Continue anyway - user is created but role assignment failed
+                    }
                 }
 
                 // Mark invitation as used
@@ -303,12 +332,14 @@ namespace AssetTag.Controllers
                 _context.Invitations.Update(invitation);
                 await _context.SaveChangesAsync();
 
+                _logger.LogInformation("Successfully registered user with invitation: {Email}", dto.Email);
+
                 return Ok(new { Message = "User registered successfully. You can now login." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error registering user with invitation");
-                return StatusCode(500, new { Message = "An internal error occurred." });
+                _logger.LogError(ex, "Error registering user with invitation for {Email}", dto.Email);
+                return StatusCode(500, new { Message = "An internal error occurred during registration." });
             }
         }
 

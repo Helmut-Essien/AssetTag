@@ -223,5 +223,228 @@ namespace AssetTag.Controllers
                 return StatusCode(500, "An internal error occurred.");
             }
         }
+
+        // NEW: Create multiple invitations
+        [HttpPost("multiple")]
+        public async Task<ActionResult<BulkInvitationResponseDTO>> CreateMultipleInvitations([FromBody] CreateMultipleInvitationsDTO dto)
+        {
+            try
+            {
+                // Get current user
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
+                {
+                    return Unauthorized();
+                }
+
+                var frontendBaseUrl = _configuration["FrontendBaseUrl"] ?? "https://1qtrdwgx-44369.uks1.devtunnels.ms";
+                var invitationUrl = $"{frontendBaseUrl}/Account/Register";
+
+                var results = new List<BulkInvitationResponseDTO>();
+                var successfulInvitations = new List<InvitationResponseDTO>();
+                var failedInvitations = new List<FailedInvitationDTO>();
+
+                foreach (var email in dto.Emails)
+                {
+                    try
+                    {
+                        // Validate email format
+                        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+                        {
+                            failedInvitations.Add(new FailedInvitationDTO
+                            {
+                                Email = email,
+                                Error = "Invalid email format"
+                            });
+                            continue;
+                        }
+
+                        // Check if user already exists
+                        var existingUser = await _userManager.FindByEmailAsync(email);
+                        if (existingUser != null)
+                        {
+                            failedInvitations.Add(new FailedInvitationDTO
+                            {
+                                Email = email,
+                                Error = "A user with this email already exists"
+                            });
+                            continue;
+                        }
+
+                        // Check for existing active invitation
+                        var existingInvitation = await _context.Invitations
+                            .FirstOrDefaultAsync(i => i.Email == email && !i.IsUsed && i.ExpiresAt > DateTime.UtcNow);
+
+                        if (existingInvitation != null)
+                        {
+                            failedInvitations.Add(new FailedInvitationDTO
+                            {
+                                Email = email,
+                                Error = "An active invitation already exists for this email"
+                            });
+                            continue;
+                        }
+
+                        // Create invitation
+                        var invitation = new Invitation
+                        {
+                            Email = email,
+                            Role = dto.Role,
+                            InvitedByUserId = currentUser.Id,
+                            CreatedAt = DateTime.UtcNow,
+                            ExpiresAt = DateTime.UtcNow.AddDays(2)
+                        };
+
+                        _context.Invitations.Add(invitation);
+                        await _context.SaveChangesAsync();
+
+                        // Send invitation email
+                        var emailSent = await _emailService.SendInvitationEmailAsync(
+                            email,
+                            invitation.Token,
+                            invitationUrl,
+                            currentUser.UserName ?? currentUser.Email ?? "Administrator");
+
+                        if (!emailSent)
+                        {
+                            _logger.LogWarning("Failed to send invitation email to {Email}", email);
+                            // Still count as successful but log the email failure
+                        }
+
+                        var invitationResponse = new InvitationResponseDTO
+                        {
+                            Id = invitation.Id,
+                            Email = invitation.Email,
+                            Token = invitation.Token,
+                            CreatedAt = invitation.CreatedAt,
+                            ExpiresAt = invitation.ExpiresAt,
+                            IsUsed = invitation.IsUsed,
+                            Role = invitation.Role,
+                            InvitedByUserName = currentUser.UserName ?? currentUser.Email ?? "Administrator"
+                        };
+
+                        successfulInvitations.Add(invitationResponse);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error creating invitation for {Email}", email);
+                        failedInvitations.Add(new FailedInvitationDTO
+                        {
+                            Email = email,
+                            Error = "An internal error occurred"
+                        });
+                    }
+                }
+
+                var response = new BulkInvitationResponseDTO
+                {
+                    SuccessfulInvitations = successfulInvitations,
+                    FailedInvitations = failedInvitations,
+                    TotalProcessed = dto.Emails.Count,
+                    SuccessfulCount = successfulInvitations.Count,
+                    FailedCount = failedInvitations.Count
+                };
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating multiple invitations");
+                return StatusCode(500, "An internal error occurred.");
+            }
+        }
+
+        // ADD THIS METHOD TO YOUR INVITATIONS CONTROLLER
+        [HttpGet("validate/{token}")]
+        [AllowAnonymous]
+        public async Task<ActionResult<InvitationValidationResult>> ValidateInvitation(string token)
+        {
+            try
+            {
+                _logger.LogInformation("Validating invitation token: {Token}", token);
+
+                // Validate token format
+                if (string.IsNullOrWhiteSpace(token) || !Guid.TryParse(token, out _))
+                {
+                    _logger.LogWarning("Invalid token format: {Token}", token);
+                    return BadRequest(new InvitationValidationResult
+                    {
+                        Success = false,
+                        Message = "Invalid invitation token format."
+                    });
+                }
+
+                var invitation = await _context.Invitations
+                    .Include(i => i.InvitedByUser)
+                    .FirstOrDefaultAsync(i => i.Token == token);
+
+                if (invitation == null)
+                {
+                    return NotFound(new InvitationValidationResult
+                    {
+                        Success = false,
+                        Message = "Invalid invitation token."
+                    });
+                }
+
+                if (invitation.IsUsed)
+                {
+                    return BadRequest(new InvitationValidationResult
+                    {
+                        Success = false,
+                        Message = "This invitation has already been used."
+                    });
+                }
+
+                if (invitation.ExpiresAt < DateTime.UtcNow)
+                {
+                    return BadRequest(new InvitationValidationResult
+                    {
+                        Success = false,
+                        Message = "This invitation has expired."
+                    });
+                }
+
+                // Safely get the invited by user name
+                string invitedByUserName = "Unknown";
+                if (invitation.InvitedByUser != null)
+                {
+                    invitedByUserName = invitation.InvitedByUser.UserName ??
+                                       invitation.InvitedByUser.Email ??
+                                       "Unknown";
+                }
+
+                var result = new InvitationValidationResult
+                {
+                    Success = true,
+                    Data = new InvitationResponseDTO
+                    {
+                        Id = invitation.Id,
+                        Email = invitation.Email,
+                        Token = invitation.Token,
+                        CreatedAt = invitation.CreatedAt,
+                        ExpiresAt = invitation.ExpiresAt,
+                        IsUsed = invitation.IsUsed,
+                        Role = invitation.Role,
+                        InvitedByUserName = invitedByUserName
+                    }
+                };
+
+                _logger.LogInformation("Invitation validation successful for email: {Email}", invitation.Email);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error validating invitation token {Token}", token);
+                return StatusCode(500, new InvitationValidationResult
+                {
+                    Success = false,
+                    Message = "An internal error occurred while validating the invitation."
+                });
+            }
+        }
+
+        
     }
 }

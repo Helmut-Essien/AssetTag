@@ -15,4 +15,8 @@ public interface IApiAuthService
     // Add these methods
     Task<ForgotPasswordResponse?> ForgotPasswordAsync(ForgotPasswordDTO dto, CancellationToken cancellationToken = default);
     Task<ResetPasswordResponse?> ResetPasswordAsync(ResetPasswordDTO dto, CancellationToken cancellationToken = default);
+    // Add back the invitation registration method
+    Task<ApiResponse<string>> RegisterWithInvitationAsync(RegisterWithInvitationDTO dto);
+
+
 }

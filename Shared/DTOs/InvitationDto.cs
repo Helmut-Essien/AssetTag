@@ -57,4 +57,41 @@ namespace Shared.DTOs
     {
         public string Token { get; set; } = string.Empty;
     }
+
+    public class CreateMultipleInvitationsDTO
+    {
+        [Required(ErrorMessage = "At least one email is required")]
+        public List<string> Emails { get; set; } = new List<string>();
+
+        public string? Role { get; set; } = "User";
+    }
+
+    public class BulkInvitationResponseDTO
+    {
+        public List<InvitationResponseDTO> SuccessfulInvitations { get; set; } = new List<InvitationResponseDTO>();
+        public List<FailedInvitationDTO> FailedInvitations { get; set; } = new List<FailedInvitationDTO>();
+        public int TotalProcessed { get; set; }
+        public int SuccessfulCount { get; set; }
+        public int FailedCount { get; set; }
+    }
+
+    public class FailedInvitationDTO
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Error { get; set; } = string.Empty;
+    }
+
+    public class InvitationValidationResult
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+        public InvitationResponseDTO? Data { get; set; }
+    }
+
+    public class ApiResponse<T>
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+        public T? Data { get; set; }
+    }
 }

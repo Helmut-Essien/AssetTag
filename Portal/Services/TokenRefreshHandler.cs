@@ -23,6 +23,7 @@ public sealed class TokenRefreshHandler : DelegatingHandler
     private readonly IApiAuthService _authService;
     private readonly ILogger<TokenRefreshHandler> _logger;
     private const string CookieScheme = "PortalCookie";
+
     // per-user semaphore to avoid refresh storms
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new();
 
@@ -58,9 +59,20 @@ public sealed class TokenRefreshHandler : DelegatingHandler
                           ?? Guid.NewGuid().ToString();
 
             var sem = _locks.GetOrAdd(userKey, _ => new SemaphoreSlim(1, 1));
-            await sem.WaitAsync(cancellationToken).ConfigureAwait(false);
+            bool semaphoreAcquired = false;
+
             try
             {
+                // CHANGED: Add timeout and better cancellation handling
+                var acquired = await sem.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken).ConfigureAwait(false);
+
+                if (!acquired)
+                {
+                    _logger.LogWarning("Could not acquire refresh lock for user {User} within timeout. Returning original 401.", userKey);
+                    return response;
+                }
+
+                semaphoreAcquired = true;
                 // Another request may have refreshed tokens already — check current token
                 var accessNow = ctx.User.FindFirst("AccessToken")?.Value;
                 if (!string.IsNullOrWhiteSpace(accessNow) && accessNow != accessBefore)
@@ -126,9 +138,16 @@ public sealed class TokenRefreshHandler : DelegatingHandler
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenResponse.AccessToken);
                 return await base.SendAsync(CloneRequest(request), cancellationToken).ConfigureAwait(false);
             }
+            catch (OperationCanceledException)
+            {
+                _logger.LogDebug("Token refresh was cancelled for user {User}", userKey);
+                return response;
+            }
             finally
             {
-                sem.Release();
+                // CHANGED: Only release if we actually acquired the semaphore
+                if (semaphoreAcquired)
+                    sem.Release();
             }
         }
 

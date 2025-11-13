@@ -37,6 +37,16 @@ namespace Portal.Pages.Users
         public int TotalCount { get; set; }
 
         public List<SelectListItem> Departments { get; set; } = new();
+        public List<string> AvailableRoles { get; set; } = new();
+
+        // NEW: Properties for invitation
+        [BindProperty]
+        public string? InviteEmails { get; set; }
+
+        [BindProperty]
+        public string? InviteRole { get; set; } = "User";
+
+        public List<InvitationResponseDTO> Invitations { get; set; } = new();
 
         public async Task<IActionResult> OnGetAsync(int page = 1)
         {
@@ -63,6 +73,19 @@ namespace Portal.Pages.Users
             }
 
             await LoadDepartments();
+            await LoadInvitations();
+
+            // NEW: Load available roles from API
+            var rolesResponse = await _httpClient.GetAsync("api/role");
+            if (rolesResponse.IsSuccessStatusCode)
+            {
+                AvailableRoles = await rolesResponse.Content.ReadFromJsonAsync<List<string>>() ?? new List<string>();
+            }
+            else
+            {
+                _logger.LogWarning("Failed to load roles: {StatusCode}", rolesResponse.StatusCode);
+                AvailableRoles = new List<string> { "User", "Admin" }; // Fallback to defaults if API fails
+            }
             return Page();
         }
 
@@ -102,8 +125,8 @@ namespace Portal.Pages.Users
                 var response = await _httpClient.PutAsJsonAsync($"api/users/{updateDto.Id}", updateDto);
                 if (response.IsSuccessStatusCode)
                 {
-                    return RedirectToPage("Index",new { page = CurrentPage, search = Search, departmentId = DepartmentId, isActive = IsActive });
-                    
+                    return RedirectToPage("Index", new { page = CurrentPage, search = Search, departmentId = DepartmentId, isActive = IsActive });
+
                 }
 
                 var errorContent = await response.Content.ReadAsStringAsync();
@@ -342,11 +365,181 @@ namespace Portal.Pages.Users
             await OnGetAsync(CurrentPage);
             return Page();
         }
-    }
 
-    public class DepartmentReadDTO
-    {
-        public string DepartmentId { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
+
+        // NEW: Handle sending invitations
+        public async Task<IActionResult> OnPostSendInvitationsAsync()
+        {
+            if (string.IsNullOrWhiteSpace(InviteEmails))
+            {
+                Message = "Please enter at least one email address.";
+                await OnGetAsync(CurrentPage);
+                return Page();
+            }
+
+            try
+            {
+                // Parse emails
+                var emails = InviteEmails.Split(new[] { ',', '\n', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(email => email.Trim())
+                    .Where(email => !string.IsNullOrWhiteSpace(email))
+                    .ToList();
+
+                if (!emails.Any())
+                {
+                    Message = "Please enter valid email addresses.";
+                    await OnGetAsync(CurrentPage);
+                    return Page();
+                }
+
+                // Validate email formats
+                var invalidEmails = emails.Where(email => !IsValidEmail(email)).ToList();
+                if (invalidEmails.Any())
+                {
+                    Message = $"Invalid email format: {string.Join(", ", invalidEmails)}";
+                    await OnGetAsync(CurrentPage);
+                    return Page();
+                }
+
+                var dto = new CreateMultipleInvitationsDTO
+                {
+                    Emails = emails,
+                    Role = InviteRole ?? "User"
+                };
+
+                var response = await _httpClient.PostAsJsonAsync("api/Invitations/multiple", dto);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<BulkInvitationResponseDTO>();
+
+                    if (result != null)
+                    {
+                        var successMessage = $"Successfully sent {result.SuccessfulCount} invitation(s).";
+                        if (result.FailedCount > 0)
+                        {
+                            successMessage += $" {result.FailedCount} invitation(s) failed.";
+
+                            // Add details about failed invitations
+                            if (result.FailedInvitations.Any())
+                            {
+                                var failedDetails = string.Join("; ",
+                                    result.FailedInvitations.Select(f => $"{f.Email}: {f.Error}"));
+                                successMessage += $" Failed: {failedDetails}";
+                            }
+                        }
+
+                        Message = successMessage;
+
+                        // Clear the form if all were successful
+                        if (result.FailedCount == 0)
+                        {
+                            InviteEmails = string.Empty;
+                        }
+                    }
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    Message = $"Failed to send invitations: {response.StatusCode} - {errorContent}";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending invitations");
+                Message = "An error occurred while sending invitations.";
+            }
+
+            await OnGetAsync();
+            return Page();
+        }
+
+        // NEW: Load existing invitations
+        private async Task LoadInvitations()
+        {
+            try
+            {
+                var response = await _httpClient.GetAsync("api/Invitations");
+                if (response.IsSuccessStatusCode)
+                {
+                    Invitations = await response.Content.ReadFromJsonAsync<List<InvitationResponseDTO>>() ?? new List<InvitationResponseDTO>();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading invitations");
+                // Continue without invitations - it's not critical
+            }
+        }
+
+        // NEW: Handle resending invitation
+        public async Task<IActionResult> OnPostResendInvitationAsync(string id)
+        {
+            try
+            {
+                var response = await _httpClient.PostAsync($"api/Invitations/resend/{id}", null);
+                if (response.IsSuccessStatusCode)
+                {
+                    Message = "Invitation resent successfully.";
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    Message = $"Failed to resend invitation: {response.StatusCode} - {errorContent}";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error resending invitation {Id}", id);
+                Message = "An error occurred while resending the invitation.";
+            }
+
+            return RedirectToPage("Index", new { page = CurrentPage, search = Search, departmentId = DepartmentId, isActive = IsActive });
+        }
+
+        // NEW: Handle deleting invitation
+        public async Task<IActionResult> OnPostDeleteInvitationAsync(string id)
+        {
+            try
+            {
+                var response = await _httpClient.DeleteAsync($"api/Invitations/{id}");
+                if (response.IsSuccessStatusCode)
+                {
+                    Message = "Invitation deleted successfully.";
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    Message = $"Failed to delete invitation: {response.StatusCode} - {errorContent}";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting invitation {Id}", id);
+                Message = "An error occurred while deleting the invitation.";
+            }
+
+            return RedirectToPage("Index", new { page = CurrentPage, search = Search, departmentId = DepartmentId, isActive = IsActive });
+        }
+
+        // NEW: Email validation helper
+        private bool IsValidEmail(string email)
+        {
+            try
+            {
+                var addr = new System.Net.Mail.MailAddress(email);
+                return addr.Address == email;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public class DepartmentReadDTO
+        {
+            public string DepartmentId { get; set; } = string.Empty;
+            public string Name { get; set; } = string.Empty;
+        }
     }
 }

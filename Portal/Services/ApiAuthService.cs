@@ -1,14 +1,29 @@
-using System.Net.Http.Json;
-
 using Shared.DTOs;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Text.Json;
+using static Portal.Services.IApiAuthService;
 
 namespace Portal.Services;
 
 public sealed class ApiAuthService : IApiAuthService
 {
     private readonly IHttpClientFactory _http;
+    private readonly HttpClient _httpClient;
+    private readonly ILogger<ApiAuthService> _logger;
+    private readonly JsonSerializerOptions _jsonOptions;
 
-    public ApiAuthService(IHttpClientFactory http) => _http = http;
+
+    public ApiAuthService(HttpClient httpClient, ILogger<ApiAuthService> logger, IHttpClientFactory http)
+    {
+        _httpClient = httpClient;
+        _logger = logger;
+        _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
+        _http = http;
+    }
 
     public async Task<TokenResponseDTO?> LoginAsync(LoginDTO dto, CancellationToken cancellationToken = default)
     {
@@ -78,6 +93,109 @@ public sealed class ApiAuthService : IApiAuthService
             };
         }
 
+    }
+
+
+
+
+    public async Task<ApiResponse<string>> RegisterWithInvitationAsync(RegisterWithInvitationDTO dto)
+    {
+        try
+        {
+            _logger.LogInformation("Attempting to register user with invitation for email: {Email}", dto.Email);
+
+            var client = _http.CreateClient("AssetTagApi");
+            var response = await client.PostAsJsonAsync("api/auth/register-with-invitation", dto);
+            var content = await response.Content.ReadAsStringAsync();
+
+            _logger.LogInformation("Registration response status: {StatusCode}, content: {Content}",
+                response.StatusCode, content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Try to parse the success response
+                try
+                {
+                    var successResponse = JsonSerializer.Deserialize<AuthSuccessResponse>(content, _jsonOptions);
+                    return new ApiResponse<string>
+                    {
+                        Success = true,
+                        Message = successResponse?.Message ?? "Registration successful."
+                    };
+                }
+                catch (JsonException)
+                {
+                    // Fallback if response format is different
+                    return new ApiResponse<string>
+                    {
+                        Success = true,
+                        Message = "Registration successful!"
+                    };
+                }
+            }
+            else
+            {
+                // Try to parse error response
+                try
+                {
+                    var errorResponse = JsonSerializer.Deserialize<AuthErrorResponse>(content, _jsonOptions);
+                    if (errorResponse != null)
+                    {
+                        // Combine message and errors if available
+                        var errorMessage = errorResponse.Message;
+                        if (errorResponse.Errors != null && errorResponse.Errors.Any())
+                        {
+                            errorMessage += " " + string.Join(" ", errorResponse.Errors);
+                        }
+
+                        return new ApiResponse<string>
+                        {
+                            Success = false,
+                            Message = errorMessage
+                        };
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Fallback error message
+                    _logger.LogWarning("Failed to parse error response: {Content}", content);
+                }
+
+                // Default error message based on status code
+                return new ApiResponse<string>
+                {
+                    Success = false,
+                    Message = response.StatusCode switch
+                    {
+                        System.Net.HttpStatusCode.BadRequest => "Invalid registration data. Please check your information.",
+                        System.Net.HttpStatusCode.Conflict => "A user with this email already exists.",
+                        System.Net.HttpStatusCode.NotFound => "Invalid or expired invitation.",
+                        _ => "Failed to register. Please try again."
+                    }
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error registering with invitation for {Email}", dto.Email);
+            return new ApiResponse<string>
+            {
+                Success = false,
+                Message = $"An error occurred during registration: {ex.Message}"
+            };
+        }
+    }
+
+    // Helper classes for response parsing
+    private class AuthSuccessResponse
+    {
+        public string Message { get; set; } = string.Empty;
+    }
+
+    private class AuthErrorResponse
+    {
+        public string Message { get; set; } = string.Empty;
+        public IEnumerable<string> Errors { get; set; } = Enumerable.Empty<string>();
     }
 }
    
