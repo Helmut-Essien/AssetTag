@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Shared.DTOs;
+using System.Security.Claims;
 
 namespace AssetTag.Controllers;
 
@@ -15,6 +16,28 @@ public class AssetsController : ControllerBase
     private readonly ApplicationDbContext _context;
 
     public AssetsController(ApplicationDbContext context) => _context = context;
+
+    private async Task CreateAssetHistory(string assetId, string action, string description,
+        string? oldLocationId = null, string? newLocationId = null,
+        string? oldStatus = null, string? newStatus = null)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId)) return;
+
+        var history = new AssetHistory
+        {
+            AssetId = assetId,
+            UserId = userId,
+            Action = action,
+            Description = description,
+            OldLocationId = oldLocationId,
+            NewLocationId = newLocationId,
+            OldStatus = oldStatus,
+            NewStatus = newStatus
+        };
+
+        _context.AssetHistories.Add(history);
+    }
 
     // GET: /api/assets
     [HttpGet]
@@ -133,7 +156,6 @@ public class AssetsController : ControllerBase
             DisposalDate = dto.DisposalDate,
             DisposalValue = dto.DisposalValue,
             Remarks = dto.Remarks,
-            // Satisfy required navigation properties
             Category = null!,
             Location = null!,
             Department = null!,
@@ -142,6 +164,16 @@ public class AssetsController : ControllerBase
         };
 
         _context.Assets.Add(asset);
+        await _context.SaveChangesAsync();
+
+        // Record creation history
+        await CreateAssetHistory(
+            asset.AssetId,
+            "CREATE",
+            $"Asset '{asset.Name}' with tag '{asset.AssetTag}' was created",
+            newLocationId: asset.LocationId,
+            newStatus: asset.Status
+        );
         await _context.SaveChangesAsync();
 
         return CreatedAtAction(nameof(Get), new { id = asset.AssetId },
@@ -189,10 +221,98 @@ public class AssetsController : ControllerBase
         var asset = await _context.Assets.FindAsync(id);
         if (asset is null) return NotFound();
 
+        // Store old values for history
+        var oldLocationId = asset.LocationId;
+        var oldStatus = asset.Status;
+        var oldDepartmentId = asset.DepartmentId;
+        var oldCategoryId = asset.CategoryId;
+        var changes = new List<string>();
+
         if (dto.AssetTag is not null && dto.AssetTag != asset.AssetTag &&
             await _context.Assets.AnyAsync(a => a.AssetTag == dto.AssetTag))
             return Conflict("Asset tag already exists.");
 
+        // Track changes for ALL fields
+        if (dto.AssetTag is not null && dto.AssetTag != asset.AssetTag)
+            changes.Add($"Asset tag changed from '{asset.AssetTag}' to '{dto.AssetTag}'");
+
+        if (dto.Name is not null && dto.Name != asset.Name)
+            changes.Add($"Name changed from '{asset.Name}' to '{dto.Name}'");
+
+        if (dto.Description is not null && dto.Description != asset.Description)
+            changes.Add($"Description changed");
+
+        if (dto.CategoryId is not null && dto.CategoryId != asset.CategoryId)
+        {
+            var oldCategory = await _context.Categories.FindAsync(asset.CategoryId);
+            var newCategory = await _context.Categories.FindAsync(dto.CategoryId);
+            changes.Add($"Category changed from '{oldCategory?.Name ?? "Unknown"}' to '{newCategory?.Name ?? "Unknown"}'");
+        }
+
+        if (dto.LocationId is not null && dto.LocationId != asset.LocationId)
+        {
+            var oldLocation = await _context.Locations.FindAsync(asset.LocationId);
+            var newLocation = await _context.Locations.FindAsync(dto.LocationId);
+            changes.Add($"Location changed from '{oldLocation?.Name ?? "Unknown"}' to '{newLocation?.Name ?? "Unknown"}'");
+        }
+
+        if (dto.DepartmentId is not null && dto.DepartmentId != asset.DepartmentId)
+        {
+            var oldDepartment = await _context.Departments.FindAsync(asset.DepartmentId);
+            var newDepartment = await _context.Departments.FindAsync(dto.DepartmentId);
+            changes.Add($"Department changed from '{oldDepartment?.Name ?? "Unknown"}' to '{newDepartment?.Name ?? "Unknown"}'");
+        }
+
+        if (dto.Status is not null && dto.Status != asset.Status)
+            changes.Add($"Status changed from '{asset.Status}' to '{dto.Status}'");
+
+        if (dto.Condition is not null && dto.Condition != asset.Condition)
+            changes.Add($"Condition changed from '{asset.Condition}' to '{dto.Condition}'");
+
+        if (dto.AssignedToUserId is not null && dto.AssignedToUserId != asset.AssignedToUserId)
+        {
+            var oldUser = asset.AssignedToUserId != null ?
+                await _context.Users.FindAsync(asset.AssignedToUserId) : null;
+            var newUser = await _context.Users.FindAsync(dto.AssignedToUserId);
+
+            changes.Add($"Assignment changed from '{(oldUser != null ? $"{oldUser.FirstName} {oldUser.Surname}" : "Unassigned")}' to '{(newUser != null ? $"{newUser.FirstName} {newUser.Surname}" : "Unassigned")}'");
+        }
+
+        // Track additional fields
+        if (dto.SerialNumber is not null && dto.SerialNumber != asset.SerialNumber)
+            changes.Add($"Serial number changed");
+
+        if (dto.VendorName is not null && dto.VendorName != asset.VendorName)
+            changes.Add($"Vendor changed to '{dto.VendorName}'");
+
+        if (dto.InvoiceNumber is not null && dto.InvoiceNumber != asset.InvoiceNumber)
+            changes.Add($"Invoice number changed");
+
+        if (dto.PurchaseDate is not null && dto.PurchaseDate != asset.PurchaseDate)
+            changes.Add($"Purchase date changed to '{dto.PurchaseDate?.ToString("MMM dd, yyyy")}'");
+
+        if (dto.PurchasePrice is not null && dto.PurchasePrice != asset.PurchasePrice)
+            changes.Add($"Purchase price changed to {dto.PurchasePrice?.ToString("C")}");
+
+        if (dto.CurrentValue is not null && dto.CurrentValue != asset.CurrentValue)
+            changes.Add($"Current value changed to {dto.CurrentValue?.ToString("C")}");
+
+        if (dto.Quantity.HasValue && dto.Quantity.Value != asset.Quantity)
+            changes.Add($"Quantity changed from {asset.Quantity} to {dto.Quantity.Value}");
+
+        if (dto.CostPerUnit is not null && dto.CostPerUnit != asset.CostPerUnit)
+            changes.Add($"Cost per unit changed to {dto.CostPerUnit?.ToString("C")}");
+
+        if (dto.TotalCost is not null && dto.TotalCost != asset.TotalCost)
+            changes.Add($"Total cost changed to {dto.TotalCost?.ToString("C")}");
+
+        if (dto.WarrantyExpiry is not null && dto.WarrantyExpiry != asset.WarrantyExpiry)
+            changes.Add($"Warranty expiry changed to '{dto.WarrantyExpiry?.ToString("MMM dd, yyyy")}'");
+
+        if (dto.Remarks is not null && dto.Remarks != asset.Remarks)
+            changes.Add($"Remarks updated");
+
+        // Update asset properties
         asset.AssetTag = dto.AssetTag ?? asset.AssetTag;
         asset.Name = dto.Name ?? asset.Name;
         asset.Description = dto.Description ?? asset.Description;
@@ -223,6 +343,22 @@ public class AssetsController : ControllerBase
         asset.DateModified = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+
+        // Record update history if there were ANY changes
+        if (changes.Any())
+        {
+            await CreateAssetHistory(
+                asset.AssetId,
+                "UPDATE",
+                $"Asset updated: {string.Join("; ", changes)}",
+                oldLocationId: oldLocationId,
+                newLocationId: asset.LocationId,
+                oldStatus: oldStatus,
+                newStatus: asset.Status
+            );
+            await _context.SaveChangesAsync();
+        }
+
         return NoContent();
     }
 
@@ -233,8 +369,16 @@ public class AssetsController : ControllerBase
         var asset = await _context.Assets.FindAsync(id);
         if (asset is null) return NotFound();
 
+        // Record deletion history
+        await CreateAssetHistory(
+            asset.AssetId,
+            "DELETE",
+            $"Asset '{asset.Name}' with tag '{asset.AssetTag}' was deleted"
+        );
+
         _context.Assets.Remove(asset);
         await _context.SaveChangesAsync();
+
         return NoContent();
     }
 }

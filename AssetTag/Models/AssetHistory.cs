@@ -15,8 +15,8 @@ namespace AssetTag.Models
         public string? OldStatus { get; set; }
         public string? NewStatus { get; set; }
 
-        public required Asset Asset { get; set; }
-        public required ApplicationUser User { get; set; }
+        public  Asset Asset { get; set; }
+        public  ApplicationUser User { get; set; }
         public Location? OldLocation { get; set; }
         public Location? NewLocation { get; set; }
     }

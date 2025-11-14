@@ -52,7 +52,7 @@ namespace Portal.Pages.Assets
             Asset = await assetResponse.Content.ReadFromJsonAsync<AssetReadDTO>();
 
             // Load asset history
-            var historyResponse = await _httpClient.GetAsync($"api/assethistories?assetId={id}");
+            var historyResponse = await _httpClient.GetAsync($"api/assethistories/asset/{id}");
             if (historyResponse.IsSuccessStatusCode)
             {
                 AssetHistories = await historyResponse.Content.ReadFromJsonAsync<List<AssetHistoryReadDTO>>() ?? new List<AssetHistoryReadDTO>();

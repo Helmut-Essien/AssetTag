@@ -229,11 +229,15 @@
                         <div class="timeline">
                             @foreach (var history in Model.AssetHistories.OrderByDescending(h => h.Timestamp))
                             {
+                                <!-- In your Details.cshtml, update the timeline item to show user -->
                                 <div class="timeline-item mb-3">
                                     <div class="timeline-marker bg-primary"></div>
                                     <div class="timeline-content">
                                         <h6 class="mb-1">@history.Action</h6>
-                                        <p class="text-muted small mb-1">@history.Timestamp.ToString("MMM dd, yyyy HH:mm")</p>
+                                        <p class="text-muted small mb-1">
+                                            @history.Timestamp.ToString("MMM dd, yyyy HH:mm")
+                                            by <strong>@history.UserFullName</strong>
+                                        </p>
                                         <p class="mb-1 small">@history.Description</p>
 
                                         @if (!string.IsNullOrEmpty(history.OldStatus) || !string.IsNullOrEmpty(history.NewStatus))

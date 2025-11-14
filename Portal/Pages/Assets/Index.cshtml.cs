@@ -33,24 +33,53 @@ namespace Portal.Pages.Assets
 
         public async Task<IActionResult> OnGetAsync()
         {
-            await LoadDataAsync();
-            return Page();
+            try
+            {
+                await LoadDataAsync();
+                return Page();
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized || ex.StatusCode == HttpStatusCode.Forbidden)
+            {
+                // The handler should have redirected, but if we get here, redirect manually
+                if (ex.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    return RedirectToPage("/Unauthorized");
+                }
+                else
+                {
+                    return RedirectToPage("/Forbidden");
+                }
+            }
         }
 
         private async Task LoadDataAsync()
         {
-            // Load all data in parallel
-            var assetsTask = _httpClient.GetFromJsonAsync<List<AssetReadDTO>>("api/assets");
-            var categoriesTask = _httpClient.GetFromJsonAsync<List<CategoryReadDTO>>("api/categories");
-            var locationsTask = _httpClient.GetFromJsonAsync<List<LocationReadDTO>>("api/locations");
-            var departmentsTask = _httpClient.GetFromJsonAsync<List<DepartmentReadDTO>>("api/departments");
+            // Use GetAsync instead of GetFromJsonAsync to avoid automatic exception throwing
+            var assetsResponse = await _httpClient.GetAsync("api/assets");
+            var categoriesResponse = await _httpClient.GetAsync("api/categories");
+            var locationsResponse = await _httpClient.GetAsync("api/locations");
+            var departmentsResponse = await _httpClient.GetAsync("api/departments");
 
-            await Task.WhenAll(assetsTask, categoriesTask, locationsTask, departmentsTask);
+            // Check responses and handle data
+            if (assetsResponse.IsSuccessStatusCode)
+            {
+                Assets = await assetsResponse.Content.ReadFromJsonAsync<List<AssetReadDTO>>() ?? new List<AssetReadDTO>();
+            }
 
-            Assets = assetsTask.Result ?? new List<AssetReadDTO>();
-            Categories = categoriesTask.Result ?? new List<CategoryReadDTO>();
-            Locations = locationsTask.Result ?? new List<LocationReadDTO>();
-            Departments = departmentsTask.Result ?? new List<DepartmentReadDTO>();
+            if (categoriesResponse.IsSuccessStatusCode)
+            {
+                Categories = await categoriesResponse.Content.ReadFromJsonAsync<List<CategoryReadDTO>>() ?? new List<CategoryReadDTO>();
+            }
+
+            if (locationsResponse.IsSuccessStatusCode)
+            {
+                Locations = await locationsResponse.Content.ReadFromJsonAsync<List<LocationReadDTO>>() ?? new List<LocationReadDTO>();
+            }
+
+            if (departmentsResponse.IsSuccessStatusCode)
+            {
+                Departments = await departmentsResponse.Content.ReadFromJsonAsync<List<DepartmentReadDTO>>() ?? new List<DepartmentReadDTO>();
+            }
 
             // Build lookup dictionaries
             _categoryNames = Categories.ToDictionary(c => c.CategoryId, c => c.Name);
@@ -96,6 +125,14 @@ namespace Portal.Pages.Assets
             {
                 ModelState.AddModelError("CreateDto.AssetTag", "An asset with this tag already exists.");
             }
+            else if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                return RedirectToPage("/Unauthorized");
+            }
+            else if (response.StatusCode == HttpStatusCode.Forbidden)
+            {
+                return RedirectToPage("/Forbidden");
+            }
             else
             {
                 ModelState.AddModelError("", $"Failed to create asset: {response.StatusCode} - {errorContent}");
@@ -135,6 +172,14 @@ namespace Portal.Pages.Assets
             {
                 ModelState.AddModelError("UpdateDto.AssetTag", "An asset with this tag already exists.");
             }
+            else if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                return RedirectToPage("/Unauthorized");
+            }
+            else if (response.StatusCode == HttpStatusCode.Forbidden)
+            {
+                return RedirectToPage("/Forbidden");
+            }
             else
             {
                 var text = await response.Content.ReadAsStringAsync();
@@ -158,6 +203,14 @@ namespace Portal.Pages.Assets
             if (response.IsSuccessStatusCode)
             {
                 return RedirectToPage();
+            }
+            else if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                return RedirectToPage("/Unauthorized");
+            }
+            else if (response.StatusCode == HttpStatusCode.Forbidden)
+            {
+                return RedirectToPage("/Forbidden");
             }
 
             await LoadDataAsync();

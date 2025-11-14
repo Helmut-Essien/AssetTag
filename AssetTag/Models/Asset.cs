@@ -38,10 +38,10 @@ namespace AssetTag.Models
         public string? Remarks { get; set; }
 
         // Navigation properties
-        public required Category Category { get; set; }
-        public required Location Location { get; set; }
-        public required Department Department { get; set; }
+        public Category Category { get; set; }
+        public Location Location { get; set; }
+        public  Department Department { get; set; }
         public ApplicationUser? AssignedToUser { get; set; }
-        public required ICollection<AssetHistory> AssetHistories { get; set; } = new List<AssetHistory>();
+        public ICollection<AssetHistory> AssetHistories { get; set; } = new List<AssetHistory>();
     }
 }

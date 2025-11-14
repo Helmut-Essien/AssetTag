@@ -35,4 +35,9 @@ public record AssetHistoryReadDTO
     public string? NewLocationId { get; init; }
     public string? OldStatus { get; init; }
     public string? NewStatus { get; init; }
+
+    public string? AssetName { get; init; }
+    public string? UserFullName { get; init; }
+    public string? OldLocationName { get; init; }
+    public string? NewLocationName { get; init; }
 }
