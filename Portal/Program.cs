@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Net.Http.Headers;
+using Portal.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // register typed HttpClient for API calls (set Api:BaseUrl in Portal appsettings)
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IUserRoleService, UserRoleService>();
 builder.Services.AddScoped<Portal.Services.IApiAuthService, Portal.Services.ApiAuthService>();
 builder.Services.AddTransient<Portal.Services.TokenRefreshHandler>();
 builder.Services.AddHttpClient("AssetTagApi", client =>

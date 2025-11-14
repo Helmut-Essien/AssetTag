@@ -1,0 +1,355 @@
+﻿@page
+@model Portal.Pages.Assets.DetailsModel
+@{
+    ViewData["Title"] = $"Asset Details - {Model.Asset?.Name}";
+}
+
+<div class="container my-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a asp-page="./Index">Assets</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">@Model.Asset?.Name</li>
+                </ol>
+            </nav>
+            <h1 class="mb-0">@Model.Asset?.Name</h1>
+            <p class="text-muted">Asset Tag: <strong>@Model.Asset?.AssetTag</strong></p>
+        </div>
+        <div>
+            <a asp-page="./Index" class="btn btn-secondary me-2">
+                <i class="bi bi-arrow-left me-1"></i>Back to List
+            </a>
+            <a asp-page="./Edit" asp-route-id="@Model.Asset?.AssetId" class="btn btn-primary">
+                <i class="bi bi-pencil me-1"></i>Edit Asset
+            </a>
+        </div>
+    </div>
+
+    @if (Model.Asset == null)
+    {
+        <div class="alert alert-warning" role="alert">
+            Asset not found.
+        </div>
+        return;
+    }
+
+    <div class="row">
+        <!-- Asset Details -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>Asset Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl>
+                                <dt>Asset Tag</dt>
+                                <dd>@Model.Asset.AssetTag</dd>
+
+                                <dt>Name</dt>
+                                <dd>@Model.Asset.Name</dd>
+
+                                <dt>Description</dt>
+                                <dd>@(string.IsNullOrEmpty(Model.Asset.Description) ? "No description provided" : Model.Asset.Description)</dd>
+
+                                <dt>Category</dt>
+                                <dd>@Model.CategoryName</dd>
+
+                                <dt>Location</dt>
+                                <dd>@Model.LocationName</dd>
+
+                                <dt>Department</dt>
+                                <dd>@Model.DepartmentName</dd>
+
+                                <dt>Status</dt>
+                                <dd>
+                                    <span class="badge
+                                        @(Model.Asset.Status == "Available" ? "bg-success" :
+                                                                                    Model.Asset.Status == "In Use" ? "bg-primary" :
+                                                                                    Model.Asset.Status == "Under Maintenance" ? "bg-warning" :
+                                                                                    Model.Asset.Status == "Retired" ? "bg-secondary" : "bg-danger")">
+                                        @Model.Asset.Status
+                                    </span>
+                                </dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl>
+                                <dt>Condition</dt>
+                                <dd>
+                                    <span class="badge
+                                        @(Model.Asset.Condition == "New" ? "bg-success" :
+                                                                                    Model.Asset.Condition == "Good" ? "bg-info" :
+                                                                                    Model.Asset.Condition == "Fair" ? "bg-warning" :
+                                                                                    Model.Asset.Condition == "Poor" ? "bg-danger" : "bg-secondary")">
+                                        @Model.Asset.Condition
+                                    </span>
+                                </dd>
+
+                                <dt>Serial Number</dt>
+                                <dd>@(string.IsNullOrEmpty(Model.Asset.SerialNumber) ? "N/A" : Model.Asset.SerialNumber)</dd>
+
+                                <dt>Purchase Date</dt>
+                                <dd>@Model.Asset.PurchaseDate?.ToString("MMM dd, yyyy")</dd>
+
+                                <dt>Purchase Price</dt>
+                                <dd>@(Model.Asset.PurchasePrice?.ToString("C") ?? "N/A")</dd>
+
+                                <dt>Current Value</dt>
+                                <dd>@(Model.Asset.CurrentValue?.ToString("C") ?? "N/A")</dd>
+
+                                <dt>Quantity</dt>
+                                <dd>@Model.Asset.Quantity</dd>
+
+                                <dt>Created Date</dt>
+                                <dd>@Model.Asset.CreatedAt.ToString("MMM dd, yyyy")</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Financial Information -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-graph-up me-2"></i>Financial Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl>
+                                <dt>Vendor</dt>
+                                <dd>@(string.IsNullOrEmpty(Model.Asset.VendorName) ? "N/A" : Model.Asset.VendorName)</dd>
+
+                                <dt>Invoice Number</dt>
+                                <dd>@(string.IsNullOrEmpty(Model.Asset.InvoiceNumber) ? "N/A" : Model.Asset.InvoiceNumber)</dd>
+
+                                <dt>Cost Per Unit</dt>
+                                <dd>@(Model.Asset.CostPerUnit?.ToString("C") ?? "N/A")</dd>
+
+                                <dt>Total Cost</dt>
+                                <dd>@(Model.Asset.TotalCost?.ToString("C") ?? "N/A")</dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl>
+                                <dt>Depreciation Rate</dt>
+                                <dd>@(Model.Asset.DepreciationRate?.ToString("P2") ?? "N/A")</dd>
+
+                                <dt>Accumulated Depreciation</dt>
+                                <dd>@(Model.Asset.AccumulatedDepreciation?.ToString("C") ?? "N/A")</dd>
+
+                                <dt>Net Book Value</dt>
+                                <dd>@(Model.Asset.NetBookValue?.ToString("C") ?? "N/A")</dd>
+
+                                <dt>Useful Life</dt>
+                                <dd>@(Model.Asset.UsefulLifeYears?.ToString() ?? "N/A") years</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Warranty & Disposal -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-calendar-check me-2"></i>Warranty & Disposal
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl>
+                                <dt>Warranty Expiry</dt>
+                                <dd>@(Model.Asset.WarrantyExpiry?.ToString("MMM dd, yyyy") ?? "N/A")</dd>
+
+                                <dt>Warranty Status</dt>
+                                <dd>
+                                    @if (Model.Asset.WarrantyExpiry.HasValue)
+                                    {
+                                        var isExpired = Model.Asset.WarrantyExpiry < DateTime.Now;
+                                        <span class="badge @(isExpired ? "bg-danger" : "bg-success")">
+                                            @(isExpired ? "Expired" : "Active")
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">No warranty</span>
+                                    }
+                                </dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl>
+                                <dt>Disposal Date</dt>
+                                <dd>@(Model.Asset.DisposalDate?.ToString("MMM dd, yyyy") ?? "N/A")</dd>
+
+                                <dt>Disposal Value</dt>
+                                <dd>@(Model.Asset.DisposalValue?.ToString("C") ?? "N/A")</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Remarks -->
+            @if (!string.IsNullOrEmpty(Model.Asset.Remarks))
+            {
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-chat-text me-2"></i>Remarks
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-0">@Model.Asset.Remarks</p>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Asset History -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-clock-history me-2"></i>Asset History
+                    </h5>
+                </div>
+                <div class="card-body">
+                    @if (Model.AssetHistories.Any())
+                    {
+                        <div class="timeline">
+                            @foreach (var history in Model.AssetHistories.OrderByDescending(h => h.Timestamp))
+                            {
+                                <div class="timeline-item mb-3">
+                                    <div class="timeline-marker bg-primary"></div>
+                                    <div class="timeline-content">
+                                        <h6 class="mb-1">@history.Action</h6>
+                                        <p class="text-muted small mb-1">@history.Timestamp.ToString("MMM dd, yyyy HH:mm")</p>
+                                        <p class="mb-1 small">@history.Description</p>
+
+                                        @if (!string.IsNullOrEmpty(history.OldStatus) || !string.IsNullOrEmpty(history.NewStatus))
+                                        {
+                                            <div class="mt-2">
+                                                <small class="text-muted">Status Change:</small>
+                                                @if (!string.IsNullOrEmpty(history.OldStatus))
+                                                {
+                                                    <span class="badge bg-secondary me-1">@history.OldStatus</span>
+                                                }
+                                                <i class="bi bi-arrow-right text-muted mx-1"></i>
+                                                @if (!string.IsNullOrEmpty(history.NewStatus))
+                                                {
+                                                    <span class="badge bg-primary">@history.NewStatus</span>
+                                                }
+                                            </div>
+                                        }
+
+                                        @if (!string.IsNullOrEmpty(history.OldLocationId) || !string.IsNullOrEmpty(history.NewLocationId))
+                                        {
+                                            <div class="mt-1">
+                                                <small class="text-muted">Location Change:</small>
+                                                @if (!string.IsNullOrEmpty(history.OldLocationId))
+                                                {
+                                                    <span class="badge bg-light text-dark me-1">@Model.GetLocationName(history.OldLocationId)</span>
+                                                }
+                                                <i class="bi bi-arrow-right text-muted mx-1"></i>
+                                                @if (!string.IsNullOrEmpty(history.NewLocationId))
+                                                {
+                                                    <span class="badge bg-light text-dark">@Model.GetLocationName(history.NewLocationId)</span>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted text-center">No history recorded for this asset.</p>
+                    }
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-speedometer2 me-2"></i>Quick Stats
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <div class="stat-value">@Model.AssetHistories.Count</div>
+                            <div class="stat-label">History Entries</div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="stat-value">@Model.AssetAge</div>
+                            <div class="stat-label">Days Owned</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="stat-value">
+                                @if (Model.Asset.CurrentValue.HasValue && Model.Asset.PurchasePrice.HasValue)
+                                {
+                                    var depreciation = ((Model.Asset.PurchasePrice.Value - Model.Asset.CurrentValue.Value) / Model.Asset.PurchasePrice.Value) * 100;
+                                    <text>@depreciation.ToString("F1")%</text>
+                                }
+                                else
+                                {
+                                    <text>N/A</text>
+                                }
+                            </div>
+                            <div class="stat-label">Depreciation</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 20px;
+    }
+
+    .timeline-item {
+        position: relative;
+        padding-bottom: 10px;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        left: -20px;
+        top: 5px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+    }
+
+    .timeline-content {
+        padding-left: 10px;
+    }
+
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #007bff;
+    }
+
+    .stat-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        text-transform: uppercase;
+    }
+</style>
