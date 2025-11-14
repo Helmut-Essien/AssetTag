@@ -18,10 +18,26 @@ namespace Portal.Pages.Assets
         }
 
         public AssetReadDTO? Asset { get; set; }
-        public List<AssetHistoryReadDTO> AssetHistories { get; set; } = new();
+        public PaginatedResponse<AssetHistoryReadDTO> AssetHistories { get; set; } = new();
         public List<CategoryReadDTO> Categories { get; set; } = new();
         public List<LocationReadDTO> Locations { get; set; } = new();
         public List<DepartmentReadDTO> Departments { get; set; } = new();
+
+        // Filter properties
+        [BindProperty(SupportsGet = true)]
+        public int CurrentPage { get; set; } = 1;
+
+        [BindProperty(SupportsGet = true)]
+        public int PageSize { get; set; } = 10;
+
+        [BindProperty(SupportsGet = true)]
+        public string? ActionFilter { get; set; }
+
+        [BindProperty(SupportsGet = true)]
+        public string? DateFrom { get; set; }
+
+        [BindProperty(SupportsGet = true)]
+        public string? DateTo { get; set; }
 
         // Lookup dictionaries
         private Dictionary<string, string> _categoryNames = new();
@@ -51,14 +67,48 @@ namespace Portal.Pages.Assets
 
             Asset = await assetResponse.Content.ReadFromJsonAsync<AssetReadDTO>();
 
-            // Load asset history
-            var historyResponse = await _httpClient.GetAsync($"api/assethistories/asset/{id}");
+            // Build query string for history with filters
+            var queryParams = new List<string>
+            {
+                $"page={CurrentPage}",
+                $"pageSize={PageSize}"
+            };
+
+            if (!string.IsNullOrEmpty(ActionFilter))
+                queryParams.Add($"action={ActionFilter}");
+
+            if (!string.IsNullOrEmpty(DateFrom) && DateTime.TryParse(DateFrom, out _))
+                queryParams.Add($"fromDate={DateFrom}");
+
+            if (!string.IsNullOrEmpty(DateTo) && DateTime.TryParse(DateTo, out _))
+                queryParams.Add($"toDate={DateTo}");
+
+            var queryString = string.Join("&", queryParams);
+
+            // Load asset history with pagination and filters
+            var historyResponse = await _httpClient.GetAsync($"api/assethistories/asset/{id}?{queryString}");
             if (historyResponse.IsSuccessStatusCode)
             {
-                AssetHistories = await historyResponse.Content.ReadFromJsonAsync<List<AssetHistoryReadDTO>>() ?? new List<AssetHistoryReadDTO>();
+                AssetHistories = await historyResponse.Content.ReadFromJsonAsync<PaginatedResponse<AssetHistoryReadDTO>>() ?? new PaginatedResponse<AssetHistoryReadDTO>();
             }
 
             return Page();
+        }
+
+        public async Task<IActionResult> OnPostApplyFiltersAsync(string id)
+        {
+            // Reset to first page when applying new filters
+            CurrentPage = 1;
+            return await OnGetAsync(id);
+        }
+
+        public async Task<IActionResult> OnPostClearFiltersAsync(string id)
+        {
+            CurrentPage = 1;
+            ActionFilter = null;
+            DateFrom = null;
+            DateTo = null;
+            return await OnGetAsync(id);
         }
 
         private async Task LoadReferenceData()
@@ -92,5 +142,30 @@ namespace Portal.Pages.Assets
         {
             return _departmentNames.GetValueOrDefault(departmentId, "Unknown Department");
         }
+
+        // Helper method to generate page links
+        public string GetPageUrl(int page)
+        {
+            var queryParams = new List<string>
+            {
+                $"id={Asset?.AssetId}",
+                $"CurrentPage={page}",
+                $"PageSize={PageSize}"
+            };
+
+            if (!string.IsNullOrEmpty(ActionFilter))
+                queryParams.Add($"ActionFilter={ActionFilter}");
+
+            if (!string.IsNullOrEmpty(DateFrom))
+                queryParams.Add($"DateFrom={DateFrom}");
+
+            if (!string.IsNullOrEmpty(DateTo))
+                queryParams.Add($"DateTo={DateTo}");
+
+            return $"./Details?{string.Join("&", queryParams)}";
+        }
     }
+
+    // Add the PaginatedResponse class if not already in Shared.DTOs
+    
 }

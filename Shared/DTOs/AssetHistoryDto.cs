@@ -41,3 +41,27 @@ public record AssetHistoryReadDTO
     public string? OldLocationName { get; init; }
     public string? NewLocationName { get; init; }
 }
+
+public class PaginatedResponse<T>
+{
+    public List<T> Data { get; set; } = new();
+    public int TotalCount { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+    public int TotalPages { get; set; }
+    public bool HasPrevious { get; set; }
+    public bool HasNext { get; set; }
+}
+
+public class AssetHistoryFilters
+{
+    public List<string> Actions { get; set; } = new();
+    public Dictionary<string, string> RecentAssets { get; set; } = new();
+    public DateRangeFilter DateRange { get; set; } = new();
+}
+
+public class DateRangeFilter
+{
+    public DateTime? MinDate { get; set; }
+    public DateTime? MaxDate { get; set; }
+}
