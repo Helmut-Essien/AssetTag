@@ -50,63 +50,114 @@ namespace AssetTag.Controllers
             return Ok("User registered successfully.");
         }
 
+        //[HttpPost("login")]
+        //public async Task<IActionResult> Login([FromBody] LoginDTO dto)
+        //{
+        //    var user = await _userManager.Users
+        //        .Include(u => u.RefreshTokens)
+        //        .SingleOrDefaultAsync(u => u.Email == dto.Email);
+
+        //    if (user == null || !await _userManager.CheckPasswordAsync(user, dto.Password))
+        //        {
+        //        return Unauthorized(new { Message = "Invalid email or password." });
+        //    }
+
+        //    var roles = await _userManager.GetRolesAsync(user);
+        //    var accessToken = _tokenService.CreateAccessToken(user, roles);
+
+        //    var refreshToken = _tokenService.CreateRefreshToken(GetIpAddress());
+
+        //    user.RefreshTokens.Add(refreshToken);
+        //    await _userManager.UpdateAsync(user);
+
+        //    return Ok (new TokenResponseDTO(accessToken, refreshToken.Token));
+        //}
+
+
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDTO dto)
         {
+            // Single optimized query - MINIMAL DATA
             var user = await _userManager.Users
-                .Include(u => u.RefreshTokens)
-                .SingleOrDefaultAsync(u => u.Email == dto.Email);
+                .Where(u => u.Email == dto.Email)
+                .Select(u => new {
+                    u.Id,
+                    u.PasswordHash,
+                    u.IsActive
+                })
+                .AsNoTracking() // Critical for performance
+                .SingleOrDefaultAsync();
 
-            if (user == null || !await _userManager.CheckPasswordAsync(user, dto.Password))
-                {
+            if (user == null)
+            {
                 return Unauthorized(new { Message = "Invalid email or password." });
             }
 
-            var roles = await _userManager.GetRolesAsync(user);
-            var accessToken = _tokenService.CreateAccessToken(user, roles);
+            // Check deactivation FIRST - fastest path for deactivated users
+            if (!user.IsActive)
+            {
+                return Unauthorized(new
+                {
+                    Message = "Your account has been deactivated. Please contact your administrator.",
+                    Code = "ACCOUNT_DEACTIVATED"
+                });
+            }
 
+            // Local password verification - NO DATABASE QUERY
+            var passwordHasher = new PasswordHasher<ApplicationUser>();
+            var passwordResult = passwordHasher.VerifyHashedPassword(null, user.PasswordHash, dto.Password);
+
+            if (passwordResult == PasswordVerificationResult.Failed)
+            {
+                return Unauthorized(new { Message = "Invalid email or password." });
+            }
+
+            // Only NOW get full user data for token generation
+            var fullUser = await _userManager.Users
+                .Include(u => u.RefreshTokens)
+                .SingleOrDefaultAsync(u => u.Id == user.Id);
+
+            var roles = await _userManager.GetRolesAsync(fullUser);
+            var accessToken = _tokenService.CreateAccessToken(fullUser, roles);
             var refreshToken = _tokenService.CreateRefreshToken(GetIpAddress());
 
-            user.RefreshTokens.Add(refreshToken);
-            await _userManager.UpdateAsync(user);
+            fullUser.RefreshTokens.Add(refreshToken);
+            await _userManager.UpdateAsync(fullUser);
 
-            return Ok (new TokenResponseDTO(accessToken, refreshToken.Token));
+            return Ok(new TokenResponseDTO(accessToken, refreshToken.Token));
         }
 
         [HttpPost("refresh-token")]
         public async Task<IActionResult> RefreshToken([FromBody] TokenResponseDTO dto)
         {
-            var refreshToken = dto.RefreshToken;
+            // Single query to get user with active refresh token
             var user = await _userManager.Users
                 .Include(u => u.RefreshTokens)
-                .SingleOrDefaultAsync(u => u.RefreshTokens.Any(t => t.Token == refreshToken));
+                .Where(u => u.RefreshTokens.Any(t => t.Token == dto.RefreshToken && t.IsActive))
+                .Select(u => new { User = u, Token = u.RefreshTokens.First(t => t.Token == dto.RefreshToken) })
+                .FirstOrDefaultAsync();
 
             if (user == null)
-                {
+            {
                 return Unauthorized(new { Message = "Invalid refresh token." });
             }
 
-            var existingToken = user.RefreshTokens.Single(t => t.Token == refreshToken);
-            if (!existingToken.IsActive)
-            {
-                return Unauthorized(new { Message = "Refresh token is not active." });
-            }
+            // Revoke old token
+            user.Token.Revoked = DateTime.UtcNow;
+            user.Token.RevokedByIp = GetIpAddress();
 
-            existingToken.Revoked = DateTime.UtcNow;
-            existingToken.RevokedByIp = GetIpAddress();
-
+            // Create new refresh token
             var newRefreshToken = _tokenService.CreateRefreshToken(GetIpAddress());
-            existingToken.ReplacedByToken = newRefreshToken.Token;
-            user.RefreshTokens.Add(newRefreshToken);
+            user.Token.ReplacedByToken = newRefreshToken.Token;
+            user.User.RefreshTokens.Add(newRefreshToken);
 
-            await _userManager.UpdateAsync(user);
+            await _userManager.UpdateAsync(user.User);
 
             // Generate new access token
-            var roles = await _userManager.GetRolesAsync(user);
-            var newAccessToken = _tokenService.CreateAccessToken(user, roles);
+            var roles = await _userManager.GetRolesAsync(user.User);
+            var newAccessToken = _tokenService.CreateAccessToken(user.User, roles);
 
             return Ok(new TokenResponseDTO(newAccessToken, newRefreshToken.Token));
-
         }
 
         [HttpPost("revoke")]

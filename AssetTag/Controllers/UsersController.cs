@@ -227,20 +227,37 @@ namespace AssetTag.Controllers
         {
             try
             {
-                var user = await _userManager.FindByIdAsync(id);
+                // Get only necessary fields
+                var user = await _userManager.Users
+                    .Where(u => u.Id == id)
+                    .Select(u => new { u.Id, u.UserName, u.SecurityStamp, u.IsActive })
+                    .FirstOrDefaultAsync();
+
                 if (user == null)
                 {
                     return NotFound($"User with ID '{id}' not found.");
                 }
 
-                user.IsActive = isActive;
-                var result = await _userManager.UpdateAsync(user);
+                // Get full user only if found
+                var fullUser = await _userManager.FindByIdAsync(id);
+                if (fullUser == null)
+                {
+                    return NotFound($"User with ID '{id}' not found.");
+                }
+
+                fullUser.IsActive = isActive;
+
+                // Update security stamp to invalidate existing tokens
+                await _userManager.UpdateSecurityStampAsync(fullUser);
+
+                var result = await _userManager.UpdateAsync(fullUser);
+
                 if (!result.Succeeded)
                 {
                     return BadRequest(result.Errors);
                 }
 
-                return Ok($"User '{user.UserName}' activation set to {isActive}.");
+                return Ok($"User '{fullUser.UserName}' activation set to {isActive}.");
             }
             catch (Exception ex)
             {

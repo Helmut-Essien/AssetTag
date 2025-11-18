@@ -1,4 +1,5 @@
 using AssetTag.Data;
+using AssetTag.Filters;
 using AssetTag.Models;
 using AssetTag.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -52,6 +53,9 @@ builder.Services.AddAuthentication(options =>
         };
     });
 
+// Add custom user validator to check IsActive status
+
+builder.Services.AddScoped<ActiveUserAttribute>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.Configure<EmailService.EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddScoped<IEmailService, EmailService>();
