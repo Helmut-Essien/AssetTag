@@ -7,6 +7,7 @@ using Shared.DTOs;
 using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using static Portal.Services.ApiAuthService;
 
 namespace Portal.Pages.Account
 {
@@ -14,6 +15,7 @@ namespace Portal.Pages.Account
     {
         private readonly IApiAuthService _authService;
         private readonly ILogger<LoginModel> _logger;
+        private static readonly JwtSecurityTokenHandler _tokenHandler = new();
 
         public LoginModel(IApiAuthService authService, ILogger<LoginModel> logger)
         {
@@ -22,154 +24,132 @@ namespace Portal.Pages.Account
         }
 
         [BindProperty]
-        public InputModel Input { get; set; } = new InputModel();
+        public required InputModel Input { get; set; }
 
         public string? ErrorMessage { get; set; }
 
         public class InputModel
         {
-            [Required(ErrorMessage = "Email is required.")]
-            [EmailAddress(ErrorMessage = "Invalid email address.")]
+            [Required, EmailAddress]
             public string Email { get; set; } = string.Empty;
 
-            [Required(ErrorMessage = "Password is required.")]
-            [DataType(DataType.Password)]
+            [Required, DataType(DataType.Password)]
             public string Password { get; set; } = string.Empty;
 
             public bool RememberMe { get; set; }
         }
 
-        public void OnGet(string? returnUrl = null)
-        {
-            // Store returnUrl in ViewData for use in the view
-            ViewData["ReturnUrl"] = returnUrl;
-        }
+        public void OnGet(string? returnUrl = null) => ViewData["ReturnUrl"] = returnUrl;
 
         public async Task<IActionResult> OnPostAsync(string? returnUrl = null)
         {
             if (!ModelState.IsValid)
             {
-                // Collect model state errors to display so you can see why validation failed
-                var errors = ModelState.Values
-                    .SelectMany(v => v.Errors)
-                    .Select(e => string.IsNullOrWhiteSpace(e.ErrorMessage) ? e.Exception?.Message : e.ErrorMessage)
-                    .Where(m => !string.IsNullOrWhiteSpace(m))
-                    .ToArray();
-
-                ErrorMessage = errors.Length == 0 ? "Form validation failed." : string.Join(" ", errors);
+                ErrorMessage = "Please correct the errors and try again.";
                 return Page();
             }
 
-            // Create LoginDTO from input
-            var loginDto = new LoginDTO(Input.Email, Input.Password);
-
-            // Call the API to authenticate
-            var tokenResponse = await _authService.LoginAsync(loginDto);
-            if (tokenResponse == null)
-            {
-                ErrorMessage = "Invalid email or password.";
-                return Page();
-            }
-
-
-
-
-
-
-
-
-            // Extract user information and roles from the JWT token
-            var (userEmail, roles) = ExtractUserInfoFromToken(tokenResponse.AccessToken);
-
-            _logger.LogInformation("User {Email} logged in with roles: {Roles}",
-                userEmail, string.Join(", ", roles));
-
-            // Create claims from the JWT token data
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.Name, userEmail),
-                new Claim(ClaimTypes.Email, userEmail),
-                new Claim("AccessToken", tokenResponse.AccessToken), // Store token as claim if needed
-                new Claim("RefreshToken", tokenResponse.RefreshToken) // Store refresh token as claim
-            };
-
-            // Add role claims
-            foreach (var role in roles)
-            {
-                claims.Add(new Claim(ClaimTypes.Role, role));
-            }
-
-
-
-
-
-
-
-
-
-
-
-
-            // Create claims identity
-            var claimsIdentity = new ClaimsIdentity(claims, "PortalCookie");
-
-            // Set authentication properties
-            var authProperties = new AuthenticationProperties
-            {
-                IsPersistent = Input.RememberMe,
-                ExpiresUtc = Input.RememberMe ? DateTimeOffset.UtcNow.AddDays(30) : DateTimeOffset.UtcNow.AddHours(8)
-            };
-
-            // Sign in the user using cookie authentication
-            await HttpContext.SignInAsync(
-                "PortalCookie",
-                new ClaimsPrincipal(claimsIdentity),
-                authProperties);
-
-            
-            return RedirectToPage("/Index");
-        }
-
-
-
-
-
-
-
-
-
-
-
-
-
-        private (string email, List<string> roles) ExtractUserInfoFromToken(string token)
-        {
             try
             {
-                var handler = new JwtSecurityTokenHandler();
+                var loginDto = new LoginDTO(Input.Email, Input.Password);
+                var tokenResponse = await _authService.LoginAsync(loginDto);
 
-                if (token.StartsWith("Bearer "))
+                if (tokenResponse == null)
                 {
-                    token = token.Substring(7);
+                    ErrorMessage = "Invalid email or password.";
+                    return Page();
                 }
 
-                var jwtToken = handler.ReadJwtToken(token);
+                var (userEmail, roles) = ExtractUserInfoUltraFast(tokenResponse.AccessToken);
+                await SignInUserOptimized(userEmail, roles, tokenResponse, Input.RememberMe);
 
-                var email = jwtToken.Claims.FirstOrDefault(c => c.Type == "email" || c.Type == ClaimTypes.Email)?.Value
-                          ?? "unknown";
-
-                var roles = jwtToken.Claims
-                    .Where(c => c.Type == "role" || c.Type == ClaimTypes.Role)
-                    .Select(c => c.Value)
-                    .ToList();
-
-                return (email, roles);
+                return RedirectToLocal(returnUrl);
+            }
+            catch (ApiException ex) when (ex.StatusCode == 401 && ex.ErrorCode == "ACCOUNT_DEACTIVATED")
+            {
+                return RedirectToPage("/Unauthorized", new { isDeactivated = true });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error extracting user info from token");
-                return (Input.Email, new List<string>());
+                _logger.LogError(ex, "Login failed for {Email}", Input.Email);
+                ErrorMessage = "Login failed. Please try again.";
+                return Page();
             }
+        }
+
+        private async Task SignInUserOptimized(string email, List<string> roles, TokenResponseDTO tokens, bool rememberMe)
+        {
+            var claims = new List<Claim>(roles.Count + 4)
+            {
+                new(ClaimTypes.Name, email),
+                new(ClaimTypes.Email, email),
+                new("AccessToken", tokens.AccessToken),
+                new("RefreshToken", tokens.RefreshToken)
+            };
+
+            // Pre-allocated role claims
+            foreach (var role in roles)
+            {
+                claims.Add(new(ClaimTypes.Role, role));
+            }
+
+            await HttpContext.SignInAsync(
+                "PortalCookie",
+                new ClaimsPrincipal(new ClaimsIdentity(claims, "PortalCookie")),
+                new AuthenticationProperties
+                {
+                    IsPersistent = rememberMe,
+                    ExpiresUtc = rememberMe ? DateTimeOffset.UtcNow.AddDays(30) : DateTimeOffset.UtcNow.AddHours(8)
+                });
+        }
+
+        private static (string email, List<string> roles) ExtractUserInfoUltraFast(string token)
+        {
+            try
+            {
+                // Ultra-fast token processing with spans
+                ReadOnlySpan<char> tokenSpan = token;
+                if (tokenSpan.StartsWith("Bearer "))
+                {
+                    tokenSpan = tokenSpan.Slice(7);
+                }
+
+                var jwtToken = _tokenHandler.ReadJwtToken(tokenSpan.ToString());
+
+                string? email = null;
+                var roles = new List<string>();
+
+                // Minimal allocation claim processing
+                foreach (var claim in jwtToken.Claims)
+                {
+                    var claimType = claim.Type;
+
+                    if (email == null)
+                    {
+                        if (claimType == "email" || claimType == ClaimTypes.Email)
+                        {
+                            email = claim.Value;
+                            continue;
+                        }
+                    }
+
+                    if (claimType == "role" || claimType == ClaimTypes.Role)
+                    {
+                        roles.Add(claim.Value);
+                    }
+                }
+
+                return (email ?? "unknown", roles);
+            }
+            catch
+            {
+                return ("unknown", new List<string>());
+            }
+        }
+
+        private IActionResult RedirectToLocal(string? returnUrl)
+        {
+            return Url.IsLocalUrl(returnUrl) ? Redirect(returnUrl) : RedirectToPage("/Index");
         }
     }
 }

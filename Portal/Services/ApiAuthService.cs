@@ -1,201 +1,219 @@
 using Shared.DTOs;
-using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
-using static Portal.Services.IApiAuthService;
 
 namespace Portal.Services;
 
 public sealed class ApiAuthService : IApiAuthService
 {
-    private readonly IHttpClientFactory _http;
     private readonly HttpClient _httpClient;
     private readonly ILogger<ApiAuthService> _logger;
-    private readonly JsonSerializerOptions _jsonOptions;
 
-
-    public ApiAuthService(HttpClient httpClient, ILogger<ApiAuthService> logger, IHttpClientFactory http)
+    // Static JSON options for performance
+    private static readonly JsonSerializerOptions _jsonOptions = new()
     {
-        _httpClient = httpClient;
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
+    public ApiAuthService(IHttpClientFactory httpClientFactory, ILogger<ApiAuthService> logger)
+    {
+        _httpClient = httpClientFactory.CreateClient("AuthApi");
         _logger = logger;
-        _jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
-        _http = http;
     }
 
     public async Task<TokenResponseDTO?> LoginAsync(LoginDTO dto, CancellationToken cancellationToken = default)
     {
-        var client = _http.CreateClient("AssetTagApi");
-        using var res = await client.PostAsJsonAsync("api/auth/login", dto, cancellationToken).ConfigureAwait(false);
-        if (!res.IsSuccessStatusCode) return null;
-        return await res.Content.ReadFromJsonAsync<TokenResponseDTO>(cancellationToken: cancellationToken).ConfigureAwait(false);
-        //var token = await res.Content.ReadFromJsonAsync<TokenResponseDTO>(cancellationToken: cancellationToken);
-        //return token;
+        using var response = await _httpClient.PostAsJsonAsync("api/auth/login", dto, _jsonOptions, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                if (errorContent.Contains("ACCOUNT_DEACTIVATED", StringComparison.OrdinalIgnoreCase) ||
+                    errorContent.Contains("\"IsDeactivated\":true", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new ApiException("Account deactivated", 401, "ACCOUNT_DEACTIVATED");
+                }
+            }
+            return null;
+        }
+
+        return await response.Content.ReadFromJsonAsync<TokenResponseDTO>(_jsonOptions, cancellationToken);
     }
 
     public async Task<TokenResponseDTO?> RefreshAsync(string refreshToken, CancellationToken cancellationToken = default)
     {
-        var client = _http.CreateClient("AssetTagApi");
-        var req = new TokenResponseDTO(string.Empty, refreshToken);
-        using var res = await client.PostAsJsonAsync("api/auth/refresh-token", req, cancellationToken).ConfigureAwait(false);
-        if (!res.IsSuccessStatusCode) return null;
-        return await res.Content.ReadFromJsonAsync<TokenResponseDTO>(cancellationToken: cancellationToken).ConfigureAwait(false);
+        var request = new TokenResponseDTO(string.Empty, refreshToken);
+        using var response = await _httpClient.PostAsJsonAsync("api/auth/refresh-token", request, _jsonOptions, cancellationToken);
+
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<TokenResponseDTO>(_jsonOptions, cancellationToken)
+            : null;
     }
 
     public async Task<bool> RegisterAsync(RegisterDTO registerDto, CancellationToken cancellationToken = default)
     {
-        var client = _http.CreateClient("AssetTagApi");
-        using var res = await client.PostAsJsonAsync("api/auth/register", registerDto, cancellationToken).ConfigureAwait(false);
-        return res.IsSuccessStatusCode;
+        using var response = await _httpClient.PostAsJsonAsync("api/auth/register", registerDto, _jsonOptions, cancellationToken);
+        return response.IsSuccessStatusCode;
     }
 
     public async Task<bool> RevokeAsync(string refreshToken, CancellationToken cancellationToken = default)
     {
-        var client = _http.CreateClient("AssetTagApi");
-        var req = new TokenResponseDTO(string.Empty, refreshToken);
-        using var res = await client.PostAsJsonAsync("api/auth/revoke", req, cancellationToken).ConfigureAwait(false);
-        return res.IsSuccessStatusCode;
+        var request = new TokenResponseDTO(string.Empty, refreshToken);
+        using var response = await _httpClient.PostAsJsonAsync("api/auth/revoke", request, _jsonOptions, cancellationToken);
+        return response.IsSuccessStatusCode;
     }
 
     public async Task<ForgotPasswordResponse?> ForgotPasswordAsync(ForgotPasswordDTO dto, CancellationToken cancellationToken = default)
     {
-        var client = _http.CreateClient("AssetTagApi");
-        using var res = await client.PostAsJsonAsync("api/auth/forgot-password", dto, cancellationToken).ConfigureAwait(false);
+        using var response = await _httpClient.PostAsJsonAsync("api/auth/forgot-password", dto, _jsonOptions, cancellationToken);
 
-        if (res.IsSuccessStatusCode)
-        {
-            return await res.Content.ReadFromJsonAsync<ForgotPasswordResponse>(cancellationToken: cancellationToken).ConfigureAwait(false);
-        }
-
-        // Even if not successful, return a default response for security
-        return new ForgotPasswordResponse { Message = "If the email exists, a password reset link has been sent." };
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<ForgotPasswordResponse>(_jsonOptions, cancellationToken)
+            : new ForgotPasswordResponse { Message = "If the email exists, a password reset link has been sent." };
     }
 
     public async Task<ResetPasswordResponse?> ResetPasswordAsync(ResetPasswordDTO dto, CancellationToken cancellationToken = default)
     {
-        var client = _http.CreateClient("AssetTagApi");
-        using var res = await client.PostAsJsonAsync("api/auth/reset-password", dto, cancellationToken).ConfigureAwait(false);
+        using var response = await _httpClient.PostAsJsonAsync("api/auth/reset-password", dto, _jsonOptions, cancellationToken);
 
-        if (res.IsSuccessStatusCode)
+        if (response.IsSuccessStatusCode)
         {
-            return new ResetPasswordResponse { Success = true, Message = "Password has been reset successfully." };
-        }
-        else
-        {
-            // Try to read error message from response
-            var errorResponse = await res.Content.ReadFromJsonAsync<ErrorResponse>(cancellationToken: cancellationToken).ConfigureAwait(false);
-            return new ResetPasswordResponse
-            {
-                Success = false,
-                Message = errorResponse?.Message ?? "Failed to reset password. The link may have expired."
-            };
+            return new ResetPasswordResponse { Success = true, Message = "Password reset successfully." };
         }
 
+        var errorMessage = await GetErrorMessageFast(response, cancellationToken);
+        return new ResetPasswordResponse
+        {
+            Success = false,
+            Message = errorMessage ?? "Failed to reset password. The link may have expired."
+        };
     }
-
-
-
 
     public async Task<ApiResponse<string>> RegisterWithInvitationAsync(RegisterWithInvitationDTO dto)
     {
         try
         {
-            _logger.LogInformation("Attempting to register user with invitation for email: {Email}", dto.Email);
+            _logger.LogInformation("Registering user with invitation: {Email}", dto.Email);
 
-            var client = _http.CreateClient("AssetTagApi");
-            var response = await client.PostAsJsonAsync("api/auth/register-with-invitation", dto);
-            var content = await response.Content.ReadAsStringAsync();
-
-            _logger.LogInformation("Registration response status: {StatusCode}, content: {Content}",
-                response.StatusCode, content);
+            using var response = await _httpClient.PostAsJsonAsync("api/auth/register-with-invitation", dto, _jsonOptions);
 
             if (response.IsSuccessStatusCode)
             {
-                // Try to parse the success response
-                try
-                {
-                    var successResponse = JsonSerializer.Deserialize<AuthSuccessResponse>(content, _jsonOptions);
-                    return new ApiResponse<string>
-                    {
-                        Success = true,
-                        Message = successResponse?.Message ?? "Registration successful."
-                    };
-                }
-                catch (JsonException)
-                {
-                    // Fallback if response format is different
-                    return new ApiResponse<string>
-                    {
-                        Success = true,
-                        Message = "Registration successful!"
-                    };
-                }
-            }
-            else
-            {
-                // Try to parse error response
-                try
-                {
-                    var errorResponse = JsonSerializer.Deserialize<AuthErrorResponse>(content, _jsonOptions);
-                    if (errorResponse != null)
-                    {
-                        // Combine message and errors if available
-                        var errorMessage = errorResponse.Message;
-                        if (errorResponse.Errors != null && errorResponse.Errors.Any())
-                        {
-                            errorMessage += " " + string.Join(" ", errorResponse.Errors);
-                        }
-
-                        return new ApiResponse<string>
-                        {
-                            Success = false,
-                            Message = errorMessage
-                        };
-                    }
-                }
-                catch (JsonException)
-                {
-                    // Fallback error message
-                    _logger.LogWarning("Failed to parse error response: {Content}", content);
-                }
-
-                // Default error message based on status code
                 return new ApiResponse<string>
                 {
-                    Success = false,
-                    Message = response.StatusCode switch
-                    {
-                        System.Net.HttpStatusCode.BadRequest => "Invalid registration data. Please check your information.",
-                        System.Net.HttpStatusCode.Conflict => "A user with this email already exists.",
-                        System.Net.HttpStatusCode.NotFound => "Invalid or expired invitation.",
-                        _ => "Failed to register. Please try again."
-                    }
+                    Success = true,
+                    Message = "Registration successful!"
                 };
             }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error registering with invitation for {Email}", dto.Email);
+
+            var error = await GetRegistrationErrorFast(response);
             return new ApiResponse<string>
             {
                 Success = false,
-                Message = $"An error occurred during registration: {ex.Message}"
+                Message = error
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Registration error for {Email}", dto.Email);
+            return new ApiResponse<string>
+            {
+                Success = false,
+                Message = "Registration failed. Please try again."
             };
         }
     }
 
-    // Helper classes for response parsing
-    private class AuthSuccessResponse
+    #region Performance Optimized Helper Methods
+
+   
+
+    private static async Task<string?> GetErrorMessageFast(HttpResponseMessage response, CancellationToken cancellationToken)
     {
-        public string Message { get; set; } = string.Empty;
+        try
+        {
+            var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponse>(_jsonOptions, cancellationToken);
+            return errorResponse?.Message;
+        }
+        catch
+        {
+            return response.StatusCode switch
+            {
+                System.Net.HttpStatusCode.BadRequest => "Invalid reset data.",
+                System.Net.HttpStatusCode.NotFound => "Invalid or expired reset link.",
+                _ => "Failed to reset password."
+            };
+        }
     }
 
-    private class AuthErrorResponse
+    private async Task<string> GetRegistrationErrorFast(HttpResponseMessage response)
+    {
+        try
+        {
+            var content = await response.Content.ReadAsStringAsync();
+
+            // Quick check for common error patterns
+            if (content.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+                return "A user with this email already exists.";
+
+            if (content.Contains("invitation", StringComparison.OrdinalIgnoreCase) &&
+                content.Contains("invalid", StringComparison.OrdinalIgnoreCase))
+                return "Invalid or expired invitation.";
+
+            if (content.Contains("username", StringComparison.OrdinalIgnoreCase) &&
+                content.Contains("taken", StringComparison.OrdinalIgnoreCase))
+                return "Username is already taken.";
+
+            // Structured parsing fallback
+            var errorResponse = JsonSerializer.Deserialize<AuthErrorResponse>(content, _jsonOptions);
+            if (errorResponse != null)
+            {
+                var message = errorResponse.Message;
+                if (errorResponse.Errors != null && errorResponse.Errors.Any())
+                {
+                    message += " " + string.Join(" ", errorResponse.Errors.Take(2));
+                }
+                return message;
+            }
+
+            return response.StatusCode switch
+            {
+                System.Net.HttpStatusCode.BadRequest => "Invalid registration data.",
+                System.Net.HttpStatusCode.Conflict => "User already exists.",
+                System.Net.HttpStatusCode.NotFound => "Invalid invitation.",
+                _ => "Registration failed."
+            };
+        }
+        catch
+        {
+            return "Registration failed. Please try again.";
+        }
+    }
+
+    #endregion
+
+    #region Response Helper Classes
+
+    private sealed class AuthErrorResponse
     {
         public string Message { get; set; } = string.Empty;
-        public IEnumerable<string> Errors { get; set; } = Enumerable.Empty<string>();
+        public IEnumerable<string>? Errors { get; set; }
     }
+
+    public sealed class ApiException : Exception
+    {
+        public int StatusCode { get; }
+        public string? ErrorCode { get; }
+
+        public ApiException(string message, int statusCode, string? errorCode = null) : base(message)
+        {
+            StatusCode = statusCode;
+            ErrorCode = errorCode;
+        }
+    }
+
+    #endregion
 }
-   

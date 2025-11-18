@@ -18,8 +18,12 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
+options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection") + ";MultipleActiveResultSets=true",
+        sqlOptions =>
+        {
+            sqlOptions.EnableRetryOnFailure(3, TimeSpan.FromSeconds(5), null);
+        }));
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
     options.Password.RequireDigit = true;

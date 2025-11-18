@@ -58,7 +58,7 @@ namespace AssetTag.Controllers
         //        .SingleOrDefaultAsync(u => u.Email == dto.Email);
 
         //    if (user == null || !await _userManager.CheckPasswordAsync(user, dto.Password))
-        //        {
+        //    {
         //        return Unauthorized(new { Message = "Invalid email or password." });
         //    }
 
@@ -70,62 +70,83 @@ namespace AssetTag.Controllers
         //    user.RefreshTokens.Add(refreshToken);
         //    await _userManager.UpdateAsync(user);
 
-        //    return Ok (new TokenResponseDTO(accessToken, refreshToken.Token));
+        //    return Ok(new TokenResponseDTO(accessToken, refreshToken.Token));
         //}
 
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDTO dto)
         {
-            // Single optimized query - MINIMAL DATA
-            var user = await _userManager.Users
-                .Where(u => u.Email == dto.Email)
-                .Select(u => new {
-                    u.Id,
-                    u.PasswordHash,
-                    u.IsActive
-                })
-                .AsNoTracking() // Critical for performance
-                .SingleOrDefaultAsync();
-
-            if (user == null)
+            try
             {
-                return Unauthorized(new { Message = "Invalid email or password." });
-            }
+                // Single query that gets everything needed
+                var userData = await _userManager.Users
+                    .AsNoTracking()
+                    .Where(u => u.Email == dto.Email)
+                    .Select(u => new
+                    {
+                        u.Id,
+                        u.PasswordHash,
+                        u.IsActive,
+                        u.UserName,
+                        u.Email,
+                        u.SecurityStamp
+                    })
+                    .FirstOrDefaultAsync();
 
-            // Check deactivation FIRST - fastest path for deactivated users
-            if (!user.IsActive)
-            {
-                return Unauthorized(new
+                if (userData == null)
                 {
-                    Message = "Your account has been deactivated. Please contact your administrator.",
-                    Code = "ACCOUNT_DEACTIVATED"
-                });
+                    return Unauthorized(new { Message = "Invalid email or password." });
+                }
+
+                // Check deactivation status
+                if (!userData.IsActive)
+                {
+                    return Unauthorized(new
+                    {
+                        Message = "Account deactivated. Contact administrator.",
+                        Code = "ACCOUNT_DEACTIVATED",
+                        IsDeactivated = true
+                    });
+                }
+
+                // Password verification
+                if (!VerifyPassword(userData.PasswordHash, dto.Password))
+                {
+                    return Unauthorized(new { Message = "Invalid email or password." });
+                }
+
+                // Get roles separately (avoid DataReader conflict)
+                var userForRoles = await _userManager.FindByIdAsync(userData.Id);
+                var roles = await _userManager.GetRolesAsync(userForRoles);
+
+                // Create tokens
+                var accessToken = _tokenService.CreateAccessToken(userForRoles, roles);
+                var refreshToken = _tokenService.CreateRefreshToken(GetIpAddress());
+
+                // Add refresh token
+                userForRoles.RefreshTokens.Add(refreshToken);
+                await _userManager.UpdateAsync(userForRoles);
+
+                return Ok(new TokenResponseDTO(accessToken, refreshToken.Token));
             }
-
-            // Local password verification - NO DATABASE QUERY
-            var passwordHasher = new PasswordHasher<ApplicationUser>();
-            var passwordResult = passwordHasher.VerifyHashedPassword(null, user.PasswordHash, dto.Password);
-
-            if (passwordResult == PasswordVerificationResult.Failed)
+            catch (Exception ex)
             {
-                return Unauthorized(new { Message = "Invalid email or password." });
+                _logger.LogError(ex, "Login error for {Email}", dto.Email);
+                return StatusCode(500, new { Message = "An error occurred during login." });
             }
-
-            // Only NOW get full user data for token generation
-            var fullUser = await _userManager.Users
-                .Include(u => u.RefreshTokens)
-                .SingleOrDefaultAsync(u => u.Id == user.Id);
-
-            var roles = await _userManager.GetRolesAsync(fullUser);
-            var accessToken = _tokenService.CreateAccessToken(fullUser, roles);
-            var refreshToken = _tokenService.CreateRefreshToken(GetIpAddress());
-
-            fullUser.RefreshTokens.Add(refreshToken);
-            await _userManager.UpdateAsync(fullUser);
-
-            return Ok(new TokenResponseDTO(accessToken, refreshToken.Token));
         }
+
+        // Static password verifier for performance
+        private static readonly PasswordHasher<ApplicationUser> _passwordHasher = new();
+        private static bool VerifyPassword(string? passwordHash, string password)
+        {
+            return passwordHash != null &&
+                   _passwordHasher.VerifyHashedPassword(null, passwordHash, password)
+                   != PasswordVerificationResult.Failed;
+        }
+
+
 
         [HttpPost("refresh-token")]
         public async Task<IActionResult> RefreshToken([FromBody] TokenResponseDTO dto)

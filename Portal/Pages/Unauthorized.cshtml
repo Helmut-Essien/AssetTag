@@ -2,46 +2,84 @@
 @model Portal.Pages.UnauthorizedModel
 @{
     Layout = "_AuthLayout";
-    ViewData["Title"] = "Unauthorized Access";
+    ViewData["Title"] = Model.IsDeactivated ? "Account Deactivated" : "Unauthorized Access";
 }
 
 <!-- Logo with shield inspiration -->
 <img src="~/Resources/mlogo.jpeg" alt="Methodist University Ghana Logo" class="logo-img mb-4" />
-<h1 class="h4 fw-bold">Access Denied</h1>
-<p class="text-muted">You don't have permission to access this resource</p>
+
+@if (Model.IsDeactivated)
+{
+    <h1 class="h4 fw-bold text-danger">Account Deactivated</h1>
+    <p class="text-muted">Your account has been deactivated</p>
+}
+else
+{
+    <h1 class="h4 fw-bold">Access Denied</h1>
+    <p class="text-muted">You don't have permission to access this resource</p>
+}
+
 <p class="values">Excellence • Morality • Service</p>
 
 <!-- Main Content Card -->
 <div class="card shadow-sm border-0">
     <div class="card-body p-4 text-center">
-        <!-- Warning Icon -->
-        <div class="mb-4">
-            <div class="unauthorized-icon">
-                <i class="bi bi-shield-lock"></i>
+        @if (Model.IsDeactivated)
+        {
+            <!-- Deactivated Account Icon -->
+            <div class="mb-4">
+                <div class="unauthorized-icon bg-danger">
+                    <i class="bi bi-person-x"></i>
+                </div>
             </div>
-        </div>
 
-        <!-- Message -->
-        <h2 class="h5 fw-bold text-warning mb-3">Unauthorized Access</h2>
-        <p class="text-muted mb-4">
-            You don't have the required permissions to access this page.
-            Please contact your administrator if you believe this is an error.
-        </p>
+            <!-- Deactivated Message -->
+            <h2 class="h5 fw-bold text-danger mb-3">Account Deactivated</h2>
+            <p class="text-muted mb-4">
+                Your account has been deactivated. Please contact your administrator
+                to reactivate your account.
+            </p>
 
-        <!-- Additional Information -->
-        <div class="alert alert-light border mb-4">
-            <small class="text-muted">
-                <i class="bi bi-info-circle me-2"></i>
-                This could be due to insufficient privileges or your session has expired.
-            </small>
-        </div>
+            <!-- Additional Information -->
+            <div class="alert alert-light border mb-4">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Deactivated accounts cannot sign in to the system.
+                </small>
+            </div>
+        }
+        else
+        {
+            <!-- Regular Unauthorized Content -->
+            <div class="mb-4">
+                <div class="unauthorized-icon">
+                    <i class="bi bi-shield-lock"></i>
+                </div>
+            </div>
+
+            <h2 class="h5 fw-bold text-warning mb-3">Unauthorized Access</h2>
+            <p class="text-muted mb-4">
+                You don't have the required permissions to access this page.
+                Please contact your administrator if you believe this is an error.
+            </p>
+
+            <div class="alert alert-light border mb-4">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle me-2"></i>
+                    This could be due to insufficient privileges or your session has expired.
+                </small>
+            </div>
+        }
 
         <!-- Action Buttons -->
         <div class="d-grid gap-2">
-            <a asp-page="/Account/Login" class="btn btn-primary btn-lg button">
-                <i class="bi bi-box-arrow-in-right me-2"></i>
-                <span class="button__text">Sign In Again</span>
-            </a>
+            @if (!Model.IsDeactivated)
+            {
+                <a asp-page="/Account/Login" class="btn btn-primary btn-lg button">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>
+                    <span class="button__text">Sign In Again</span>
+                </a>
+            }
 
             <a asp-page="/Index" class="btn btn-outline-secondary btn-lg">
                 <i class="bi bi-house me-2"></i>
@@ -65,29 +103,7 @@
     </div>
 </div>
 
-<!-- Additional Information Section -->
-<div class="text-center mt-4">
-    <div class="row">
-        <div class="col-md-4 mb-3">
-            <div class="d-flex align-items-center justify-content-center">
-                <i class="bi bi-shield-check text-primary me-2"></i>
-                <small class="text-muted">Secure Access</small>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="d-flex align-items-center justify-content-center">
-                <i class="bi bi-person-gear text-primary me-2"></i>
-                <small class="text-muted">Role-Based Permissions</small>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="d-flex align-items-center justify-content-center">
-                <i class="bi bi-patch-check text-primary me-2"></i>
-                <small class="text-muted">University Standards</small>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Rest of your existing styles and scripts -->
 
 <style>
     .unauthorized-icon {

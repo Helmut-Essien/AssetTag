@@ -1,78 +1,75 @@
 ﻿using AssetTag.Models;
+using AssetTag.Services;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace AssetTag.Services
+public class TokenService : ITokenService
 {
-    public class TokenService : ITokenService
+    private readonly SymmetricSecurityKey _key;
+    private readonly SigningCredentials _creds;
+    private readonly string _issuer;
+    private readonly string _audience;
+    private readonly int _accessTokenExpirationMinutes;
+    private readonly int _refreshTokenExpirationDays;
+    private readonly JwtSecurityTokenHandler _tokenHandler;
+
+    public TokenService(IConfiguration configuration)
     {
-        private readonly IConfiguration _configuration;
-        private readonly SymmetricSecurityKey _key;
-        private readonly SigningCredentials _creds;
-        private readonly string _issuer;
-        private readonly string _audience;
-        private readonly double _accessTokenExpirationMinutes;
-        private readonly double _refreshTokenExpirationDays;
+        var jwtsettings = configuration.GetSection("JwtSettings");
+        var keyBytes = Encoding.UTF8.GetBytes(jwtsettings["securitykey"]!);
 
-        public TokenService(IConfiguration configuration)
+        _key = new SymmetricSecurityKey(keyBytes);
+        _creds = new SigningCredentials(_key, SecurityAlgorithms.HmacSha256);
+        _issuer = jwtsettings["Issuer"]!;
+        _audience = jwtsettings["Audience"]!;
+        _accessTokenExpirationMinutes = int.Parse(jwtsettings["AccessTokenExpirationMinutes"]!);
+        _refreshTokenExpirationDays = int.Parse(jwtsettings["RefreshTokenExpirationDays"]!);
+        _tokenHandler = new JwtSecurityTokenHandler();
+    }
+
+    public string CreateAccessToken(ApplicationUser user, IList<string> roles)
+    {
+        var claims = new List<Claim>(roles.Count + 6)
         {
-            _configuration = configuration;
-            var jwtsettings = _configuration.GetSection("JwtSettings");
+            new Claim(JwtRegisteredClaimNames.Sub, user.Id),
+            new Claim(JwtRegisteredClaimNames.UniqueName, user.UserName ?? ""),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new Claim(ClaimTypes.NameIdentifier, user.Id),
+            new Claim("is_active", user.IsActive ? "true" : "false"),
+            new Claim("security_stamp", user.SecurityStamp ?? "")
+        };
 
-            // Cache these values to avoid repeated configuration lookups
-            _key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtsettings["securitykey"]!));
-            _creds = new SigningCredentials(_key, SecurityAlgorithms.HmacSha256);
-            _issuer = jwtsettings["Issuer"]!;
-            _audience = jwtsettings["Audience"]!;
-            _accessTokenExpirationMinutes = double.Parse(jwtsettings["AccessTokenExpirationMinutes"]!);
-            _refreshTokenExpirationDays = double.Parse(jwtsettings["RefreshTokenExpirationDays"]!);
+        // Add roles
+        foreach (var role in roles)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, role));
         }
 
-        public string CreateAccessToken(ApplicationUser user, IList<string> roles)
+        var token = new JwtSecurityToken(
+            issuer: _issuer,
+            audience: _audience,
+            claims: claims,
+            expires: DateTime.UtcNow.AddMinutes(_accessTokenExpirationMinutes),
+            signingCredentials: _creds
+        );
+
+        return _tokenHandler.WriteToken(token);
+    }
+
+    public RefreshTokens CreateRefreshToken(string ipAddress)
+    {
+        var randomBytes = new byte[48];
+        RandomNumberGenerator.Fill(randomBytes);
+
+        return new RefreshTokens
         {
-            var claims = new List<Claim>
-            {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id),
-                new Claim(JwtRegisteredClaimNames.UniqueName, user.UserName ?? ""),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim(ClaimTypes.NameIdentifier, user.Id),
-                new Claim("is_active", user.IsActive.ToString().ToLower()),
-                new Claim("security_stamp", user.SecurityStamp ?? string.Empty)
-            };
-
-            // Add roles efficiently
-            foreach (var role in roles)
-            {
-                claims.Add(new Claim(ClaimTypes.Role, role));
-            }
-
-            var token = new JwtSecurityToken(
-                issuer: _issuer,
-                audience: _audience,
-                claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(_accessTokenExpirationMinutes),
-                signingCredentials: _creds
-            );
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
-        }
-
-        public RefreshTokens CreateRefreshToken(string ipAddress)
-        {
-            var randomBytes = new byte[64];
-            using var rng = RandomNumberGenerator.Create();
-            rng.GetBytes(randomBytes);
-
-            return new RefreshTokens
-            {
-                Token = Convert.ToBase64String(randomBytes),
-                Expires = DateTime.UtcNow.AddDays(_refreshTokenExpirationDays),
-                Created = DateTime.UtcNow,
-                CreatedByIp = ipAddress
-            };
-        }
+            Token = Convert.ToBase64String(randomBytes),
+            Expires = DateTime.UtcNow.AddDays(_refreshTokenExpirationDays),
+            Created = DateTime.UtcNow,
+            CreatedByIp = ipAddress
+        };
     }
 }

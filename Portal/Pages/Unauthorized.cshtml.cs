@@ -5,14 +5,29 @@ namespace Portal.Pages
 {
     public class UnauthorizedModel : PageModel
     {
-        public string? ReturnUrl { get; set; }
+        private readonly ILogger<UnauthorizedModel> _logger;
 
-        public void OnGet(string? returnUrl = null)
+        public UnauthorizedModel(ILogger<UnauthorizedModel> logger)
         {
-            ReturnUrl = returnUrl;
+            _logger = logger;
+        }
 
-            // Log unauthorized access attempt
-            // You can add logging here if needed
+        public bool IsDeactivated { get; private set; }
+        public string? Message { get; private set; }
+
+        public void OnGet(bool isDeactivated = false, string? message = null)
+        {
+            IsDeactivated = isDeactivated;
+            Message = message;
+
+            if (isDeactivated)
+            {
+                _logger.LogWarning("Deactivated account access attempt from IP: {IP}", HttpContext.Connection.RemoteIpAddress);
+            }
+            else
+            {
+                _logger.LogWarning("Unauthorized access attempt from IP: {IP}", HttpContext.Connection.RemoteIpAddress);
+            }
         }
     }
 }
