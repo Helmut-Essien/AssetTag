@@ -274,6 +274,121 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Financial Information Section -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h6 class="border-bottom pb-2">Financial Information</h6>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label asp-for="CreateDto.CostPerUnit" class="form-label"></label>
+                                <input asp-for="CreateDto.CostPerUnit" type="number" step="0.01" class="form-control" />
+                                <span asp-validation-for="CreateDto.CostPerUnit" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label asp-for="CreateDto.TotalCost" class="form-label"></label>
+                                <input asp-for="CreateDto.TotalCost" type="number" step="0.01" class="form-control" />
+                                <span asp-validation-for="CreateDto.TotalCost" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label asp-for="CreateDto.DepreciationRate" class="form-label"></label>
+                                <input asp-for="CreateDto.DepreciationRate" type="number" step="0.01" class="form-control" />
+                                <span asp-validation-for="CreateDto.DepreciationRate" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label asp-for="CreateDto.AccumulatedDepreciation" class="form-label"></label>
+                                <input asp-for="CreateDto.AccumulatedDepreciation" type="number" step="0.01" class="form-control" />
+                                <span asp-validation-for="CreateDto.AccumulatedDepreciation" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label asp-for="CreateDto.NetBookValue" class="form-label"></label>
+                                <input asp-for="CreateDto.NetBookValue" type="number" step="0.01" class="form-control" />
+                                <span asp-validation-for="CreateDto.NetBookValue" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label asp-for="CreateDto.UsefulLifeYears" class="form-label"></label>
+                                <input asp-for="CreateDto.UsefulLifeYears" type="number" class="form-control" />
+                                <span asp-validation-for="CreateDto.UsefulLifeYears" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Fields Section -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h6 class="border-bottom pb-2">Additional Information</h6>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label asp-for="CreateDto.VendorName" class="form-label"></label>
+                                <input asp-for="CreateDto.VendorName" class="form-control" />
+                                <span asp-validation-for="CreateDto.VendorName" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label asp-for="CreateDto.InvoiceNumber" class="form-label"></label>
+                                <input asp-for="CreateDto.InvoiceNumber" class="form-control" />
+                                <span asp-validation-for="CreateDto.InvoiceNumber" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label asp-for="CreateDto.WarrantyExpiry" class="form-label"></label>
+                                <input asp-for="CreateDto.WarrantyExpiry" type="date" class="form-control" />
+                                <span asp-validation-for="CreateDto.WarrantyExpiry" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label asp-for="CreateDto.DisposalDate" class="form-label"></label>
+                                <input asp-for="CreateDto.DisposalDate" type="date" class="form-control" />
+                                <span asp-validation-for="CreateDto.DisposalDate" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label asp-for="CreateDto.DisposalValue" class="form-label"></label>
+                                <input asp-for="CreateDto.DisposalValue" type="number" step="0.01" class="form-control" />
+                                <span asp-validation-for="CreateDto.DisposalValue" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label asp-for="CreateDto.Remarks" class="form-label"></label>
+                                <textarea asp-for="CreateDto.Remarks" class="form-control" rows="2"></textarea>
+                                <span asp-validation-for="CreateDto.Remarks" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
 
                     <button type="submit" class="btn btn-success">Create</button>
                 </form>
@@ -429,6 +544,121 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Financial Information Section -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h6 class="border-bottom pb-2">Financial Information</h6>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label asp-for="UpdateDto.CostPerUnit" class="form-label"></label>
+                                <input asp-for="UpdateDto.CostPerUnit" type="number" step="0.01" class="form-control" />
+                                <span asp-validation-for="UpdateDto.CostPerUnit" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label asp-for="UpdateDto.TotalCost" class="form-label"></label>
+                                <input asp-for="UpdateDto.TotalCost" type="number" step="0.01" class="form-control" />
+                                <span asp-validation-for="UpdateDto.TotalCost" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label asp-for="UpdateDto.DepreciationRate" class="form-label"></label>
+                                <input asp-for="UpdateDto.DepreciationRate" type="number" step="0.01" class="form-control" />
+                                <span asp-validation-for="UpdateDto.DepreciationRate" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label asp-for="UpdateDto.AccumulatedDepreciation" class="form-label"></label>
+                                <input asp-for="UpdateDto.AccumulatedDepreciation" type="number" step="0.01" class="form-control" />
+                                <span asp-validation-for="UpdateDto.AccumulatedDepreciation" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label asp-for="UpdateDto.NetBookValue" class="form-label"></label>
+                                <input asp-for="UpdateDto.NetBookValue" type="number" step="0.01" class="form-control" />
+                                <span asp-validation-for="UpdateDto.NetBookValue" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label asp-for="UpdateDto.UsefulLifeYears" class="form-label"></label>
+                                <input asp-for="UpdateDto.UsefulLifeYears" type="number" class="form-control" />
+                                <span asp-validation-for="UpdateDto.UsefulLifeYears" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Fields Section -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h6 class="border-bottom pb-2">Additional Information</h6>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label asp-for="UpdateDto.VendorName" class="form-label"></label>
+                                <input asp-for="UpdateDto.VendorName" class="form-control" />
+                                <span asp-validation-for="UpdateDto.VendorName" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label asp-for="UpdateDto.InvoiceNumber" class="form-label"></label>
+                                <input asp-for="UpdateDto.InvoiceNumber" class="form-control" />
+                                <span asp-validation-for="UpdateDto.InvoiceNumber" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label asp-for="UpdateDto.WarrantyExpiry" class="form-label"></label>
+                                <input asp-for="UpdateDto.WarrantyExpiry" type="date" class="form-control" />
+                                <span asp-validation-for="UpdateDto.WarrantyExpiry" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label asp-for="UpdateDto.DisposalDate" class="form-label"></label>
+                                <input asp-for="UpdateDto.DisposalDate" type="date" class="form-control" />
+                                <span asp-validation-for="UpdateDto.DisposalDate" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label asp-for="UpdateDto.DisposalValue" class="form-label"></label>
+                                <input asp-for="UpdateDto.DisposalValue" type="number" step="0.01" class="form-control" />
+                                <span asp-validation-for="UpdateDto.DisposalValue" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label asp-for="UpdateDto.Remarks" class="form-label"></label>
+                                <textarea asp-for="UpdateDto.Remarks" class="form-control" rows="2"></textarea>
+                                <span asp-validation-for="UpdateDto.Remarks" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
 
                     <button type="submit" class="btn btn-success">Update</button>
                 </form>
@@ -460,28 +690,45 @@
 @section Scripts {
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Edit Modal
-            var editModal = document.getElementById('editModal');
-            if (editModal) {
-                editModal.addEventListener('show.bs.modal', function (event) {
-                    var button = event.relatedTarget;
+                    // Edit Modal
+        var editModal = document.getElementById('editModal');
+        if (editModal) {
+            editModal.addEventListener('show.bs.modal', function (event) {
+                var button = event.relatedTarget;
 
-                    document.getElementById('UpdateDto_AssetId').value = button.getAttribute('data-id');
-                    document.getElementById('UpdateDto_AssetTag').value = button.getAttribute('data-assettag') || '';
-                    document.getElementById('UpdateDto_Name').value = button.getAttribute('data-name') || '';
-                    document.getElementById('UpdateDto_Description').value = button.getAttribute('data-desc') || '';
-                    document.getElementById('UpdateDto_CategoryId').value = button.getAttribute('data-categoryid') || '';
-                    document.getElementById('UpdateDto_LocationId').value = button.getAttribute('data-locationid') || '';
-                    document.getElementById('UpdateDto_DepartmentId').value = button.getAttribute('data-departmentid') || '';
-                    document.getElementById('UpdateDto_PurchaseDate').value = button.getAttribute('data-purchasedate') || '';
-                    document.getElementById('UpdateDto_PurchasePrice').value = button.getAttribute('data-purchaseprice') || '';
-                    document.getElementById('UpdateDto_CurrentValue').value = button.getAttribute('data-currentvalue') || '';
-                    document.getElementById('UpdateDto_Status').value = button.getAttribute('data-status') || '';
-                    document.getElementById('UpdateDto_SerialNumber').value = button.getAttribute('data-serialnumber') || '';
-                    document.getElementById('UpdateDto_Condition').value = button.getAttribute('data-condition') || '';
-                    document.getElementById('UpdateDto_Quantity').value = button.getAttribute('data-quantity') || '1';
-                });
-            }
+                // Set basic fields
+                document.getElementById('UpdateDto_AssetId').value = button.getAttribute('data-id');
+                document.getElementById('UpdateDto_AssetTag').value = button.getAttribute('data-assettag') || '';
+                document.getElementById('UpdateDto_Name').value = button.getAttribute('data-name') || '';
+                document.getElementById('UpdateDto_Description').value = button.getAttribute('data-desc') || '';
+                document.getElementById('UpdateDto_CategoryId').value = button.getAttribute('data-categoryid') || '';
+                document.getElementById('UpdateDto_LocationId').value = button.getAttribute('data-locationid') || '';
+                document.getElementById('UpdateDto_DepartmentId').value = button.getAttribute('data-departmentid') || '';
+                document.getElementById('UpdateDto_PurchaseDate').value = button.getAttribute('data-purchasedate') || '';
+                document.getElementById('UpdateDto_PurchasePrice').value = button.getAttribute('data-purchaseprice') || '';
+                document.getElementById('UpdateDto_CurrentValue').value = button.getAttribute('data-currentvalue') || '';
+                document.getElementById('UpdateDto_Status').value = button.getAttribute('data-status') || '';
+                document.getElementById('UpdateDto_SerialNumber').value = button.getAttribute('data-serialnumber') || '';
+                document.getElementById('UpdateDto_Condition').value = button.getAttribute('data-condition') || '';
+                document.getElementById('UpdateDto_Quantity').value = button.getAttribute('data-quantity') || '1';
+
+                // Set financial fields
+                document.getElementById('UpdateDto_CostPerUnit').value = button.getAttribute('data-costperunit') || '';
+                document.getElementById('UpdateDto_TotalCost').value = button.getAttribute('data-totalcost') || '';
+                document.getElementById('UpdateDto_DepreciationRate').value = button.getAttribute('data-depreciationrate') || '';
+                document.getElementById('UpdateDto_AccumulatedDepreciation').value = button.getAttribute('data-accumulateddepreciation') || '';
+                document.getElementById('UpdateDto_NetBookValue').value = button.getAttribute('data-netbookvalue') || '';
+                document.getElementById('UpdateDto_UsefulLifeYears').value = button.getAttribute('data-usefullifeyears') || '';
+
+                // Set additional fields
+                document.getElementById('UpdateDto_VendorName').value = button.getAttribute('data-vendorname') || '';
+                document.getElementById('UpdateDto_InvoiceNumber').value = button.getAttribute('data-invoicenumber') || '';
+                document.getElementById('UpdateDto_WarrantyExpiry').value = button.getAttribute('data-warrantyexpiry') || '';
+                document.getElementById('UpdateDto_DisposalDate').value = button.getAttribute('data-disposaldate') || '';
+                document.getElementById('UpdateDto_DisposalValue').value = button.getAttribute('data-disposalvalue') || '';
+                document.getElementById('UpdateDto_Remarks').value = button.getAttribute('data-remarks') || '';
+            });
+        }
 
             // Delete Modal
             var deleteModal = document.getElementById('deleteModal');
