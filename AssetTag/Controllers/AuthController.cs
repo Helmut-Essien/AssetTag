@@ -2,7 +2,6 @@
 using AssetTag.Models;
 using AssetTag.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,24 +11,23 @@ namespace AssetTag.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class AuthController : ControllerBase
+    public class AuthController(
+        UserManager<ApplicationUser> userManager,
+        ApplicationDbContext context,
+        ITokenService tokenService,
+        IEmailService emailService,
+        IConfiguration configuration,
+        ILogger<AuthController> logger) : ControllerBase
     {
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly ApplicationDbContext _context;
-        private readonly ITokenService _tokenService;
-        private readonly IEmailService _emailService;
-        private readonly IConfiguration _configuration;
-        private readonly ILogger<AuthController> _logger;
+        private readonly UserManager<ApplicationUser> _userManager = userManager;
+        private readonly ApplicationDbContext _context = context;
+        private readonly ITokenService _tokenService = tokenService;
+        private readonly IEmailService _emailService = emailService;
+        private readonly IConfiguration _configuration = configuration;
+        private readonly ILogger<AuthController> _logger = logger;
 
-        public AuthController(UserManager<ApplicationUser> userManager, ApplicationDbContext context, ITokenService tokenService,IEmailService emailService, IConfiguration configuration, ILogger<AuthController> logger)
-        {
-            _userManager = userManager;
-            _context = context;
-            _tokenService = tokenService;
-            _emailService = emailService;
-            _configuration = configuration;
-            _logger = logger;
-        }
+        // Static password verifier for performance
+        private static readonly PasswordHasher<ApplicationUser> _passwordHasher = new();
 
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDTO dto)
@@ -43,61 +41,25 @@ namespace AssetTag.Controllers
             };
 
             var result = await _userManager.CreateAsync(user, dto.Password);
-            if (!result.Succeeded)
-            {
-                return BadRequest(result.Errors);
-            }
-            return Ok("User registered successfully.");
+            return !result.Succeeded
+                ? BadRequest(result.Errors)
+                : Ok("User registered successfully.");
         }
-
-        //[HttpPost("login")]
-        //public async Task<IActionResult> Login([FromBody] LoginDTO dto)
-        //{
-        //    var user = await _userManager.Users
-        //        .Include(u => u.RefreshTokens)
-        //        .SingleOrDefaultAsync(u => u.Email == dto.Email);
-
-        //    if (user == null || !await _userManager.CheckPasswordAsync(user, dto.Password))
-        //    {
-        //        return Unauthorized(new { Message = "Invalid email or password." });
-        //    }
-
-        //    var roles = await _userManager.GetRolesAsync(user);
-        //    var accessToken = _tokenService.CreateAccessToken(user, roles);
-
-        //    var refreshToken = _tokenService.CreateRefreshToken(GetIpAddress());
-
-        //    user.RefreshTokens.Add(refreshToken);
-        //    await _userManager.UpdateAsync(user);
-
-        //    return Ok(new TokenResponseDTO(accessToken, refreshToken.Token));
-        //}
-
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDTO dto)
         {
             try
             {
-                // Single query that gets everything needed
+                // Single optimized query with projection
                 var userData = await _userManager.Users
                     .AsNoTracking()
                     .Where(u => u.Email == dto.Email)
-                    .Select(u => new
-                    {
-                        u.Id,
-                        u.PasswordHash,
-                        u.IsActive,
-                        u.UserName,
-                        u.Email,
-                        u.SecurityStamp
-                    })
+                    .Select(u => new { u.Id, u.PasswordHash, u.IsActive, u.UserName, u.Email })
                     .FirstOrDefaultAsync();
 
-                if (userData == null)
-                {
+                if (userData is null)
                     return Unauthorized(new { Message = "Invalid email or password." });
-                }
 
                 // Check deactivation status
                 if (!userData.IsActive)
@@ -112,21 +74,27 @@ namespace AssetTag.Controllers
 
                 // Password verification
                 if (!VerifyPassword(userData.PasswordHash, dto.Password))
-                {
                     return Unauthorized(new { Message = "Invalid email or password." });
-                }
 
-                // Get roles separately (avoid DataReader conflict)
-                var userForRoles = await _userManager.FindByIdAsync(userData.Id);
-                var roles = await _userManager.GetRolesAsync(userForRoles);
+                // Get user for roles and token operations
+                var user = await _userManager.FindByIdAsync(userData.Id);
+                if (user is null)
+                    return Unauthorized(new { Message = "User not found." });
 
-                // Create tokens
-                var accessToken = _tokenService.CreateAccessToken(userForRoles, roles);
-                var refreshToken = _tokenService.CreateRefreshToken(GetIpAddress());
+                // Parallel operations for maximum performance
+                var rolesTask = _userManager.GetRolesAsync(user);
+                var refreshTokenTask = Task.Run(() => _tokenService.CreateRefreshToken(GetIpAddress()));
+                await Task.WhenAll(rolesTask, refreshTokenTask);
 
-                // Add refresh token
-                userForRoles.RefreshTokens.Add(refreshToken);
-                await _userManager.UpdateAsync(userForRoles);
+                var roles = await rolesTask;
+                var refreshToken = await refreshTokenTask;
+
+                // Add refresh token and update
+                user.RefreshTokens.Add(refreshToken);
+                await _userManager.UpdateAsync(user);
+
+                // Create access token
+                var accessToken = _tokenService.CreateAccessToken(user, roles);
 
                 return Ok(new TokenResponseDTO(accessToken, refreshToken.Token));
             }
@@ -137,139 +105,183 @@ namespace AssetTag.Controllers
             }
         }
 
-        // Static password verifier for performance
-        private static readonly PasswordHasher<ApplicationUser> _passwordHasher = new();
-        private static bool VerifyPassword(string? passwordHash, string password)
-        {
-            return passwordHash != null &&
-                   _passwordHasher.VerifyHashedPassword(null, passwordHash, password)
-                   != PasswordVerificationResult.Failed;
-        }
-
-
-
         [HttpPost("refresh-token")]
         public async Task<IActionResult> RefreshToken([FromBody] TokenResponseDTO dto)
         {
-            // Single query to get user with active refresh token
-            var user = await _userManager.Users
-                .Include(u => u.RefreshTokens)
-                .Where(u => u.RefreshTokens.Any(t => t.Token == dto.RefreshToken && t.IsActive))
-                .Select(u => new { User = u, Token = u.RefreshTokens.First(t => t.Token == dto.RefreshToken) })
-                .FirstOrDefaultAsync();
-
-            if (user == null)
+            try
             {
-                return Unauthorized(new { Message = "Invalid refresh token." });
+                // Fast validation query first
+                var isValidToken = await _context.RefreshTokens
+                    .AsNoTracking()
+                    .AnyAsync(rt => rt.Token == dto.RefreshToken &&
+                                   rt.Revoked == null &&
+                                   rt.Expires > DateTime.UtcNow);
+
+                if (!isValidToken)
+                    return Unauthorized(new { Message = "Invalid or expired refresh token." });
+
+                // Get full token with user for update
+                var refreshToken = await _context.RefreshTokens
+                    .Include(rt => rt.ApplicationUser)
+                    .FirstOrDefaultAsync(rt => rt.Token == dto.RefreshToken);
+
+                if (refreshToken?.ApplicationUser is null)
+                    return Unauthorized(new { Message = "Token or user not found." });
+
+                var user = refreshToken.ApplicationUser;
+
+                // Parallel operations for maximum performance
+                var rolesTask = _userManager.GetRolesAsync(user);
+                var newRefreshTokenTask = Task.Run(() => _tokenService.CreateRefreshToken(GetIpAddress()));
+                await Task.WhenAll(rolesTask, newRefreshTokenTask);
+
+                var roles = await rolesTask;
+                var newRefreshToken = await newRefreshTokenTask;
+
+                // Update operations
+                refreshToken.Revoked = DateTime.UtcNow;
+                refreshToken.RevokedByIp = GetIpAddress();
+                refreshToken.ReplacedByToken = newRefreshToken.Token;
+
+                // Add new token directly to context for better performance
+                newRefreshToken.ApplicationUserId = user.Id;
+                _context.RefreshTokens.Add(newRefreshToken);
+
+                // Single save operation for both updates
+                await _context.SaveChangesAsync();
+
+                // Create access token
+                var newAccessToken = _tokenService.CreateAccessToken(user, roles);
+
+                return Ok(new TokenResponseDTO(newAccessToken, newRefreshToken.Token));
             }
-
-            // Revoke old token
-            user.Token.Revoked = DateTime.UtcNow;
-            user.Token.RevokedByIp = GetIpAddress();
-
-            // Create new refresh token
-            var newRefreshToken = _tokenService.CreateRefreshToken(GetIpAddress());
-            user.Token.ReplacedByToken = newRefreshToken.Token;
-            user.User.RefreshTokens.Add(newRefreshToken);
-
-            await _userManager.UpdateAsync(user.User);
-
-            // Generate new access token
-            var roles = await _userManager.GetRolesAsync(user.User);
-            var newAccessToken = _tokenService.CreateAccessToken(user.User, roles);
-
-            return Ok(new TokenResponseDTO(newAccessToken, newRefreshToken.Token));
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error refreshing token");
+                return StatusCode(500, new { Message = "An error occurred while refreshing token." });
+            }
         }
 
         [HttpPost("revoke")]
         public async Task<IActionResult> Revoke([FromBody] TokenResponseDTO dto)
         {
-            var token = dto.RefreshToken;
-            var user = await _userManager.Users
-                .Include(u => u.RefreshTokens)
-                .SingleOrDefaultAsync(u => u.RefreshTokens.Any(t => t.Token == token));
-
-            if (user == null)
+            try
             {
-                return NotFound(new { Message = "User not found." });
-            }
+                // Optimized: Direct SQL execution for maximum performance
+                var affectedRows = await _context.Database.ExecuteSqlRawAsync(
+                    @"UPDATE RefreshTokens 
+                      SET Revoked = {0}, RevokedByIp = {1} 
+                      WHERE Token = {2} AND Revoked IS NULL",
+                    DateTime.UtcNow, GetIpAddress(), dto.RefreshToken);
 
-            var existing = user.RefreshTokens.Single(t => t.Token == token);
-            if (!existing.IsActive)
+                return affectedRows > 0
+                    ? Ok(new { Message = "Token revoked successfully." })
+                    : BadRequest(new { Message = "Token not found or already revoked." });
+            }
+            catch (Exception ex)
             {
-                return BadRequest(new { Message = "This token is already revoked." });
+                _logger.LogError(ex, "Error revoking token");
+                return StatusCode(500, new { Message = "An error occurred while revoking token." });
             }
-            existing.Revoked = DateTime.UtcNow;
-            existing.RevokedByIp = GetIpAddress();
-
-            await _userManager.UpdateAsync(user);
-            return Ok(new { Message = "Token revoked successfully." });
         }
 
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDTO dto)
         {
-            var user = await _userManager.FindByEmailAsync(dto.Email);
-            if (user == null)
+            try
             {
-                // Don't reveal that the user doesn't exist for security reasons
-                return Ok(new { Message = "If the email exists, a password reset link has been sent.(Syke)" });
+                // Single query with only needed fields
+                var user = await _userManager.Users
+                    .AsNoTracking()
+                    .Where(u => u.Email == dto.Email)
+                    .Select(u => new { u.Id, u.Email })
+                    .FirstOrDefaultAsync();
+
+                if (user is null)
+                {
+                    // Return same message for security - don't reveal user existence
+                    return Ok(new { Message = "If the email exists, a password reset link has been sent." });
+                }
+
+                // Generate token
+                var fullUser = await _userManager.FindByIdAsync(user.Id);
+                var token = await _userManager.GeneratePasswordResetTokenAsync(fullUser);
+
+                // Prepare email data
+                var frontendBaseUrl = _configuration["FrontendBaseUrl"] ?? "https://1qtrdwgx-44369.uks1.devtunnels.ms";
+                var resetUrl = $"{frontendBaseUrl}/Account/ResetPassword";
+
+                // Fire and forget email for performance
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _emailService.SendPasswordResetEmailAsync(user.Email, token, resetUrl);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to send password reset email to {Email}", user.Email);
+                    }
+                });
+
+                return Ok(new { Message = "If the email exists, a password reset link has been sent." });
             }
-
-            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-
-            // Send email with reset token
-            var frontendBaseUrl = _configuration["FrontendBaseUrl"] ?? "https://1qtrdwgx-44369.uks1.devtunnels.ms"; // Your Portal URL
-            var resetUrl = $"{frontendBaseUrl}/Account/ResetPassword";
-
-            var emailSent = await _emailService.SendPasswordResetEmailAsync(user.Email, token, resetUrl);
-
-            if (!emailSent)
+            catch (Exception ex)
             {
-                // Log the error but still return success for security
-                _logger.LogWarning("Failed to send password reset email to {Email}", user.Email);
+                _logger.LogError(ex, "Error in forgot password for {Email}", dto.Email);
+                return StatusCode(500, new { Message = "An error occurred." });
             }
-
-            return Ok(new
-            {
-                Message = "If the email exists, a password reset link has been sent."
-            });
         }
 
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDTO dto)
         {
-            var user = await _userManager.FindByEmailAsync(dto.Email);
-            if (user == null)
+            try
             {
-                // Don't reveal that the user doesn't exist
-                return BadRequest(new { Message = "Invalid reset token." });
-            }
-
-            var result = await _userManager.ResetPasswordAsync(user, dto.Token, dto.NewPassword);
-
-            if (!result.Succeeded)
-            {
-                return BadRequest(new
+                // Find user with minimal data
+                var user = await _userManager.FindByEmailAsync(dto.Email);
+                if (user is null)
                 {
-                    Message = "Failed to reset password.",
-                    Errors = result.Errors.Select(e => e.Description)
+                    // Don't reveal user existence
+                    return BadRequest(new { Message = "Invalid reset token." });
+                }
+
+                // Reset password
+                var result = await _userManager.ResetPasswordAsync(user, dto.Token, dto.NewPassword);
+                if (!result.Succeeded)
+                {
+                    return BadRequest(new
+                    {
+                        Message = "Failed to reset password.",
+                        Errors = result.Errors.Select(e => e.Description)
+                    });
+                }
+
+                // Revoke all active tokens in background for security
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _context.Database.ExecuteSqlRawAsync(
+                            @"UPDATE RefreshTokens 
+                              SET Revoked = {0}, RevokedByIp = {1} 
+                              WHERE ApplicationUserId = {2} AND Revoked IS NULL",
+                            DateTime.UtcNow, GetIpAddress(), user.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to revoke tokens for user {UserId}", user.Id);
+                    }
                 });
-            }
 
-            // Optionally, revoke all refresh tokens for security
-            var refreshTokens = user.RefreshTokens.Where(rt => rt.IsActive).ToList();
-            foreach (var token in refreshTokens)
+                return Ok(new { Message = "Password has been reset successfully." });
+            }
+            catch (Exception ex)
             {
-                token.Revoked = DateTime.UtcNow;
-                token.RevokedByIp = GetIpAddress();
+                _logger.LogError(ex, "Error resetting password for {Email}", dto.Email);
+                return StatusCode(500, new { Message = "An error occurred while resetting password." });
             }
-
-            await _userManager.UpdateAsync(user);
-
-            return Ok(new { Message = "Password has been reset successfully." });
         }
-
 
         [HttpPost("validate-invitation")]
         [AllowAnonymous]
@@ -278,17 +290,14 @@ namespace AssetTag.Controllers
             try
             {
                 var invitation = await _context.Invitations
+                    .AsNoTracking()
                     .FirstOrDefaultAsync(i => i.Token == dto.Token && !i.IsUsed);
 
-                if (invitation == null)
-                {
+                if (invitation is null)
                     return BadRequest(new { Message = "Invalid or expired invitation token." });
-                }
 
                 if (invitation.ExpiresAt < DateTime.UtcNow)
-                {
                     return BadRequest(new { Message = "This invitation has expired." });
-                }
 
                 return Ok(new
                 {
@@ -316,7 +325,7 @@ namespace AssetTag.Controllers
                 var invitation = await _context.Invitations
                     .FirstOrDefaultAsync(i => i.Token == dto.Token && !i.IsUsed);
 
-                if (invitation == null)
+                if (invitation is null)
                 {
                     _logger.LogWarning("Invalid or used invitation token: {Token}", dto.Token);
                     return BadRequest(new { Message = "Invalid or expired invitation token." });
@@ -338,16 +347,14 @@ namespace AssetTag.Controllers
                 }
 
                 // Check if user already exists
-                var existingUser = await _userManager.FindByEmailAsync(dto.Email);
-                if (existingUser != null)
+                if (await _userManager.FindByEmailAsync(dto.Email) is not null)
                 {
                     _logger.LogWarning("User already exists with email: {Email}", dto.Email);
                     return BadRequest(new { Message = "A user with this email already exists." });
                 }
 
                 // Check if username is already taken
-                var existingUsername = await _userManager.FindByNameAsync(dto.Username);
-                if (existingUsername != null)
+                if (await _userManager.FindByNameAsync(dto.Username) is not null)
                 {
                     _logger.LogWarning("Username already taken: {Username}", dto.Username);
                     return BadRequest(new { Message = "Username is already taken. Please choose a different username." });
@@ -401,7 +408,6 @@ namespace AssetTag.Controllers
                 // Mark invitation as used
                 invitation.IsUsed = true;
                 invitation.UsedAt = DateTime.UtcNow;
-                _context.Invitations.Update(invitation);
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation("Successfully registered user with invitation: {Email}", dto.Email);
@@ -415,12 +421,18 @@ namespace AssetTag.Controllers
             }
         }
 
+        private static bool VerifyPassword(string? passwordHash, string password)
+        {
+            return passwordHash is not null &&
+                   _passwordHasher.VerifyHashedPassword(null, passwordHash, password)
+                   != PasswordVerificationResult.Failed;
+        }
+
         private string GetIpAddress()
         {
-            if (Request.Headers.ContainsKey("X-Forwarded-For"))
-            {
-                return Request.Headers["X-Forwarded-For"].ToString();
-            }
+            if (Request.Headers.TryGetValue("X-Forwarded-For", out var forwardedFor))
+                return forwardedFor.ToString();
+
             return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
         }
     }

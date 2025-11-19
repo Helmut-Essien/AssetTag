@@ -81,6 +81,56 @@
     transition: margin-left 0.3s ease;
 }
 
+
+/* Performance-optimized CSS for filters and table */
+.form-select-sm {
+    font-size: 0.875rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.input-group-text {
+    background-color: #f8f9fa;
+    border-right: none;
+}
+
+#searchInput {
+    border-left: none;
+}
+
+/* Badge styling for filters */
+.badge {
+    font-size: 0.75em;
+}
+
+/* Hover effects for better UX */
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.075);
+    cursor: pointer;
+}
+
+/* Modal optimization */
+.modal-xl {
+    max-width: 1200px;
+}
+
+/* Button group spacing */
+.btn-group .btn {
+    margin-bottom: 0.25rem;
+}
+
+/* Responsive table adjustments */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+
+    .btn-group {
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+
 @media (min-width: 769px) {
     .sidebar {
         left: 0;

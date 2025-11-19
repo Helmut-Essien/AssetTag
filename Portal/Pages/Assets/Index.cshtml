@@ -5,6 +5,7 @@
 }
 
 <div class="container my-4">
+    <!-- Page Header with Asset Count and Add Button -->
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="mb-0">Assets (@Model.Assets.Count Total)</h1>
         <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createModal">
@@ -12,6 +13,156 @@
         </button>
     </div>
 
+    <!-- Search and Filters Section -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3" id="filterForm">
+                <!-- Search Box -->
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" asp-for="SearchTerm"
+                               placeholder="Search assets, tags, serial numbers..."
+                               id="searchInput" autocomplete="off">
+                        @if (!string.IsNullOrEmpty(Model.SearchTerm))
+                        {
+                            <button type="button" class="btn btn-outline-secondary" onclick="clearSearch()">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <!-- Quick Filters -->
+                <div class="col-md-8">
+                    <div class="row g-2">
+                        <div class="col">
+                            <select class="form-select form-select-sm" asp-for="StatusFilter" onchange="this.form.submit()">
+                                <option value="">All Statuses</option>
+                                <option value="Available">Available</option>
+                                <option value="In Use">In Use</option>
+                                <option value="Under Maintenance">Under Maintenance</option>
+                                <option value="Retired">Retired</option>
+                                <option value="Lost">Lost</option>
+                            </select>
+                        </div>
+                        <div class="col">
+                            <select class="form-select form-select-sm" asp-for="ConditionFilter" onchange="this.form.submit()">
+                                <option value="">All Conditions</option>
+                                <option value="New">New</option>
+                                <option value="Good">Good</option>
+                                <option value="Fair">Fair</option>
+                                <option value="Poor">Poor</option>
+                                <option value="Broken">Broken</option>
+                            </select>
+                        </div>
+                        <div class="col">
+                            <select class="form-select form-select-sm" asp-for="CategoryFilter" onchange="this.form.submit()">
+                                <option value="">All Categories</option>
+                                @foreach (var category in Model.Categories)
+                                {
+                                    <option value="@category.CategoryId">@category.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col">
+                            <select class="form-select form-select-sm" asp-for="LocationFilter" onchange="this.form.submit()">
+                                <option value="">All Locations</option>
+                                @foreach (var location in Model.Locations)
+                                {
+                                    <option value="@location.LocationId">@location.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col">
+                            <select class="form-select form-select-sm" asp-for="DepartmentFilter" onchange="this.form.submit()">
+                                <option value="">All Departments</option>
+                                @foreach (var department in Model.Departments)
+                                {
+                                    <option value="@department.DepartmentId">@department.Name</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Filters Display -->
+                @if (!string.IsNullOrEmpty(Model.SearchTerm) ||
+                                !string.IsNullOrEmpty(Model.StatusFilter) ||
+                                !string.IsNullOrEmpty(Model.ConditionFilter) ||
+                                !string.IsNullOrEmpty(Model.CategoryFilter) ||
+                                !string.IsNullOrEmpty(Model.LocationFilter) ||
+                                !string.IsNullOrEmpty(Model.DepartmentFilter))
+                {
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <small class="text-muted">
+                                    Active filters:
+                                    @if (!string.IsNullOrEmpty(Model.SearchTerm))
+                                    {
+                                        <span class="badge bg-secondary me-1">Search: @Model.SearchTerm</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(Model.StatusFilter))
+                                    {
+                                        <span class="badge bg-info me-1">Status: @Model.StatusFilter</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(Model.ConditionFilter))
+                                    {
+                                        <span class="badge bg-warning me-1">Condition: @Model.ConditionFilter</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(Model.CategoryFilter))
+                                    {
+                                        <span class="badge bg-primary me-1">Category: @Model.GetCategoryName(Model.CategoryFilter)</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(Model.LocationFilter))
+                                    {
+                                        <span class="badge bg-success me-1">Location: @Model.GetLocationName(Model.LocationFilter)</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(Model.DepartmentFilter))
+                                    {
+                                        <span class="badge bg-dark me-1">Department: @Model.GetDepartmentName(Model.DepartmentFilter)</span>
+                                    }
+                                </small>
+                            </div>
+                            <div>
+                                <a asp-page="" asp-route-searchTerm=""
+                                   asp-route-statusFilter="" asp-route-conditionFilter=""
+                                   asp-route-categoryFilter="" asp-route-locationFilter=""
+                                   asp-route-departmentFilter="" class="btn btn-outline-secondary btn-sm">
+                                    <i class="bi bi-x-circle me-1"></i>Clear All
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </form>
+        </div>
+    </div>
+
+    <!-- Results Summary and Export Options -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <span class="text-muted">
+                Showing @Model.Assets.Count assets
+                @if (!string.IsNullOrEmpty(Model.SearchTerm) || !string.IsNullOrEmpty(Model.StatusFilter))
+                {
+                    <span>(filtered)</span>
+                }
+            </span>
+        </div>
+        <div class="btn-group">
+            <button type="button" class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-download me-1"></i>Export
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#" onclick="exportToCsv()">Export to CSV</a></li>
+                <li><a class="dropdown-item" href="#" onclick="exportToExcel()">Export to Excel</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Assets Table -->
     <div class="table-responsive">
         <table class="table table-striped table-hover">
             <thead class="table-dark">
@@ -33,20 +184,24 @@
                 @foreach (var asset in Model.Assets)
                 {
                     <tr>
+                        <!-- Asset Tag with Serial Number -->
                         <td>
                             <strong>@asset.AssetTag</strong>
                             @if (!string.IsNullOrEmpty(asset.SerialNumber))
                             {
                                 <br />
-                        
                                 <small class="text-muted">SN: @asset.SerialNumber</small>
                             }
                     </td>
+
+                    <!-- Basic Asset Information -->
                     <td>@asset.Name</td>
                     <td>@(string.IsNullOrEmpty(asset.Description) ? "No description" : asset.Description)</td>
                     <td>@Model.GetCategoryName(asset.CategoryId)</td>
                     <td>@Model.GetLocationName(asset.LocationId)</td>
                     <td>@Model.GetDepartmentName(asset.DepartmentId)</td>
+
+                    <!-- Status with Color-Coded Badge -->
                     <td>
                         <span class="badge
                                 @(asset.Status == "Available" ? "bg-success" :
@@ -56,8 +211,10 @@
                                                                                                                        @asset.Status
                                                                                                                    </span>
                                                                                                                </td>
-                                                                                                               <td>
-                                                                                                                   <span class="badge
+
+                    <!-- Condition with Color-Coded Badge -->
+                    <td>
+                        <span class="badge
                                 @(asset.Condition == "New" ? "bg-success" :
                                                                 asset.Condition == "Good" ? "bg-info" :
                                                                 asset.Condition == "Fair" ? "bg-warning" :
@@ -65,8 +222,12 @@
                             @asset.Condition
                         </span>
                     </td>
-                    <td>@asset.PurchaseDate?.ToString("MMM dd, yyyy")</td>
-                    <td>
+
+                        <!-- Purchase Date -->
+                        <td>@asset.PurchaseDate?.ToString("MMM dd, yyyy")</td>
+
+                        <!-- Current Value -->
+                        <td>
                         @if (asset.CurrentValue.HasValue)
                             {
                                 <text>@asset.CurrentValue.Value.ToString("C")</text>
@@ -76,11 +237,16 @@
                                 <span class="text-muted">N/A</span>
                             }
                         </td>
+
+                        <!-- Action Buttons -->
                         <td>
                             <div class="btn-group" role="group">
+                                <!-- View Details Button -->
                                 <a asp-page="./Details" asp-route-id="@asset.AssetId" class="btn btn-info btn-sm me-1">
                                     <i class="bi bi-eye"></i> View
                                 </a>
+
+                                <!-- Edit Button with Data Attributes for Modal -->
                                 <button class="btn btn-primary btn-sm me-1"
                                         data-bs-toggle="modal"
                                         data-bs-target="#editModal"
@@ -113,6 +279,8 @@
                                         data-remarks="@asset.Remarks">
                                     <i class="bi bi-pencil"></i> Edit
                                 </button>
+
+                                <!-- Delete Button -->
                                 <button class="btn btn-danger btn-sm"
                                         data-bs-toggle="modal"
                                         data-bs-target="#deleteModal"
@@ -128,7 +296,7 @@
     </div>
 </div>
 
-<!-- Create Modal -->
+<!-- Create Asset Modal -->
 <div class="modal fade" id="createModal" tabindex="-1" aria-labelledby="createModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
@@ -140,6 +308,7 @@
                 <form method="post" asp-page-handler="Create">
                     <div asp-validation-summary="All" class="text-danger mb-3"></div>
 
+                    <!-- Basic Information Section -->
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -163,6 +332,7 @@
                         <span asp-validation-for="CreateDto.Description" class="text-danger"></span>
                     </div>
 
+                    <!-- Category, Location, Department Selection -->
                     <div class="row">
                         <div class="col-md-4">
                             <div class="mb-3">
@@ -205,6 +375,7 @@
                         </div>
                     </div>
 
+                    <!-- Status and Condition Selection -->
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -234,6 +405,7 @@
                         </div>
                     </div>
 
+                    <!-- Purchase and Serial Information -->
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -251,6 +423,7 @@
                         </div>
                     </div>
 
+                    <!-- Basic Financial Information -->
                     <div class="row">
                         <div class="col-md-4">
                             <div class="mb-3">
@@ -274,7 +447,8 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Financial Information Section -->
+
+                    <!-- Advanced Financial Information Section -->
                     <div class="row mt-3">
                         <div class="col-12">
                             <h6 class="border-bottom pb-2">Financial Information</h6>
@@ -329,7 +503,7 @@
                         </div>
                     </div>
 
-                    <!-- Additional Fields Section -->
+                    <!-- Additional Information Section -->
                     <div class="row mt-3">
                         <div class="col-12">
                             <h6 class="border-bottom pb-2">Additional Information</h6>
@@ -390,14 +564,14 @@
                         </div>
                     </div>
 
-                    <button type="submit" class="btn btn-success">Create</button>
+                    <button type="submit" class="btn btn-success">Create Asset</button>
                 </form>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Edit Modal -->
+<!-- Edit Asset Modal -->
 <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
@@ -410,6 +584,7 @@
                     <div asp-validation-summary="All" class="text-danger mb-3"></div>
                     <input type="hidden" asp-for="UpdateDto.AssetId" />
 
+                    <!-- Basic Information Section -->
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -433,6 +608,7 @@
                         <span asp-validation-for="UpdateDto.Description" class="text-danger"></span>
                     </div>
 
+                    <!-- Category, Location, Department Selection -->
                     <div class="row">
                         <div class="col-md-4">
                             <div class="mb-3">
@@ -475,6 +651,7 @@
                         </div>
                     </div>
 
+                    <!-- Status and Condition Selection -->
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -504,6 +681,7 @@
                         </div>
                     </div>
 
+                    <!-- Purchase and Serial Information -->
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -521,6 +699,7 @@
                         </div>
                     </div>
 
+                    <!-- Basic Financial Information -->
                     <div class="row">
                         <div class="col-md-4">
                             <div class="mb-3">
@@ -544,7 +723,8 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Financial Information Section -->
+
+                    <!-- Advanced Financial Information Section -->
                     <div class="row mt-3">
                         <div class="col-12">
                             <h6 class="border-bottom pb-2">Financial Information</h6>
@@ -599,7 +779,7 @@
                         </div>
                     </div>
 
-                    <!-- Additional Fields Section -->
+                    <!-- Additional Information Section -->
                     <div class="row mt-3">
                         <div class="col-12">
                             <h6 class="border-bottom pb-2">Additional Information</h6>
@@ -660,14 +840,14 @@
                         </div>
                     </div>
 
-                    <button type="submit" class="btn btn-success">Update</button>
+                    <button type="submit" class="btn btn-success">Update Asset</button>
                 </form>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Delete Modal -->
+<!-- Delete Confirmation Modal -->
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -676,11 +856,13 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p>Are you sure you want to delete this asset?</p>
+                <p>Are you sure you want to delete this asset? This action cannot be undone.</p>
                 <form method="post" asp-page-handler="Delete">
                     <input type="hidden" name="id" id="deleteId" />
-                    <button type="submit" class="btn btn-danger">Delete</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger">Delete Asset</button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -689,48 +871,73 @@
 
 @section Scripts {
     <script>
+        // Performance-optimized search and filter functionality
         document.addEventListener('DOMContentLoaded', function() {
-                    // Edit Modal
-        var editModal = document.getElementById('editModal');
-        if (editModal) {
-            editModal.addEventListener('show.bs.modal', function (event) {
-                var button = event.relatedTarget;
 
-                // Set basic fields
-                document.getElementById('UpdateDto_AssetId').value = button.getAttribute('data-id');
-                document.getElementById('UpdateDto_AssetTag').value = button.getAttribute('data-assettag') || '';
-                document.getElementById('UpdateDto_Name').value = button.getAttribute('data-name') || '';
-                document.getElementById('UpdateDto_Description').value = button.getAttribute('data-desc') || '';
-                document.getElementById('UpdateDto_CategoryId').value = button.getAttribute('data-categoryid') || '';
-                document.getElementById('UpdateDto_LocationId').value = button.getAttribute('data-locationid') || '';
-                document.getElementById('UpdateDto_DepartmentId').value = button.getAttribute('data-departmentid') || '';
-                document.getElementById('UpdateDto_PurchaseDate').value = button.getAttribute('data-purchasedate') || '';
-                document.getElementById('UpdateDto_PurchasePrice').value = button.getAttribute('data-purchaseprice') || '';
-                document.getElementById('UpdateDto_CurrentValue').value = button.getAttribute('data-currentvalue') || '';
-                document.getElementById('UpdateDto_Status').value = button.getAttribute('data-status') || '';
-                document.getElementById('UpdateDto_SerialNumber').value = button.getAttribute('data-serialnumber') || '';
-                document.getElementById('UpdateDto_Condition').value = button.getAttribute('data-condition') || '';
-                document.getElementById('UpdateDto_Quantity').value = button.getAttribute('data-quantity') || '1';
+            // Debounce function to limit API calls during search
+            function debounce(func, wait) {
+                let timeout;
+                return function executedFunction(...args) {
+                    const later = () => {
+                        clearTimeout(timeout);
+                        func(...args);
+                    };
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                };
+            }
 
-                // Set financial fields
-                document.getElementById('UpdateDto_CostPerUnit').value = button.getAttribute('data-costperunit') || '';
-                document.getElementById('UpdateDto_TotalCost').value = button.getAttribute('data-totalcost') || '';
-                document.getElementById('UpdateDto_DepreciationRate').value = button.getAttribute('data-depreciationrate') || '';
-                document.getElementById('UpdateDto_AccumulatedDepreciation').value = button.getAttribute('data-accumulateddepreciation') || '';
-                document.getElementById('UpdateDto_NetBookValue').value = button.getAttribute('data-netbookvalue') || '';
-                document.getElementById('UpdateDto_UsefulLifeYears').value = button.getAttribute('data-usefullifeyears') || '';
+            // Auto-submit search with debouncing (500ms delay)
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                const debouncedSearch = debounce(function() {
+                    document.getElementById('filterForm').submit();
+                }, 500);
 
-                // Set additional fields
-                document.getElementById('UpdateDto_VendorName').value = button.getAttribute('data-vendorname') || '';
-                document.getElementById('UpdateDto_InvoiceNumber').value = button.getAttribute('data-invoicenumber') || '';
-                document.getElementById('UpdateDto_WarrantyExpiry').value = button.getAttribute('data-warrantyexpiry') || '';
-                document.getElementById('UpdateDto_DisposalDate').value = button.getAttribute('data-disposaldate') || '';
-                document.getElementById('UpdateDto_DisposalValue').value = button.getAttribute('data-disposalvalue') || '';
-                document.getElementById('UpdateDto_Remarks').value = button.getAttribute('data-remarks') || '';
-            });
-        }
+                searchInput.addEventListener('input', debouncedSearch);
+            }
 
-            // Delete Modal
+            // Edit Modal - Populate form with asset data
+            var editModal = document.getElementById('editModal');
+            if (editModal) {
+                editModal.addEventListener('show.bs.modal', function (event) {
+                    var button = event.relatedTarget;
+
+                    // Set basic fields
+                    document.getElementById('UpdateDto_AssetId').value = button.getAttribute('data-id');
+                    document.getElementById('UpdateDto_AssetTag').value = button.getAttribute('data-assettag') || '';
+                    document.getElementById('UpdateDto_Name').value = button.getAttribute('data-name') || '';
+                    document.getElementById('UpdateDto_Description').value = button.getAttribute('data-desc') || '';
+                    document.getElementById('UpdateDto_CategoryId').value = button.getAttribute('data-categoryid') || '';
+                    document.getElementById('UpdateDto_LocationId').value = button.getAttribute('data-locationid') || '';
+                    document.getElementById('UpdateDto_DepartmentId').value = button.getAttribute('data-departmentid') || '';
+                    document.getElementById('UpdateDto_PurchaseDate').value = button.getAttribute('data-purchasedate') || '';
+                    document.getElementById('UpdateDto_PurchasePrice').value = button.getAttribute('data-purchaseprice') || '';
+                    document.getElementById('UpdateDto_CurrentValue').value = button.getAttribute('data-currentvalue') || '';
+                    document.getElementById('UpdateDto_Status').value = button.getAttribute('data-status') || '';
+                    document.getElementById('UpdateDto_SerialNumber').value = button.getAttribute('data-serialnumber') || '';
+                    document.getElementById('UpdateDto_Condition').value = button.getAttribute('data-condition') || '';
+                    document.getElementById('UpdateDto_Quantity').value = button.getAttribute('data-quantity') || '1';
+
+                    // Set financial fields
+                    document.getElementById('UpdateDto_CostPerUnit').value = button.getAttribute('data-costperunit') || '';
+                    document.getElementById('UpdateDto_TotalCost').value = button.getAttribute('data-totalcost') || '';
+                    document.getElementById('UpdateDto_DepreciationRate').value = button.getAttribute('data-depreciationrate') || '';
+                    document.getElementById('UpdateDto_AccumulatedDepreciation').value = button.getAttribute('data-accumulateddepreciation') || '';
+                    document.getElementById('UpdateDto_NetBookValue').value = button.getAttribute('data-netbookvalue') || '';
+                    document.getElementById('UpdateDto_UsefulLifeYears').value = button.getAttribute('data-usefullifeyears') || '';
+
+                    // Set additional fields
+                    document.getElementById('UpdateDto_VendorName').value = button.getAttribute('data-vendorname') || '';
+                    document.getElementById('UpdateDto_InvoiceNumber').value = button.getAttribute('data-invoicenumber') || '';
+                    document.getElementById('UpdateDto_WarrantyExpiry').value = button.getAttribute('data-warrantyexpiry') || '';
+                    document.getElementById('UpdateDto_DisposalDate').value = button.getAttribute('data-disposaldate') || '';
+                    document.getElementById('UpdateDto_DisposalValue').value = button.getAttribute('data-disposalvalue') || '';
+                    document.getElementById('UpdateDto_Remarks').value = button.getAttribute('data-remarks') || '';
+                });
+            }
+
+            // Delete Modal - Set asset ID for deletion
             var deleteModal = document.getElementById('deleteModal');
             if (deleteModal) {
                 deleteModal.addEventListener('show.bs.modal', function (event) {
@@ -740,7 +947,7 @@
                 });
             }
 
-            // Show modal if ActiveModal is set
+            // Show specific modal if ActiveModal is set (for validation errors)
             @if (!string.IsNullOrEmpty(Model.ActiveModal))
             {
                     <text>
@@ -752,5 +959,70 @@
                     </text>
             }
         });
+
+        // Utility function to clear search
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('filterForm').submit();
+        }
+
+        // Export to CSV functionality
+        function exportToCsv() {
+            const headers = ['Asset Tag', 'Name', 'Description', 'Category', 'Location', 'Department', 'Status', 'Condition', 'Purchase Date', 'Current Value', 'Serial Number'];
+            const rows = [];
+
+            // Extract data from visible table rows
+            document.querySelectorAll('table tbody tr').forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length >= 10) {
+                    rows.push([
+                        cells[0].querySelector('strong')?.textContent?.trim() || '',
+                        cells[1].textContent.trim(),
+                        cells[2].textContent.trim(),
+                        cells[3].textContent.trim(),
+                        cells[4].textContent.trim(),
+                        cells[5].textContent.trim(),
+                        cells[6].textContent.trim(),
+                        cells[7].textContent.trim(),
+                        cells[8].textContent.trim(),
+                        cells[9].textContent.trim(),
+                        cells[0].querySelector('small')?.textContent?.replace('SN:', '').trim() || ''
+                    ]);
+                }
+            });
+
+            // Create CSV content
+            const csvContent = [headers, ...rows]
+                .map(row => row.map(cell => `"${cell}"`).join(','))
+                .join('\n');
+
+            // Create and trigger download
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `assets-export-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Export to Excel functionality (placeholder - would require SheetJS or similar library)
+        function exportToExcel() {
+            // For a complete implementation, you would use a library like SheetJS
+            // This is a simplified version that redirects to an export endpoint
+            alert('Excel export functionality would be implemented with a library like SheetJS. For now, use CSV export.');
+
+            // Example implementation:
+            // const params = new URLSearchParams({
+            //     searchTerm: '@Model.SearchTerm',
+            //     statusFilter: '@Model.StatusFilter',
+            //     format: 'excel'
+            // });
+            // window.location.href = `?handler=Export&${params}`;
+        }
     </script>
+
+    
 }

@@ -22,6 +22,25 @@ namespace Portal.Pages.Assets
         public List<LocationReadDTO> Locations { get; set; } = new();
         public List<DepartmentReadDTO> Departments { get; set; } = new();
 
+        // Filter properties
+        [BindProperty(SupportsGet = true)]
+        public string SearchTerm { get; set; } = string.Empty;
+
+        [BindProperty(SupportsGet = true)]
+        public string StatusFilter { get; set; } = string.Empty;
+
+        [BindProperty(SupportsGet = true)]
+        public string ConditionFilter { get; set; } = string.Empty;
+
+        [BindProperty(SupportsGet = true)]
+        public string CategoryFilter { get; set; } = string.Empty;
+
+        [BindProperty(SupportsGet = true)]
+        public string LocationFilter { get; set; } = string.Empty;
+
+        [BindProperty(SupportsGet = true)]
+        public string DepartmentFilter { get; set; } = string.Empty;
+
         public AssetCreateDTO CreateDto { get; set; } = new AssetCreateDTO();
         public AssetUpdateDTO UpdateDto { get; set; } = new AssetUpdateDTO();
         public string? ActiveModal { get; set; }
@@ -31,11 +50,25 @@ namespace Portal.Pages.Assets
         private Dictionary<string, string> _locationNames = new();
         private Dictionary<string, string> _departmentNames = new();
 
+        // Performance cache
+        private static List<AssetReadDTO>? _cachedAssets;
+        private static System.DateTime _lastCacheUpdate = System.DateTime.MinValue;
+
         public async Task<IActionResult> OnGetAsync()
         {
             try
             {
                 await LoadDataAsync();
+                // Apply filters client-side for better performance
+                if (!string.IsNullOrEmpty(SearchTerm) ||
+                    !string.IsNullOrEmpty(StatusFilter) ||
+                    !string.IsNullOrEmpty(ConditionFilter) ||
+                    !string.IsNullOrEmpty(CategoryFilter) ||
+                    !string.IsNullOrEmpty(LocationFilter) ||
+                    !string.IsNullOrEmpty(DepartmentFilter))
+                {
+                    Assets = ApplyFilters(Assets);
+                }
                 return Page();
             }
             catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized || ex.StatusCode == HttpStatusCode.Forbidden)
@@ -54,32 +87,28 @@ namespace Portal.Pages.Assets
 
         private async Task LoadDataAsync()
         {
-            // Use GetAsync instead of GetFromJsonAsync to avoid automatic exception throwing
-            var assetsResponse = await _httpClient.GetAsync("api/assets");
-            var categoriesResponse = await _httpClient.GetAsync("api/categories");
-            var locationsResponse = await _httpClient.GetAsync("api/locations");
-            var departmentsResponse = await _httpClient.GetAsync("api/departments");
-
-            // Check responses and handle data
-            if (assetsResponse.IsSuccessStatusCode)
+            // Cache assets for 30 seconds to reduce API calls
+            if (_cachedAssets == null || (System.DateTime.Now - _lastCacheUpdate).TotalSeconds > 30)
             {
-                Assets = await assetsResponse.Content.ReadFromJsonAsync<List<AssetReadDTO>>() ?? new List<AssetReadDTO>();
+                var assetsResponse = await _httpClient.GetAsync("api/assets");
+                if (assetsResponse.IsSuccessStatusCode)
+                {
+                    _cachedAssets = await assetsResponse.Content.ReadFromJsonAsync<List<AssetReadDTO>>() ?? new List<AssetReadDTO>();
+                    _lastCacheUpdate = System.DateTime.Now;
+                }
             }
 
-            if (categoriesResponse.IsSuccessStatusCode)
-            {
-                Categories = await categoriesResponse.Content.ReadFromJsonAsync<List<CategoryReadDTO>>() ?? new List<CategoryReadDTO>();
-            }
+            Assets = _cachedAssets ?? new List<AssetReadDTO>();
+            // Load reference data in parallel for better performance
+            var categoriesTask = _httpClient.GetFromJsonAsync<List<CategoryReadDTO>>("api/categories");
+            var locationsTask = _httpClient.GetFromJsonAsync<List<LocationReadDTO>>("api/locations");
+            var departmentsTask = _httpClient.GetFromJsonAsync<List<DepartmentReadDTO>>("api/departments");
 
-            if (locationsResponse.IsSuccessStatusCode)
-            {
-                Locations = await locationsResponse.Content.ReadFromJsonAsync<List<LocationReadDTO>>() ?? new List<LocationReadDTO>();
-            }
+            await Task.WhenAll(categoriesTask, locationsTask, departmentsTask);
 
-            if (departmentsResponse.IsSuccessStatusCode)
-            {
-                Departments = await departmentsResponse.Content.ReadFromJsonAsync<List<DepartmentReadDTO>>() ?? new List<DepartmentReadDTO>();
-            }
+            Categories = categoriesTask.Result ?? new List<CategoryReadDTO>();
+            Locations = locationsTask.Result ?? new List<LocationReadDTO>();
+            Departments = departmentsTask.Result ?? new List<DepartmentReadDTO>();
 
             // Build lookup dictionaries
             _categoryNames = Categories.ToDictionary(c => c.CategoryId, c => c.Name);
@@ -87,21 +116,51 @@ namespace Portal.Pages.Assets
             _departmentNames = Departments.ToDictionary(d => d.DepartmentId, d => d.Name);
         }
 
+        private List<AssetReadDTO> ApplyFilters(List<AssetReadDTO> assets)
+        {
+            var filtered = assets.AsEnumerable();
+
+            if (!string.IsNullOrEmpty(SearchTerm))
+            {
+                var search = SearchTerm.ToLowerInvariant();
+                filtered = filtered.Where(a =>
+                    (a.AssetTag?.ToLowerInvariant().Contains(search) ?? false) ||
+                    (a.Name?.ToLowerInvariant().Contains(search) ?? false) ||
+                    (a.Description?.ToLowerInvariant().Contains(search) ?? false) ||
+                    (a.SerialNumber?.ToLowerInvariant().Contains(search) ?? false) ||
+                    (a.VendorName?.ToLowerInvariant().Contains(search) ?? false) ||
+                    (a.InvoiceNumber?.ToLowerInvariant().Contains(search) ?? false)
+                );
+            }
+
+            if (!string.IsNullOrEmpty(StatusFilter))
+                filtered = filtered.Where(a => a.Status == StatusFilter);
+
+            if (!string.IsNullOrEmpty(ConditionFilter))
+                filtered = filtered.Where(a => a.Condition == ConditionFilter);
+
+            if (!string.IsNullOrEmpty(CategoryFilter))
+                filtered = filtered.Where(a => a.CategoryId == CategoryFilter);
+
+            if (!string.IsNullOrEmpty(LocationFilter))
+                filtered = filtered.Where(a => a.LocationId == LocationFilter);
+
+            if (!string.IsNullOrEmpty(DepartmentFilter))
+                filtered = filtered.Where(a => a.DepartmentId == DepartmentFilter);
+
+            return filtered.ToList();
+        }
+
         // Helper methods to get names from IDs
-        public string GetCategoryName(string categoryId)
-        {
-            return _categoryNames.GetValueOrDefault(categoryId, "Unknown Category");
-        }
+        // Helper methods for name lookups
+        public string GetCategoryName(string categoryId) =>
+            _categoryNames.GetValueOrDefault(categoryId, "Unknown Category");
 
-        public string GetLocationName(string locationId)
-        {
-            return _locationNames.GetValueOrDefault(locationId, "Unknown Location");
-        }
+        public string GetLocationName(string locationId) =>
+            _locationNames.GetValueOrDefault(locationId, "Unknown Location");
 
-        public string GetDepartmentName(string departmentId)
-        {
-            return _departmentNames.GetValueOrDefault(departmentId, "Unknown Department");
-        }
+        public string GetDepartmentName(string departmentId) =>
+            _departmentNames.GetValueOrDefault(departmentId, "Unknown Department");
 
         public async Task<IActionResult> OnPostCreateAsync([Bind(Prefix = "CreateDto")] AssetCreateDTO dto)
         {
@@ -116,6 +175,8 @@ namespace Portal.Pages.Assets
             var response = await _httpClient.PostAsJsonAsync("api/assets", dto);
             if (response.IsSuccessStatusCode)
             {
+                // Invalidate cache on create
+                _cachedAssets = null;
                 return RedirectToPage();
             }
 
@@ -165,6 +226,8 @@ namespace Portal.Pages.Assets
             var response = await _httpClient.PutAsJsonAsync($"api/assets/{dto.AssetId}", dto);
             if (response.IsSuccessStatusCode)
             {
+                // Invalidate cache on update
+                _cachedAssets = null;
                 return RedirectToPage();
             }
 
@@ -202,6 +265,8 @@ namespace Portal.Pages.Assets
             var response = await _httpClient.DeleteAsync($"api/assets/{id}");
             if (response.IsSuccessStatusCode)
             {
+                // Invalidate cache on delete
+                _cachedAssets = null;
                 return RedirectToPage();
             }
             else if (response.StatusCode == HttpStatusCode.Unauthorized)
@@ -214,6 +279,30 @@ namespace Portal.Pages.Assets
             }
 
             await LoadDataAsync();
+            return Page();
+        }
+
+        // Quick filter actions
+        public IActionResult OnGetClearFilters()
+        {
+            SearchTerm = string.Empty;
+            StatusFilter = string.Empty;
+            ConditionFilter = string.Empty;
+            CategoryFilter = string.Empty;
+            LocationFilter = string.Empty;
+            DepartmentFilter = string.Empty;
+
+            return RedirectToPage();
+        }
+
+        public async Task<IActionResult> OnGetExportFilteredAsync()
+        {
+            await LoadDataAsync();
+            var filteredAssets = ApplyFilters(Assets);
+
+            // In a real implementation, you'd generate CSV/Excel here
+            // For now, just return to page with filtered data
+            Assets = filteredAssets;
             return Page();
         }
     }
