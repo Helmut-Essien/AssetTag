@@ -1,10 +1,553 @@
 ﻿@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Home page";
+    ViewData["Title"] = "Dashboard";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+@section Styles {
+    <link rel="stylesheet" href="~/css/dashboard.css" asp-append-version="true" />
+}
+
+<div class="container-fluid px-3 py-4">
+    <!-- Performance Indicator -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="performance-indicator d-flex justify-content-between align-items-center text-muted small">
+                <div>
+                    <i class="bi bi-lightning-charge-fill text-success me-1"></i>
+                    <span>Loaded in @Model.DataLoadTimeMs.ToString("0")ms</span>
+                    @if (Model.FromCache)
+                    {
+                        <span class="badge bg-info ms-2">Cached</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-warning ms-2">Live</span>
+                    }
+                </div>
+                <div>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="refreshDashboard()" id="refreshBtn">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                    <span class="ms-2">Last updated: <span id="lastUpdated">@DateTime.Now.ToString("HH:mm:ss")</span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Welcome Banner -->
+    <div class="welcome-banner glass-effect mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="display-6 mb-2 text-white">Welcome to Asset Portal</h1>
+                <p class="lead mb-0 text-white-50">Manage your assets efficiently with real-time insights and analytics</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="d-flex justify-content-end gap-2 flex-wrap">
+                    <span class="badge bg-light text-dark fs-6">
+                        <i class="bi bi-calendar-check me-1"></i>@DateTime.Now.ToString("MMMM dd, yyyy")
+                    </span>
+                    <span class="badge bg-success fs-6">
+                        <i class="bi bi-server me-1"></i>@Model.TotalAssets Assets
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Summary -->
+    @if (Model.AssetsDueForMaintenance > 0 || Model.WarrantyExpiringSoon > 0)
+    {
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="alert-summary">
+                    <div class="row g-2">
+                        @if (Model.AssetsDueForMaintenance > 0)
+                        {
+                            <div class="col-auto">
+                                <div class="alert alert-warning alert-dismissible fade show py-2" role="alert">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                    <strong>@Model.AssetsDueForMaintenance</strong> assets need maintenance
+                                    <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button>
+                                </div>
+                            </div>
+                        }
+                        @if (Model.WarrantyExpiringSoon > 0)
+                        {
+                            <div class="col-auto">
+                                <div class="alert alert-danger alert-dismissible fade show py-2" role="alert">
+                                    <i class="bi bi-clock-fill me-2"></i>
+                                    <strong>@Model.WarrantyExpiringSoon</strong> warranties expiring soon
+                                    <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Statistics Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-2 col-md-4 col-sm-6">
+            <div class="stat-card total-assets">
+                <div class="stat-card-body">
+                    <div class="stat-icon">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number">@Model.TotalAssets.ToString("N0")</div>
+                        <div class="stat-label">Total Assets</div>
+                        <div class="stat-trend">
+                            <i class="bi bi-arrow-up-right trend-positive"></i>
+                            <small>All assets</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-4 col-sm-6">
+            <div class="stat-card total-value">
+                <div class="stat-card-body">
+                    <div class="stat-icon">
+                        <i class="bi bi-currency-dollar"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number">@Model.TotalAssetValue.ToString("C0")</div>
+                        <div class="stat-label">Total Value</div>
+                        <div class="stat-trend">
+                            <i class="bi bi-graph-up trend-positive"></i>
+                            <small>Current value</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-4 col-sm-6">
+            <div class="stat-card available-assets">
+                <div class="stat-card-body">
+                    <div class="stat-icon">
+                        <i class="bi bi-check-circle"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number">@Model.AvailableAssets.ToString("N0")</div>
+                        <div class="stat-label">Available</div>
+                        <div class="stat-trend">
+                            <i class="bi bi-check-lg trend-positive"></i>
+                            <small>Ready for use</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-4 col-sm-6">
+            <div class="stat-card in-use-assets">
+                <div class="stat-card-body">
+                    <div class="stat-icon">
+                        <i class="bi bi-person-check"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number">@Model.InUseAssets.ToString("N0")</div>
+                        <div class="stat-label">In Use</div>
+                        <div class="stat-trend">
+                            <i class="bi bi-arrow-up-right trend-positive"></i>
+                            <small>Active usage</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-4 col-sm-6">
+            <div class="stat-card maintenance-assets">
+                <div class="stat-card-body">
+                    <div class="stat-icon">
+                        <i class="bi bi-tools"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number">@Model.UnderMaintenanceAssets.ToString("N0")</div>
+                        <div class="stat-label">Maintenance</div>
+                        <div class="stat-trend">
+                            <i class="bi bi-clock-history trend-warning"></i>
+                            <small>Under repair</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-4 col-sm-6">
+            <div class="stat-card activities">
+                <div class="stat-card-body">
+                    <div class="stat-icon">
+                        <i class="bi bi-activity"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number">@Model.RecentActivities.ToString("N0")</div>
+                        <div class="stat-label">Activities</div>
+                        <div class="stat-trend">
+                            <i class="bi bi-arrow-up-right trend-positive"></i>
+                            <small>Last 30 days</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="row g-4">
+        <!-- Left Column - Charts -->
+        <div class="col-xl-8">
+            <div class="row g-4">
+                <!-- Asset Status Distribution -->
+                <div class="col-md-6">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h5 class="mb-0">Asset Status Distribution</h5>
+                            <div class="chart-actions">
+                                <span class="badge bg-primary">Live</span>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="exportChart('statusChart')">
+                                    <i class="bi bi-download"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="statusChart" height="250"></canvas>
+                        </div>
+                        <div class="chart-footer">
+                            <div class="row g-2 text-center">
+                                <div class="col-4">
+                                    <small class="text-muted">Available</small>
+                                    <div class="fw-bold text-success">@Model.AvailableAssets</div>
+                                </div>
+                                <div class="col-4">
+                                    <small class="text-muted">In Use</small>
+                                    <div class="fw-bold text-primary">@Model.InUseAssets</div>
+                                </div>
+                                <div class="col-4">
+                                    <small class="text-muted">Maintenance</small>
+                                    <div class="fw-bold text-warning">@Model.UnderMaintenanceAssets</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Asset Condition Overview -->
+                <div class="col-md-6">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h5 class="mb-0">Asset Condition</h5>
+                            <div class="chart-actions">
+                                <span class="badge bg-success">Real-time</span>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="exportChart('conditionChart')">
+                                    <i class="bi bi-download"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="conditionChart" height="250"></canvas>
+                        </div>
+                        <div class="chart-footer">
+                            <div class="condition-legends">
+                                @foreach (var condition in Model.ConditionChartData.OrderByDescending(c => c.Count))
+                                {
+                                    <div class="condition-item">
+                                        <span class="condition-color" style="background-color: @GetConditionColor(condition.Condition)"></span>
+                                        <small>@condition.Condition: @condition.Count</small>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Monthly Asset Value Trend -->
+                <div class="col-12">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h5 class="mb-0">Monthly Asset Value Trend</h5>
+                            <div class="chart-actions">
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary active" onclick="changeChartView('value')">Value</button>
+                                    <button class="btn btn-outline-primary" onclick="changeChartView('count')">Count</button>
+                                    <button class="btn btn-outline-primary" onclick="changeChartView('depreciation')">Depreciation</button>
+                                </div>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="exportChart('monthlyTrendChart')">
+                                    <i class="bi bi-download"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="monthlyTrendChart" height="150"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - Activities and Quick Actions -->
+        <div class="col-xl-4">
+            <!-- Recent Activities -->
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h5 class="mb-0">Recent Activities</h5>
+                    <div class="chart-actions">
+                        <a href="/assethistories" class="btn btn-sm btn-outline-primary">View All</a>
+                    </div>
+                </div>
+                <div class="activity-list" id="activityList">
+                    @if (Model.RecentAssetHistories.Any())
+                    {
+                        foreach (var activity in Model.RecentAssetHistories)
+                        {
+                            <div class="activity-item">
+                                <div class="activity-icon @GetActionBadgeClass(activity.Action)">
+                                    <i class="bi @GetActionIcon(activity.Action)"></i>
+                                </div>
+                                <div class="activity-content">
+                                    <div class="d-flex justify-content-between align-items-start mb-1">
+                                        <strong class="activity-title text-truncate">@activity.AssetName</strong>
+                                        <small class="activity-time">@activity.Timestamp.ToString("MMM dd, HH:mm")</small>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="badge @GetActionBadgeClass(activity.Action) status-badge">@activity.Action</span>
+                                        <small class="text-muted">by @activity.UserFullName</small>
+                                    </div>
+                                    <p class="activity-description mb-0">@activity.Description</p>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-activity fs-1 mb-2 d-block opacity-50"></i>
+                            <p class="mb-0">No recent activities</p>
+                        </div>
+                    }
+                </div>
+                <div class="chart-footer text-center">
+                    <a href="/assethistories" class="btn btn-sm btn-outline-primary w-100">
+                        <i class="bi bi-clock-history me-1"></i>View Full History
+                    </a>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="quick-actions-grid">
+                    <a href="/Assets" class="quick-action-card">
+                        <div class="quick-action-icon view-assets">
+                            <i class="bi bi-eye"></i>
+                        </div>
+                        <div class="quick-action-content">
+                            <h6>View Assets</h6>
+                            <small class="text-muted">Browse all assets</small>
+                        </div>
+                    </a>
+
+                    <a href="/Assets/Create" class="quick-action-card">
+                        <div class="quick-action-icon add-asset">
+                            <i class="bi bi-plus-circle"></i>
+                        </div>
+                        <div class="quick-action-content">
+                            <h6>Add Asset</h6>
+                            <small class="text-muted">Create new asset</small>
+                        </div>
+                    </a>
+
+                    <a href="/Assets/Index?StatusFilter=Under+Maintenance" class="quick-action-card">
+                        <div class="quick-action-icon maintenance">
+                            <i class="bi bi-tools"></i>
+                        </div>
+                        <div class="quick-action-content">
+                            <h6>Maintenance</h6>
+                            <small class="text-muted">@Model.UnderMaintenanceAssets needs attention</small>
+                        </div>
+                    </a>
+
+                    <a href="/assethistories" class="quick-action-card">
+                        <div class="quick-action-icon history">
+                            <i class="bi bi-clock-history"></i>
+                        </div>
+                        <div class="quick-action-content">
+                            <h6>History</h6>
+                            <small class="text-muted">View all activities</small>
+                        </div>
+                    </a>
+                </div>
+            </div>
+
+            <!-- System Overview -->
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h5 class="mb-0">System Overview</h5>
+                </div>
+                <div class="system-overview">
+                    <div class="system-item">
+                        <div class="system-icon categories">
+                            <i class="bi bi-tags"></i>
+                        </div>
+                        <div class="system-content">
+                            <div class="system-value">@Model.TotalCategories</div>
+                            <div class="system-label">Categories</div>
+                        </div>
+                    </div>
+                    <div class="system-item">
+                        <div class="system-icon locations">
+                            <i class="bi bi-geo-alt"></i>
+                        </div>
+                        <div class="system-content">
+                            <div class="system-value">@Model.TotalLocations</div>
+                            <div class="system-label">Locations</div>
+                        </div>
+                    </div>
+                    <div class="system-item">
+                        <div class="system-icon departments">
+                            <i class="bi bi-building"></i>
+                        </div>
+                        <div class="system-content">
+                            <div class="system-value">@Model.TotalDepartments</div>
+                            <div class="system-label">Departments</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="~/js/dashboard.js" asp-append-version="true"></script>
+    <script>
+        // Initialize dashboard when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeDashboardCharts();
+            startAutoRefresh();
+        });
+
+        // Dashboard configuration
+        const dashboardConfig = {
+            autoRefresh: true,
+            refreshInterval: 120000, // 2 minutes
+            chartAnimation: true,
+            lazyLoad: true
+        };
+
+        // Chart data from server
+        const chartData = {
+            statusData: [
+                @foreach (var status in Model.StatusChartData)
+                {
+                        <text>
+                        {
+                            status: '@status.Status',
+                            count: @status.Count,
+                            percentage: @status.Percentage.ToString("F1")
+                        },
+                        </text>
+                }
+            ],
+            conditionData: [
+                @foreach (var condition in Model.ConditionChartData)
+                {
+                        <text>
+                        {
+                            condition: '@condition.Condition',
+                            count: @condition.Count,
+                            percentage: @condition.Percentage.ToString("F1")
+                        },
+                        </text>
+                }
+            ],
+            monthlyData: [
+                @foreach (var month in Model.MonthlyValueData)
+                {
+                        <text>
+                        {
+                            month: '@month.Month',
+                            value: @month.Value,
+                            count: @month.AssetCount,
+                            depreciation: @month.Depreciation
+                        },
+                        </text>
+                }
+            ]
+        };
+
+        // Color schemes
+        const chartColors = {
+            status: {
+                'Available': '#28a745',
+                'In Use': '#007bff',
+                'Under Maintenance': '#ffc107',
+                'Retired': '#6c757d',
+                'Lost': '#dc3545'
+            },
+            condition: {
+                'New': '#20c997',
+                'Good': '#28a745',
+                'Fair': '#ffc107',
+                'Poor': '#fd7e14',
+                'Broken': '#dc3545'
+            },
+            trends: {
+                value: '#007bff',
+                count: '#28a745',
+                depreciation: '#6c757d'
+            }
+        };
+    </script>
+}
+</div>
+
+@functions {
+    private string GetActionBadgeClass(string action)
+    {
+        return action?.ToUpper() switch
+        {
+            "CREATE" => "bg-success",
+            "UPDATE" => "bg-primary",
+            "DELETE" => "bg-danger",
+            "MAINTENANCE" => "bg-warning",
+            "TRANSFER" => "bg-info",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetActionIcon(string action)
+    {
+        return action?.ToUpper() switch
+        {
+            "CREATE" => "bi-plus-circle",
+            "UPDATE" => "bi-pencil",
+            "DELETE" => "bi-trash",
+            "MAINTENANCE" => "bi-tools",
+            "TRANSFER" => "bi-arrow-left-right",
+            _ => "bi-activity"
+        };
+    }
+
+    private string GetConditionColor(string condition)
+    {
+        return condition?.ToLower() switch
+        {
+            "new" => "#20c997",
+            "good" => "#28a745",
+            "fair" => "#ffc107",
+            "poor" => "#fd7e14",
+            "broken" => "#dc3545",
+            _ => "#6c757d"
+        };
+    }
+}
