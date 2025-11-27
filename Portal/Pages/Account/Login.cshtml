@@ -31,7 +31,7 @@
     <div class="form-group mb-3 position-relative">
         <input asp-for="Input.Password" type="password" class="form-control form-control-lg" placeholder="Password" id="passwordInput" />
         <span asp-validation-for="Input.Password" class="text-danger"></span>
-        <span class="password-toggle" onclick="togglePassword()">👁️</span>
+        <span class="password-toggle" onclick="togglePassword()">🙈</span>
     </div>
     <div class="form-check mb-4">
         <input asp-for="Input.RememberMe" class="form-check-input" />
@@ -67,10 +67,10 @@
             const toggleIcon = document.querySelector('.password-toggle');
             if (passwordInput.type === 'password') {
                 passwordInput.type = 'text';
-                toggleIcon.textContent = '🙈';
+                toggleIcon.textContent ='👁️' ;
             } else {
                 passwordInput.type = 'password';
-                toggleIcon.textContent = '👁️';
+                toggleIcon.textContent = '🙈';
             }
         }
 

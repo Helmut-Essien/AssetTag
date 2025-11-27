@@ -168,14 +168,7 @@ p.text-muted {
     font-size: clamp(0.9rem, 2vw, 1rem);
 }
 
-.password-toggle {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    cursor: pointer;
-    color: #1e3a8a;
-}
+
 
 .form-group {
     position: relative;
@@ -221,11 +214,13 @@ p.text-muted {
 .password-toggle {
     position: absolute;
     right: 12px;
-    top: 38px;
+    top: 50%;
+    transform: translateY(-50%);
     cursor: pointer;
     user-select: none;
     opacity: 0.7;
     transition: opacity 0.2s;
+    color: #1e3a8a;
 }
 
     .password-toggle:hover {
