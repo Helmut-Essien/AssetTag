@@ -209,46 +209,50 @@ namespace Portal.Pages
 
         private void PrepareChartData(List<AssetReadDTO> assets)
         {
-            // Status Distribution
+            // Status Distribution - ensure we have data
             StatusChartData = assets
                 .GroupBy(a => a.Status)
                 .Select(g => new AssetStatusChartData
                 {
-                    Status = g.Key,
+                    Status = g.Key ?? "Unknown",
                     Count = g.Count(),
                     Percentage = TotalAssets > 0 ? (g.Count() * 100.0 / TotalAssets) : 0
                 })
                 .OrderByDescending(x => x.Count)
                 .ToList();
 
+            // If no status data, create default
+            if (!StatusChartData.Any())
+            {
+                StatusChartData = new List<AssetStatusChartData>
+        {
+            new AssetStatusChartData { Status = "No Data", Count = 1, Percentage = 100 }
+        };
+            }
+
             // Condition Overview
             ConditionChartData = assets
                 .GroupBy(a => a.Condition)
                 .Select(g => new AssetConditionChartData
                 {
-                    Condition = g.Key,
+                    Condition = g.Key ?? "Unknown",
                     Count = g.Count(),
                     Percentage = TotalAssets > 0 ? (g.Count() * 100.0 / TotalAssets) : 0
                 })
                 .ToList();
 
-            // Monthly trend data (simplified - in real app, use historical data)
+            // If no condition data, create default
+            if (!ConditionChartData.Any())
+            {
+                ConditionChartData = new List<AssetConditionChartData>
+        {
+            new AssetConditionChartData { Condition = "No Data", Count = 1, Percentage = 100 }
+        };
+            }
+
+            // Monthly trend data
             MonthlyValueData = GenerateMonthlyValueData(assets);
-
-            // Department distribution
-            DepartmentAssetData = assets
-                .GroupBy(a => a.DepartmentId)
-                .Select(g => new DepartmentAssetData
-                {
-                    DepartmentId = g.Key,
-                    AssetCount = g.Count(),
-                    TotalValue = g.Where(a => a.CurrentValue.HasValue).Sum(a => a.CurrentValue.Value)
-                })
-                .OrderByDescending(x => x.TotalValue)
-                .Take(5)
-                .ToList();
         }
-
         private async Task LoadRecentHistories()
         {
             var historiesResponse = await _httpClient.GetAsync("api/assethistories?page=1&pageSize=5");

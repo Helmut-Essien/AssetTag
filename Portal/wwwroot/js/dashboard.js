@@ -1,4 +1,4 @@
-﻿// Dashboard JavaScript with performance optimizations
+﻿// Dashboard JavaScript with Enhanced Error Handling
 class DashboardManager {
     constructor() {
         this.charts = new Map();
@@ -6,47 +6,123 @@ class DashboardManager {
         this.autoRefreshInterval = null;
         this.config = {
             autoRefresh: true,
-            refreshInterval: 120000, // 2 minutes
+            refreshInterval: 120000,
             chartAnimation: true,
             lazyLoad: true
+        };
+
+        this.colors = {
+            status: {
+                'Available': '#059669',
+                'In Use': '#2563eb',
+                'Under Maintenance': '#d97706',
+                'Retired': '#71717a',
+                'Lost': '#e11d48',
+                'Unknown': '#6b7280',
+                'No Data': '#9ca3af'
+            },
+            condition: {
+                'New': '#059669',
+                'Good': '#2563eb',
+                'Fair': '#d97706',
+                'Poor': '#f59e0b',
+                'Broken': '#e11d48',
+                'Unknown': '#6b7280',
+                'No Data': '#9ca3af'
+            },
+            trends: {
+                value: '#2563eb',
+                count: '#059669',
+                depreciation: '#71717a'
+            }
         };
     }
 
     initialize() {
-        if (this.isInitialized) return;
+        if (this.isInitialized) {
+            console.log('Dashboard already initialized');
+            return;
+        }
 
-        this.initializeCharts();
-        this.setupEventListeners();
-        this.startAutoRefresh();
-        this.setupLazyLoading();
+        console.log('Initializing dashboard...');
 
-        this.isInitialized = true;
-        console.log('Dashboard initialized');
+        // Check if Chart.js is available
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js is not loaded. Please include Chart.js in your page.');
+            this.showToast('Charts library not loaded. Please refresh the page.', 'error');
+            return;
+        }
+
+        try {
+            this.initializeCharts();
+            this.setupEventListeners();
+            this.startAutoRefresh();
+            this.setupLazyLoading();
+
+            this.isInitialized = true;
+            console.log('Dashboard initialized successfully');
+        } catch (error) {
+            console.error('Failed to initialize dashboard:', error);
+            this.showToast('Failed to initialize dashboard charts', 'error');
+        }
     }
 
     initializeCharts() {
-        this.createStatusChart();
-        this.createConditionChart();
-        this.createTrendChart();
+        console.log('Initializing charts...');
+
+        // Initialize each chart with error handling
+        const chartInitializers = [
+            { name: 'status', initializer: () => this.createStatusChart() },
+            { name: 'condition', initializer: () => this.createConditionChart() },
+            { name: 'trend', initializer: () => this.createTrendChart() }
+        ];
+
+        chartInitializers.forEach(({ name, initializer }) => {
+            try {
+                initializer();
+                console.log(`✅ ${name} chart initialized`);
+            } catch (error) {
+                console.error(`❌ Failed to initialize ${name} chart:`, error);
+                this.showToast(`Failed to load ${name} chart`, 'error');
+            }
+        });
     }
 
     createStatusChart() {
-        const ctx = document.getElementById('statusChart');
-        if (!ctx) return;
+        const canvas = document.getElementById('statusChart');
+        if (!canvas) {
+            throw new Error('Status chart canvas element not found');
+        }
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            throw new Error('Could not get 2D context for status chart');
+        }
 
         const statusData = window.chartData?.statusData || [];
-        const total = statusData.reduce((sum, item) => sum + item.count, 0);
+        console.log('Status chart data:', statusData);
+
+        // Ensure we have data
+        if (!statusData || statusData.length === 0) {
+            this.createEmptyChart(ctx, 'No status data available');
+            return;
+        }
+
+        const total = statusData.reduce((sum, item) => sum + (item.count || 0), 0);
 
         this.charts.set('status', new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: statusData.map(s => `${s.status} (${((s.count / total) * 100).toFixed(1)}%)`),
+                labels: statusData.map(s => {
+                    const percentage = total > 0 ? ((s.count / total) * 100).toFixed(1) : '0';
+                    return `${s.status} (${percentage}%)`;
+                }),
                 datasets: [{
-                    data: statusData.map(s => s.count),
-                    backgroundColor: statusData.map(s => window.chartColors.status[s.status] || '#6c757d'),
-                    borderWidth: 3,
-                    borderColor: '#fff',
-                    hoverBorderWidth: 4,
+                    data: statusData.map(s => s.count || 0),
+                    backgroundColor: statusData.map(s => this.colors.status[s.status] || '#6b7280'),
+                    borderWidth: 2,
+                    borderColor: '#ffffff',
+                    hoverBorderWidth: 3,
                     hoverOffset: 8
                 }]
             },
@@ -57,50 +133,74 @@ class DashboardManager {
                     legend: {
                         position: 'bottom',
                         labels: {
-                            padding: 20,
+                            padding: 15,
                             usePointStyle: true,
                             font: {
-                                size: 11
-                            }
+                                size: 11,
+                                family: "system-ui, -apple-system, sans-serif"
+                            },
+                            color: '#374151'
                         }
                     },
                     tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        titleColor: '#111827',
+                        bodyColor: '#374151',
+                        borderColor: '#e5e7eb',
+                        borderWidth: 1,
+                        cornerRadius: 6,
+                        padding: 8,
                         callbacks: {
-                            label: function (context) {
+                            label: (context) => {
                                 const label = context.label || '';
                                 const value = context.raw || 0;
-                                const percentage = ((value / total) * 100).toFixed(1);
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
                                 return `${label.split(' (')[0]}: ${value} (${percentage}%)`;
                             }
                         }
                     }
                 },
-                cutout: '70%',
+                cutout: '65%',
                 animation: this.config.chartAnimation ? {
                     animateScale: true,
-                    animateRotate: true
+                    animateRotate: true,
+                    duration: 800
                 } : false
             }
         }));
     }
 
     createConditionChart() {
-        const ctx = document.getElementById('conditionChart');
-        if (!ctx) return;
+        const canvas = document.getElementById('conditionChart');
+        if (!canvas) {
+            throw new Error('Condition chart canvas element not found');
+        }
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            throw new Error('Could not get 2D context for condition chart');
+        }
 
         const conditionData = window.chartData?.conditionData || [];
-        const total = conditionData.reduce((sum, item) => sum + item.count, 0);
+        console.log('Condition chart data:', conditionData);
+
+        if (!conditionData || conditionData.length === 0) {
+            this.createEmptyChart(ctx, 'No condition data available');
+            return;
+        }
+
+        const total = conditionData.reduce((sum, item) => sum + (item.count || 0), 0);
 
         this.charts.set('condition', new Chart(ctx, {
             type: 'pie',
             data: {
                 labels: conditionData.map(c => c.condition),
                 datasets: [{
-                    data: conditionData.map(c => c.count),
-                    backgroundColor: conditionData.map(c => window.chartColors.condition[c.condition] || '#6c757d'),
-                    borderWidth: 3,
-                    borderColor: '#fff',
-                    hoverBorderWidth: 4,
+                    data: conditionData.map(c => c.count || 0),
+                    backgroundColor: conditionData.map(c => this.colors.condition[c.condition] || '#6b7280'),
+                    borderWidth: 2,
+                    borderColor: '#ffffff',
+                    hoverBorderWidth: 3,
                     hoverOffset: 8
                 }]
             },
@@ -109,14 +209,21 @@ class DashboardManager {
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        display: false
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            usePointStyle: true,
+                            font: {
+                                size: 11
+                            }
+                        }
                     },
                     tooltip: {
                         callbacks: {
-                            label: function (context) {
+                            label: (context) => {
                                 const label = context.label || '';
                                 const value = context.raw || 0;
-                                const percentage = ((value / total) * 100).toFixed(1);
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
                                 return `${label}: ${value} (${percentage}%)`;
                             }
                         }
@@ -124,17 +231,31 @@ class DashboardManager {
                 },
                 animation: this.config.chartAnimation ? {
                     animateScale: true,
-                    animateRotate: true
+                    animateRotate: true,
+                    duration: 800
                 } : false
             }
         }));
     }
 
     createTrendChart() {
-        const ctx = document.getElementById('monthlyTrendChart');
-        if (!ctx) return;
+        const canvas = document.getElementById('monthlyTrendChart');
+        if (!canvas) {
+            throw new Error('Trend chart canvas element not found');
+        }
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            throw new Error('Could not get 2D context for trend chart');
+        }
 
         const monthlyData = window.chartData?.monthlyData || [];
+        console.log('Trend chart data:', monthlyData);
+
+        if (!monthlyData || monthlyData.length === 0) {
+            this.createEmptyChart(ctx, 'No trend data available', 'line');
+            return;
+        }
 
         this.charts.set('trend', new Chart(ctx, {
             type: 'line',
@@ -142,17 +263,17 @@ class DashboardManager {
                 labels: monthlyData.map(m => m.month),
                 datasets: [{
                     label: 'Asset Value',
-                    data: monthlyData.map(m => m.value),
-                    borderColor: window.chartColors.trends.value,
-                    backgroundColor: this.hexToRgba(window.chartColors.trends.value, 0.1),
-                    borderWidth: 3,
+                    data: monthlyData.map(m => m.value || 0),
+                    borderColor: this.colors.trends.value,
+                    backgroundColor: this.hexToRgba(this.colors.trends.value, 0.1),
+                    borderWidth: 2,
                     fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: window.chartColors.trends.value,
-                    pointBorderColor: '#fff',
+                    tension: 0.3,
+                    pointBackgroundColor: this.colors.trends.value,
+                    pointBorderColor: '#ffffff',
                     pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
+                    pointRadius: 3,
+                    pointHoverRadius: 5
                 }]
             },
             options: {
@@ -167,10 +288,10 @@ class DashboardManager {
                     y: {
                         beginAtZero: false,
                         grid: {
-                            drawBorder: false
+                            color: 'rgba(0, 0, 0, 0.05)'
                         },
                         ticks: {
-                            callback: function (value) {
+                            callback: (value) => {
                                 return '$' + value.toLocaleString();
                             }
                         }
@@ -184,55 +305,100 @@ class DashboardManager {
                 interaction: {
                     intersect: false,
                     mode: 'index'
-                },
-                animation: this.config.chartAnimation ? {
-                    duration: 1000,
-                    easing: 'easeOutQuart'
-                } : false
+                }
             }
         }));
     }
 
+    createEmptyChart(ctx, message, type = 'doughnut') {
+        console.warn(`Creating empty chart: ${message}`);
+
+        if (type === 'doughnut' || type === 'pie') {
+            this.charts.set('empty', new Chart(ctx, {
+                type: type,
+                data: {
+                    labels: ['No Data'],
+                    datasets: [{
+                        data: [1],
+                        backgroundColor: ['#f3f4f6'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: false
+                        }
+                    },
+                    animation: false
+                }
+            }));
+
+            // Add text annotation
+            ctx.font = '14px system-ui';
+            ctx.fillStyle = '#6b7280';
+            ctx.textAlign = 'center';
+            ctx.fillText(message, ctx.canvas.width / 2, ctx.canvas.height / 2);
+        }
+    }
+
+    // ... rest of your existing methods (changeChartView, setupEventListeners, etc.)
     changeChartView(type) {
         const trendChart = this.charts.get('trend');
-        if (!trendChart) return;
+        if (!trendChart) {
+            console.warn('Trend chart not available for view change');
+            return;
+        }
 
         const monthlyData = window.chartData?.monthlyData || [];
-        const buttonGroup = document.querySelector('.btn-group');
-        const buttons = buttonGroup.querySelectorAll('.btn');
+        const buttons = document.querySelectorAll('.btn-group .btn');
 
-        // Update active button
         buttons.forEach(btn => btn.classList.remove('active'));
-        event.target.classList.add('active');
+        if (event && event.target) {
+            event.target.classList.add('active');
+        }
 
-        let data, label, callback;
+        let data, label, callback, borderColor, backgroundColor;
 
         switch (type) {
             case 'count':
-                data = monthlyData.map(m => m.count);
+                data = monthlyData.map(m => m.count || 0);
                 label = 'Asset Count';
                 callback = (value) => value.toLocaleString();
+                borderColor = this.colors.trends.count;
+                backgroundColor = this.hexToRgba(this.colors.trends.count, 0.1);
                 break;
             case 'depreciation':
-                data = monthlyData.map(m => m.depreciation);
+                data = monthlyData.map(m => m.depreciation || 0);
                 label = 'Monthly Depreciation';
                 callback = (value) => '$' + value.toLocaleString();
+                borderColor = this.colors.trends.depreciation;
+                backgroundColor = this.hexToRgba(this.colors.trends.depreciation, 0.1);
                 break;
-            default: // value
-                data = monthlyData.map(m => m.value);
+            default:
+                data = monthlyData.map(m => m.value || 0);
                 label = 'Asset Value';
                 callback = (value) => '$' + value.toLocaleString();
+                borderColor = this.colors.trends.value;
+                backgroundColor = this.hexToRgba(this.colors.trends.value, 0.1);
         }
 
         trendChart.data.datasets[0].data = data;
         trendChart.data.datasets[0].label = label;
+        trendChart.data.datasets[0].borderColor = borderColor;
+        trendChart.data.datasets[0].backgroundColor = backgroundColor;
+        trendChart.data.datasets[0].pointBackgroundColor = borderColor;
         trendChart.options.scales.y.ticks.callback = callback;
 
         trendChart.update();
     }
 
     setupEventListeners() {
-        // Refresh button
         const refreshBtn = document.getElementById('refreshBtn');
         if (refreshBtn) {
             refreshBtn.addEventListener('click', (e) => {
@@ -241,13 +407,9 @@ class DashboardManager {
             });
         }
 
-        // Export chart functionality
         window.exportChart = (chartId) => this.exportChart(chartId);
-
-        // View change handlers
         window.changeChartView = (type) => this.changeChartView(type);
 
-        // Visibility change for performance
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 this.pauseAutoRefresh();
@@ -263,42 +425,34 @@ class DashboardManager {
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    const chart = entry.target;
-                    // Charts are already initialized, but we could add lazy data loading here
-                    observer.unobserve(chart);
+                    const chartContainer = entry.target;
+                    observer.unobserve(chartContainer);
                 }
             });
         }, { rootMargin: '50px' });
 
-        // Observe all chart containers
-        document.querySelectorAll('.chart-wrapper canvas').forEach(canvas => {
-            observer.observe(canvas);
+        document.querySelectorAll('.chart-container').forEach(container => {
+            observer.observe(container);
         });
     }
 
     async refreshDashboard() {
         const refreshBtn = document.getElementById('refreshBtn');
-        const originalHtml = refreshBtn.innerHTML;
+        const originalHtml = refreshBtn?.innerHTML;
 
-        // Show loading state
-        refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise spin"></i> Refreshing...';
-        refreshBtn.disabled = true;
+        if (refreshBtn) {
+            refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise spin"></i> Refreshing...';
+            refreshBtn.disabled = true;
+        }
 
         try {
             const response = await fetch('?handler=RefreshDashboard');
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
             const data = await response.json();
-
             if (data.success) {
-                // Update last updated time
-                document.getElementById('lastUpdated').textContent = data.timestamp;
-
-                // Show success feedback
                 this.showToast('Dashboard refreshed successfully', 'success');
-
-                // Reload the page to get fresh data
-                setTimeout(() => {
-                    window.location.reload();
-                }, 500);
+                setTimeout(() => location.reload(), 500);
             } else {
                 throw new Error(data.error);
             }
@@ -306,35 +460,35 @@ class DashboardManager {
             console.error('Refresh failed:', error);
             this.showToast('Refresh failed: ' + error.message, 'error');
         } finally {
-            // Restore button state
-            refreshBtn.innerHTML = originalHtml;
-            refreshBtn.disabled = false;
-        }
-    }
-
-    async updateQuickStats() {
-        try {
-            const response = await fetch('?handler=QuickStats');
-            const data = await response.json();
-
-            if (!data.error) {
-                // Update critical stats without full page reload
-                this.updateStatsDisplay(data);
+            if (refreshBtn && originalHtml) {
+                refreshBtn.innerHTML = originalHtml;
+                refreshBtn.disabled = false;
             }
-        } catch (error) {
-            console.error('Failed to update quick stats:', error);
         }
     }
 
-    updateStatsDisplay(data) {
-        // This would update specific stat elements without full reload
-        // Implementation depends on specific element structure
-        console.log('Quick stats updated:', data);
+    showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        toast.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+        toast.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+    }
+
+    hexToRgba(hex, alpha) {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     }
 
     startAutoRefresh() {
         if (!this.config.autoRefresh) return;
-
         this.autoRefreshInterval = setInterval(() => {
             this.updateQuickStats();
         }, this.config.refreshInterval);
@@ -353,43 +507,6 @@ class DashboardManager {
         }
     }
 
-    exportChart(chartId) {
-        const chart = this.charts.get(chartId);
-        if (!chart) return;
-
-        const link = document.createElement('a');
-        link.download = `chart-${chartId}-${new Date().toISOString().split('T')[0]}.png`;
-        link.href = chart.toBase64Image();
-        link.click();
-    }
-
-    showToast(message, type = 'info') {
-        // Simple toast implementation
-        const toast = document.createElement('div');
-        toast.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-        toast.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
-        toast.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-
-        document.body.appendChild(toast);
-
-        // Auto remove after 3 seconds
-        setTimeout(() => {
-            if (toast.parentNode) {
-                toast.parentNode.removeChild(toast);
-            }
-        }, 3000);
-    }
-
-    hexToRgba(hex, alpha) {
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-    }
-
     destroy() {
         this.pauseAutoRefresh();
         this.charts.forEach(chart => chart.destroy());
@@ -398,28 +515,40 @@ class DashboardManager {
     }
 }
 
-// Global functions for HTML onclick handlers
+// Global functions
 function refreshDashboard() {
-    window.dashboardManager.refreshDashboard();
+    if (window.dashboardManager) {
+        window.dashboardManager.refreshDashboard();
+    }
 }
 
 function changeChartView(type) {
-    window.dashboardManager.changeChartView(type);
+    if (window.dashboardManager) {
+        window.dashboardManager.changeChartView(type);
+    }
 }
 
 function exportChart(chartId) {
-    window.dashboardManager.exportChart(chartId);
+    if (window.dashboardManager) {
+        window.dashboardManager.exportChart(chartId);
+    }
 }
 
-// Initialize dashboard when DOM is loaded
+// Initialize with error handling
 document.addEventListener('DOMContentLoaded', function () {
-    window.dashboardManager = new DashboardManager();
-    window.dashboardManager.initialize();
+    try {
+        window.dashboardManager = new DashboardManager();
+        setTimeout(() => {
+            window.dashboardManager.initialize();
+        }, 100);
+    } catch (error) {
+        console.error('Failed to create dashboard manager:', error);
+    }
 });
 
-// Add spin animation for refresh icon
-const style = document.createElement('style');
-style.textContent = `
+// Add styles
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
     .bi-arrow-clockwise.spin {
         animation: spin 1s linear infinite;
     }
@@ -428,4 +557,4 @@ style.textContent = `
         to { transform: rotate(360deg); }
     }
 `;
-document.head.appendChild(style);
+document.head.appendChild(styleSheet);

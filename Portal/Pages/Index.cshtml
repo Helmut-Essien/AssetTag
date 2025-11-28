@@ -7,6 +7,105 @@
 @section Styles {
     <link rel="stylesheet" href="~/css/dashboard.css" asp-append-version="true" />
 }
+@* <!-- Add this temporary debug section at the top of your Index.cshtml -->
+<div class="alert alert-info d-none" id="debugInfo">
+    <h6>Debug Information:</h6>
+    <div id="debugContent"></div>
+</div> *@
+
+<!-- Add this script to pass data from C# to JavaScript -->
+<script>
+    // Pass chart data from C# model to JavaScript
+    window.chartData = {
+        statusData: [
+            @foreach (var status in Model.StatusChartData)
+            {
+                    <text>
+                    {
+                        status: '@Html.Raw(status.Status)',
+                        count: @status.Count,
+                        percentage: @status.Percentage.ToString("F1")
+                    },
+                    </text>
+            }
+        ],
+        conditionData: [
+            @foreach (var condition in Model.ConditionChartData)
+            {
+                    <text>
+                    {
+                        condition: '@Html.Raw(condition.Condition)',
+                        count: @condition.Count,
+                        percentage: @condition.Percentage.ToString("F1")
+                    },
+                    </text>
+            }
+        ],
+        monthlyData: [
+            @foreach (var month in Model.MonthlyValueData)
+            {
+                    <text>
+                    {
+                        month: '@month.Month',
+                        value: @month.Value,
+                        count: @month.AssetCount,
+                        depreciation: @month.Depreciation
+                    },
+                    </text>
+            }
+        ]
+    };
+
+    // Color schemes
+    window.chartColors = {
+        status: {
+            'Available': '#059669',
+            'In Use': '#2563eb',
+            'Under Maintenance': '#d97706',
+            'Retired': '#71717a',
+            'Lost': '#e11d48'
+        },
+        condition: {
+            'New': '#059669',
+            'Good': '#2563eb',
+            'Fair': '#d97706',
+            'Poor': '#f59e0b',
+            'Broken': '#e11d48'
+        },
+        trends: {
+            value: '#2563eb',
+            count: '#059669',
+            depreciation: '#71717a'
+        }
+    };
+
+    console.log('Chart data initialized:', window.chartData);
+</script>
+
+@* <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const debugInfo = document.getElementById('debugInfo');
+        const debugContent = document.getElementById('debugContent');
+
+        // Check if chart data exists
+        if (window.chartData) {
+            debugContent.innerHTML = `
+                <p>✅ Chart data loaded:</p>
+                <ul>
+                    <li>Status data: ${window.chartData.statusData?.length || 0} items</li>
+                    <li>Condition data: ${window.chartData.conditionData?.length || 0} items</li>
+                    <li>Monthly data: ${window.chartData.monthlyData?.length || 0} items</li>
+                </ul>
+            `;
+            debugInfo.classList.remove('d-none');
+        } else {
+            debugContent.innerHTML = `<p>❌ No chart data found</p>`;
+            debugInfo.classList.remove('d-none');
+        }
+    });
+</script> *@
+
+
 
 <div class="container-fluid px-3 py-4">
     <!-- Performance Indicator -->
@@ -245,9 +344,9 @@
                             <h5 class="mb-0">Asset Condition</h5>
                             <div class="chart-actions">
                                 <span class="badge bg-success">Real-time</span>
-                                <button class="btn btn-sm btn-outline-secondary" onclick="exportChart('conditionChart')">
+                                @* <button class="btn btn-sm btn-outline-secondary" onclick="exportChart('conditionChart')">
                                     <i class="bi bi-download"></i>
-                                </button>
+                                </button> *@
                             </div>
                         </div>
                         <div class="chart-wrapper">
@@ -317,7 +416,7 @@
                                     </div>
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span class="badge @GetActionBadgeClass(activity.Action) status-badge">@activity.Action</span>
-                                        <small class="text-muted">by @activity.UserFullName</small>
+                                        <small class="activity-user">by @activity.UserFullName</small>
                                     </div>
                                     <p class="activity-description mb-0">@activity.Description</p>
                                 </div>
