@@ -210,11 +210,17 @@ namespace Portal.Pages
         private void PrepareChartData(List<AssetReadDTO> assets)
         {
             // Status Distribution - ensure we have data
+            //StatusChartData = assets
+            //    .GroupBy(a => a.Status)
+            //    .Select(g => new AssetStatusChartData
+            //    {
+            //        Status = g.Key ?? "Unknown",
+            //        Count = g.Count(),
             StatusChartData = assets
                 .GroupBy(a => a.Status)
                 .Select(g => new AssetStatusChartData
                 {
-                    Status = g.Key ?? "Unknown",
+                    Status = g.Key,
                     Count = g.Count(),
                     Percentage = TotalAssets > 0 ? (g.Count() * 100.0 / TotalAssets) : 0
                 })
@@ -371,6 +377,8 @@ namespace Portal.Pages
     }
 
     // Data classes for charts and analytics
+
+    
     public class AssetStatusChartData
     {
         public string Status { get; set; } = string.Empty;

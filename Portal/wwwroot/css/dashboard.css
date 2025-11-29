@@ -528,7 +528,27 @@
     border-radius: 50%;
     display: inline-block;
 }
+/* Status Legends */
+.status-legends {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+}
 
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.status-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
 /* Button Styles */
 .btn {
     border-radius: 8px;

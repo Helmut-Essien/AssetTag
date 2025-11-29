@@ -310,28 +310,23 @@
                             <h5 class="mb-0">Asset Status Distribution</h5>
                             <div class="chart-actions">
                                 <span class="badge bg-primary">Live</span>
-                                <button class="btn btn-sm btn-outline-secondary" onclick="exportChart('statusChart')">
+                                @* <button class="btn btn-sm btn-outline-secondary" onclick="exportChart('statusChart')">
                                     <i class="bi bi-download"></i>
-                                </button>
+                                </button> *@
                             </div>
                         </div>
                         <div class="chart-wrapper">
                             <canvas id="statusChart" height="250"></canvas>
                         </div>
                         <div class="chart-footer">
-                            <div class="row g-2 text-center">
-                                <div class="col-4">
-                                    <small class="text-muted">Available</small>
-                                    <div class="fw-bold text-success">@Model.AvailableAssets</div>
-                                </div>
-                                <div class="col-4">
-                                    <small class="text-muted">In Use</small>
-                                    <div class="fw-bold text-primary">@Model.InUseAssets</div>
-                                </div>
-                                <div class="col-4">
-                                    <small class="text-muted">Maintenance</small>
-                                    <div class="fw-bold text-warning">@Model.UnderMaintenanceAssets</div>
-                                </div>
+                            <div class="status-legends">
+                                @foreach (var status in Model.StatusChartData.OrderByDescending(s => s.Count))
+                                {
+                                    <div class="status-item">
+                                        <span class="status-color" style="background-color: @GetStatusColor(status.Status)"></span>
+                                        <small>@status.Status: @status.Count</small>
+                                    </div>
+                                }
                             </div>
                         </div>
                     </div>
@@ -608,7 +603,7 @@
         };
     </script>
 }
-</div>
+
 
 @functions {
     private string GetActionBadgeClass(string action)
@@ -647,6 +642,19 @@
             "poor" => "#fd7e14",
             "broken" => "#dc3545",
             _ => "#6c757d"
+        };
+    }
+
+    public string GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "Available" => "#28a745",        // Green - matches chart
+            "In Use" => "#007bff",           // Blue - matches chart
+            "Under Maintenance" => "#ffc107", // Yellow - matches chart
+            "Retired" => "#6c757d",          // Gray - matches chart
+            "Lost" => "#dc3545",             // Red - matches chart
+            _ => "#6c757d"                   // Default gray
         };
     }
 }

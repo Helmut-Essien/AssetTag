@@ -24,22 +24,22 @@ namespace Portal.Pages.Assets
 
         // Filter properties
         [BindProperty(SupportsGet = true)]
-        public string SearchTerm { get; set; } = string.Empty;
+        public string? SearchTerm { get; set; } = string.Empty;
 
         [BindProperty(SupportsGet = true)]
-        public string StatusFilter { get; set; } = string.Empty;
+        public string? StatusFilter { get; set; } = string.Empty;
 
         [BindProperty(SupportsGet = true)]
-        public string ConditionFilter { get; set; } = string.Empty;
+        public string? ConditionFilter { get; set; } = string.Empty;
 
         [BindProperty(SupportsGet = true)]
-        public string CategoryFilter { get; set; } = string.Empty;
+        public string? CategoryFilter { get; set; } = string.Empty;
 
         [BindProperty(SupportsGet = true)]
-        public string LocationFilter { get; set; } = string.Empty;
+        public string? LocationFilter { get; set; } = string.Empty;
 
         [BindProperty(SupportsGet = true)]
-        public string DepartmentFilter { get; set; } = string.Empty;
+        public string? DepartmentFilter { get; set; } = string.Empty;
 
         public AssetCreateDTO CreateDto { get; set; } = new AssetCreateDTO();
         public AssetUpdateDTO UpdateDto { get; set; } = new AssetUpdateDTO();
