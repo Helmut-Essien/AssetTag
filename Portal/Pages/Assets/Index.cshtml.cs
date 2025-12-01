@@ -58,17 +58,35 @@ namespace Portal.Pages.Assets
         {
             try
             {
-                await LoadDataAsync();
-                // Apply filters client-side for better performance
-                if (!string.IsNullOrEmpty(SearchTerm) ||
-                    !string.IsNullOrEmpty(StatusFilter) ||
-                    !string.IsNullOrEmpty(ConditionFilter) ||
-                    !string.IsNullOrEmpty(CategoryFilter) ||
-                    !string.IsNullOrEmpty(LocationFilter) ||
-                    !string.IsNullOrEmpty(DepartmentFilter))
+                // Build query parameters for API call
+                var queryParams = new List<string>();
+
+                if (!string.IsNullOrEmpty(SearchTerm))
+                    queryParams.Add($"searchTerm={WebUtility.UrlEncode(SearchTerm)}");
+                if (!string.IsNullOrEmpty(StatusFilter))
+                    queryParams.Add($"status={WebUtility.UrlEncode(StatusFilter)}");
+                if (!string.IsNullOrEmpty(ConditionFilter))
+                    queryParams.Add($"condition={WebUtility.UrlEncode(ConditionFilter)}");
+                if (!string.IsNullOrEmpty(CategoryFilter))
+                    queryParams.Add($"categoryId={WebUtility.UrlEncode(CategoryFilter)}");
+                if (!string.IsNullOrEmpty(LocationFilter))
+                    queryParams.Add($"locationId={WebUtility.UrlEncode(LocationFilter)}");
+                if (!string.IsNullOrEmpty(DepartmentFilter))
+                    queryParams.Add($"departmentId={WebUtility.UrlEncode(DepartmentFilter)}");
+
+                var queryString = queryParams.Any() ? "?" + string.Join("&", queryParams) : "";
+
+                // Single API call with filters
+                var assetsResponse = await _httpClient.GetAsync($"api/assets{queryString}");
+                if (assetsResponse.IsSuccessStatusCode)
                 {
-                    Assets = ApplyFilters(Assets);
+                    Assets = await assetsResponse.Content.ReadFromJsonAsync<List<AssetReadDTO>>()
+                        ?? new List<AssetReadDTO>();
                 }
+
+                // Load reference data only if needed for dropdowns
+                await LoadReferenceDataAsync();
+
                 return Page();
             }
             catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized || ex.StatusCode == HttpStatusCode.Forbidden)
@@ -85,21 +103,10 @@ namespace Portal.Pages.Assets
             }
         }
 
-        private async Task LoadDataAsync()
-        {
-            // Cache assets for 30 seconds to reduce API calls
-            if (_cachedAssets == null || (System.DateTime.Now - _lastCacheUpdate).TotalSeconds > 30)
-            {
-                var assetsResponse = await _httpClient.GetAsync("api/assets");
-                if (assetsResponse.IsSuccessStatusCode)
-                {
-                    _cachedAssets = await assetsResponse.Content.ReadFromJsonAsync<List<AssetReadDTO>>() ?? new List<AssetReadDTO>();
-                    _lastCacheUpdate = System.DateTime.Now;
-                }
-            }
 
-            Assets = _cachedAssets ?? new List<AssetReadDTO>();
-            // Load reference data in parallel for better performance
+        private async Task LoadReferenceDataAsync()
+        {
+            // Load reference data in parallel
             var categoriesTask = _httpClient.GetFromJsonAsync<List<CategoryReadDTO>>("api/categories");
             var locationsTask = _httpClient.GetFromJsonAsync<List<LocationReadDTO>>("api/locations");
             var departmentsTask = _httpClient.GetFromJsonAsync<List<DepartmentReadDTO>>("api/departments");
@@ -115,6 +122,41 @@ namespace Portal.Pages.Assets
             _locationNames = Locations.ToDictionary(l => l.LocationId, l => $"{l.Name} - {l.Campus}");
             _departmentNames = Departments.ToDictionary(d => d.DepartmentId, d => d.Name);
         }
+
+
+        //private async Task LoadDataAsync()
+        //{
+        //    // Cache assets for 30 seconds to reduce API calls
+        //    if (_cachedAssets == null || (System.DateTime.Now - _lastCacheUpdate).TotalSeconds > 30)
+        //    {
+        //        var assetsResponse = await _httpClient.GetAsync("api/assets");
+        //        if (assetsResponse.IsSuccessStatusCode)
+        //        {
+        //            _cachedAssets = await assetsResponse.Content.ReadFromJsonAsync<List<AssetReadDTO>>() ?? new List<AssetReadDTO>();
+        //            _lastCacheUpdate = System.DateTime.Now;
+        //        }
+        //    }
+
+        //    Assets = _cachedAssets ?? new List<AssetReadDTO>();
+        //    // Load reference data in parallel for better performance
+        //    var categoriesTask = _httpClient.GetFromJsonAsync<List<CategoryReadDTO>>("api/categories");
+        //    var locationsTask = _httpClient.GetFromJsonAsync<List<LocationReadDTO>>("api/locations");
+        //    var departmentsTask = _httpClient.GetFromJsonAsync<List<DepartmentReadDTO>>("api/departments");
+
+        //    await Task.WhenAll(categoriesTask, locationsTask, departmentsTask);
+
+        //    Categories = categoriesTask.Result ?? new List<CategoryReadDTO>();
+        //    Locations = locationsTask.Result ?? new List<LocationReadDTO>();
+        //    Departments = departmentsTask.Result ?? new List<DepartmentReadDTO>();
+
+        //    // Build lookup dictionaries
+        //    _categoryNames = Categories.ToDictionary(c => c.CategoryId, c => c.Name);
+        //    _locationNames = Locations.ToDictionary(l => l.LocationId, l => $"{l.Name} - {l.Campus}");
+        //    _departmentNames = Departments.ToDictionary(d => d.DepartmentId, d => d.Name);
+        //}
+
+
+
 
         private List<AssetReadDTO> ApplyFilters(List<AssetReadDTO> assets)
         {
@@ -168,7 +210,7 @@ namespace Portal.Pages.Assets
             {
                 ActiveModal = "create";
                 CreateDto = dto;
-                await LoadDataAsync();
+                await OnGetAsync();
                 return Page();
             }
 
@@ -201,7 +243,7 @@ namespace Portal.Pages.Assets
 
             ActiveModal = "create";
             CreateDto = dto;
-            await LoadDataAsync();
+            await OnGetAsync();
             return Page();
         }
 
@@ -211,7 +253,7 @@ namespace Portal.Pages.Assets
             {
                 ActiveModal = "edit";
                 UpdateDto = dto;
-                await LoadDataAsync();
+                await OnGetAsync();
                 return Page();
             }
 
@@ -219,7 +261,7 @@ namespace Portal.Pages.Assets
             {
                 ActiveModal = "edit";
                 UpdateDto = dto;
-                await LoadDataAsync();
+                await OnGetAsync();
                 return Page();
             }
 
@@ -251,7 +293,7 @@ namespace Portal.Pages.Assets
 
             ActiveModal = "edit";
             UpdateDto = dto;
-            await LoadDataAsync();
+            await OnGetAsync();
             return Page();
         }
 
@@ -278,7 +320,7 @@ namespace Portal.Pages.Assets
                 return RedirectToPage("/Forbidden");
             }
 
-            await LoadDataAsync();
+            await OnGetAsync();
             return Page();
         }
 
@@ -295,9 +337,24 @@ namespace Portal.Pages.Assets
             return RedirectToPage();
         }
 
+        public bool HasActiveFilters =>
+    !string.IsNullOrEmpty(SearchTerm) ||
+    !string.IsNullOrEmpty(StatusFilter) ||
+    !string.IsNullOrEmpty(ConditionFilter) ||
+    !string.IsNullOrEmpty(CategoryFilter) ||
+    !string.IsNullOrEmpty(LocationFilter) ||
+    !string.IsNullOrEmpty(DepartmentFilter);
+
+        private IActionResult HandleAuthRedirect(HttpStatusCode statusCode)
+        {
+            return statusCode == HttpStatusCode.Unauthorized
+                ? RedirectToPage("/Unauthorized")
+                : RedirectToPage("/Forbidden");
+        }
+
         public async Task<IActionResult> OnGetExportFilteredAsync()
         {
-            await LoadDataAsync();
+            await OnGetAsync();
             var filteredAssets = ApplyFilters(Assets);
 
             // In a real implementation, you'd generate CSV/Excel here

@@ -7,48 +7,63 @@
 <div class="container my-4">
     <!-- Page Header with Asset Count and Add Button -->
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="mb-0">Assets (@Model.Assets.Count Total)</h1>
-        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createModal">
-            <i class="bi bi-plus-lg me-2"></i>Add Asset
-        </button>
-    </div>
+    <h1 class="mb-0">
+        Assets 
+        <span class="text-muted fs-5">
+            (@(Model.Assets?.Count ?? 0) Total)
+        </span>
+    </h1>
+    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createModal">
+        <i class="bi bi-plus-lg me-2"></i>Add Asset
+    </button>
+</div>
 
     <!-- Search and Filters Section -->
     <div class="card mb-4">
-        <div class="card-body">
-            <form method="get" class="row g-3" id="filterForm">
-                <!-- Search Box -->
-                <div class="col-md-4">
-                    <div class="input-group">
-                        <span class="input-group-text"><i class="bi bi-search"></i></span>
-                        <input type="text" class="form-control" asp-for="SearchTerm"
-                               placeholder="Search assets, tags, serial numbers..."
-                               id="searchInput" autocomplete="off">
-                        @if (!string.IsNullOrEmpty(Model.SearchTerm))
-                        {
-                            <button type="button" class="btn btn-outline-secondary" onclick="clearSearch()">
-                                <i class="bi bi-x"></i>
-                            </button>
-                        }
-                    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3" id="filterForm">
+            <!-- Search Box -->
+            <div class="col-12 col-md-4 mb-2 mb-md-0">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control" asp-for="SearchTerm"
+                           placeholder="Search assets, tags, serial numbers..."
+                           id="searchInput" autocomplete="off">
+                    @if (!string.IsNullOrEmpty(Model.SearchTerm))
+                    {
+                        <button type="button" class="btn btn-outline-secondary" onclick="clearSearch()">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    }
                 </div>
+            </div>
 
-                <!-- Quick Filters -->
-                <div class="col-md-8">
-                    <div class="row g-2">
-                        <div class="col">
-                            <select class="form-select form-select-sm" asp-for="StatusFilter" onchange="this.form.submit()">
-                                <option value="">All Statuses</option>
+            <!-- Quick Filters with Responsive Grid -->
+            <div class="col-12 col-md-8">
+                <div class="row g-2">
+                    <!-- Status Filter -->
+                    <div class="col-6 col-sm-4 col-lg">
+                        <div class="filter-select-wrapper">
+                            <label for="statusFilter" class="form-label d-none d-md-block small mb-1">Status</label>
+                            <select class="form-select form-select-sm" asp-for="StatusFilter"
+                                    onchange="submitFilterForm()" id="statusFilter">
+                                <option value="">All Status</option>
                                 <option value="Available">Available</option>
                                 <option value="In Use">In Use</option>
-                                <option value="Under Maintenance">Under Maintenance</option>
+                                <option value="Maintenance">Maintenance</option>
                                 <option value="Retired">Retired</option>
                                 <option value="Lost">Lost</option>
                             </select>
                         </div>
-                        <div class="col">
-                            <select class="form-select form-select-sm" asp-for="ConditionFilter" onchange="this.form.submit()">
-                                <option value="">All Conditions</option>
+                    </div>
+
+                    <!-- Condition Filter -->
+                    <div class="col-6 col-sm-4 col-lg">
+                        <div class="filter-select-wrapper">
+                            <label for="conditionFilter" class="form-label d-none d-md-block small mb-1">Condition</label>
+                            <select class="form-select form-select-sm" asp-for="ConditionFilter"
+                                    onchange="submitFilterForm()" id="conditionFilter">
+                                <option value="">All Condition</option>
                                 <option value="New">New</option>
                                 <option value="Good">Good</option>
                                 <option value="Fair">Fair</option>
@@ -56,8 +71,14 @@
                                 <option value="Broken">Broken</option>
                             </select>
                         </div>
-                        <div class="col">
-                            <select class="form-select form-select-sm" asp-for="CategoryFilter" onchange="this.form.submit()">
+                    </div>
+
+                    <!-- Category Filter -->
+                    <div class="col-6 col-sm-4 col-lg">
+                        <div class="filter-select-wrapper">
+                            <label for="categoryFilter" class="form-label d-none d-md-block small mb-1">Category</label>
+                            <select class="form-select form-select-sm" asp-for="CategoryFilter"
+                                    onchange="submitFilterForm()" id="categoryFilter">
                                 <option value="">All Categories</option>
                                 @foreach (var category in Model.Categories)
                                 {
@@ -65,8 +86,14 @@
                                 }
                             </select>
                         </div>
-                        <div class="col">
-                            <select class="form-select form-select-sm" asp-for="LocationFilter" onchange="this.form.submit()">
+                    </div>
+
+                    <!-- Location Filter -->
+                    <div class="col-6 col-sm-4 col-lg">
+                        <div class="filter-select-wrapper">
+                            <label for="locationFilter" class="form-label d-none d-md-block small mb-1">Location</label>
+                            <select class="form-select form-select-sm" asp-for="LocationFilter"
+                                    onchange="submitFilterForm()" id="locationFilter">
                                 <option value="">All Locations</option>
                                 @foreach (var location in Model.Locations)
                                 {
@@ -74,8 +101,14 @@
                                 }
                             </select>
                         </div>
-                        <div class="col">
-                            <select class="form-select form-select-sm" asp-for="DepartmentFilter" onchange="this.form.submit()">
+                    </div>
+
+                    <!-- Department Filter -->
+                    <div class="col-6 col-sm-4 col-lg">
+                        <div class="filter-select-wrapper">
+                            <label for="departmentFilter" class="form-label d-none d-md-block small mb-1">Department</label>
+                            <select class="form-select form-select-sm" asp-for="DepartmentFilter"
+                                    onchange="submitFilterForm()" id="departmentFilter">
                                 <option value="">All Departments</option>
                                 @foreach (var department in Model.Departments)
                                 {
@@ -85,66 +118,97 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
 
                 <!-- Active Filters Display -->
-                @if (!string.IsNullOrEmpty(Model.SearchTerm) ||
-                                !string.IsNullOrEmpty(Model.StatusFilter) ||
-                                !string.IsNullOrEmpty(Model.ConditionFilter) ||
-                                !string.IsNullOrEmpty(Model.CategoryFilter) ||
-                                !string.IsNullOrEmpty(Model.LocationFilter) ||
-                                !string.IsNullOrEmpty(Model.DepartmentFilter))
+@if (Model.HasActiveFilters)
+{
+    <div class="col-12 mt-2">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex flex-wrap gap-1">
+                <small class="text-muted me-2">Active filters:</small>
+                @if (!string.IsNullOrEmpty(Model.SearchTerm))
                 {
-                    <div class="col-12">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <small class="text-muted">
-                                    Active filters:
-                                    @if (!string.IsNullOrEmpty(Model.SearchTerm))
-                                    {
-                                        <span class="badge bg-secondary me-1">Search: @Model.SearchTerm</span>
-                                    }
-                                    @if (!string.IsNullOrEmpty(Model.StatusFilter))
-                                    {
-                                        <span class="badge bg-info me-1">Status: @Model.StatusFilter</span>
-                                    }
-                                    @if (!string.IsNullOrEmpty(Model.ConditionFilter))
-                                    {
-                                        <span class="badge bg-warning me-1">Condition: @Model.ConditionFilter</span>
-                                    }
-                                    @if (!string.IsNullOrEmpty(Model.CategoryFilter))
-                                    {
-                                        <span class="badge bg-primary me-1">Category: @Model.GetCategoryName(Model.CategoryFilter)</span>
-                                    }
-                                    @if (!string.IsNullOrEmpty(Model.LocationFilter))
-                                    {
-                                        <span class="badge bg-success me-1">Location: @Model.GetLocationName(Model.LocationFilter)</span>
-                                    }
-                                    @if (!string.IsNullOrEmpty(Model.DepartmentFilter))
-                                    {
-                                        <span class="badge bg-dark me-1">Department: @Model.GetDepartmentName(Model.DepartmentFilter)</span>
-                                    }
-                                </small>
-                            </div>
-                            <div>
-                                <a asp-page="" asp-route-searchTerm=""
-                                   asp-route-statusFilter="" asp-route-conditionFilter=""
-                                   asp-route-categoryFilter="" asp-route-locationFilter=""
-                                   asp-route-departmentFilter="" class="btn btn-outline-secondary btn-sm">
-                                    <i class="bi bi-x-circle me-1"></i>Clear All
-                                </a>
-                            </div>
-                        </div>
-                    </div>
+                    <span class="badge bg-secondary">
+                        Search: @Model.SearchTerm
+                        <button type="button" class="btn-close btn-close-white ms-1"
+                                onclick="removeFilter('SearchTerm')"></button>
+                    </span>
                 }
+                @if (!string.IsNullOrEmpty(Model.StatusFilter))
+                {
+                    <span class="badge bg-info">
+                        Status: @Model.StatusFilter
+                        <button type="button" class="btn-close btn-close-white ms-1"
+                                onclick="removeFilter('StatusFilter')"></button>
+                    </span>
+                }
+                @if (!string.IsNullOrEmpty(Model.ConditionFilter))
+                {
+                    <span class="badge bg-warning text-dark">
+                        Condition: @Model.ConditionFilter
+                        <button type="button" class="btn-close btn-close-white ms-1"
+                                onclick="removeFilter('ConditionFilter')"></button>
+                    </span>
+                }
+                @if (!string.IsNullOrEmpty(Model.CategoryFilter))
+                {
+                    <span class="badge bg-primary">
+                        Category: @Model.GetCategoryName(Model.CategoryFilter)
+                        <button type="button" class="btn-close btn-close-white ms-1"
+                                onclick="removeFilter('CategoryFilter')"></button>
+                    </span>
+                }
+                @if (!string.IsNullOrEmpty(Model.LocationFilter))
+                {
+                    <span class="badge bg-success">
+                        Location: @Model.GetLocationName(Model.LocationFilter)
+                        <button type="button" class="btn-close btn-close-white ms-1"
+                                onclick="removeFilter('LocationFilter')"></button>
+                    </span>
+                }
+                @if (!string.IsNullOrEmpty(Model.DepartmentFilter))
+                {
+                    <span class="badge bg-dark">
+                        Department: @Model.GetDepartmentName(Model.DepartmentFilter)
+                        <button type="button" class="btn-close btn-close-white ms-1"
+                                onclick="removeFilter('DepartmentFilter')"></button>
+                    </span>
+                }
+            </div>
+            <div>
+                <a href="@Url.Page("", new {
+                    searchTerm = "",
+                    statusFilter = "",
+                    conditionFilter = "",
+                    categoryFilter = "",
+                    locationFilter = "",
+                    departmentFilter = ""
+                })" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-x-circle me-1"></i>Clear All
+                </a>
+            </div>
+        </div>
+    </div>
+}
             </form>
         </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator" class="d-none text-center py-3">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="text-muted mt-2">Filtering assets...</p>
     </div>
 
     <!-- Results Summary and Export Options -->
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <span class="text-muted">
-                Showing @Model.Assets.Count assets
+                Showing (@(Model.Assets?.Count ?? 0) assets
                 @if (!string.IsNullOrEmpty(Model.SearchTerm) || !string.IsNullOrEmpty(Model.StatusFilter))
                 {
                     <span>(filtered)</span>
@@ -163,7 +227,10 @@
     </div>
 
     <!-- Assets Table -->
+    
     <div class="table-responsive">
+    @if (Model.Assets?.Any() == true)
+    {
         <table class="table table-striped table-hover">
             <thead class="table-dark">
                 <tr>
@@ -184,7 +251,6 @@
                 @foreach (var asset in Model.Assets)
                 {
                     <tr>
-                        <!-- Asset Tag with Serial Number -->
                         <td>
                             <strong>@asset.AssetTag</strong>
                             @if (!string.IsNullOrEmpty(asset.SerialNumber))
@@ -192,43 +258,25 @@
                                 <br />
                                 <small class="text-muted">SN: @asset.SerialNumber</small>
                             }
-                    </td>
-
-                    <!-- Basic Asset Information -->
-                    <td>@asset.Name</td>
-                    <td>@(string.IsNullOrEmpty(asset.Description) ? "No description" : asset.Description)</td>
-                    <td>@Model.GetCategoryName(asset.CategoryId)</td>
-                    <td>@Model.GetLocationName(asset.LocationId)</td>
-                    <td>@Model.GetDepartmentName(asset.DepartmentId)</td>
-
-                    <!-- Status with Color-Coded Badge -->
-                    <td>
-                        <span class="badge
-                                @(asset.Status == "Available" ? "bg-success" :
-                                                                asset.Status == "In Use" ? "bg-primary" :
-                                                                asset.Status == "Under Maintenance" ? "bg-warning" :
-                                                                asset.Status == "Retired" ? "bg-secondary" : "bg-danger")">
-                                                                                                                       @asset.Status
-                                                                                                                   </span>
-                                                                                                               </td>
-
-                    <!-- Condition with Color-Coded Badge -->
-                    <td>
-                        <span class="badge
-                                @(asset.Condition == "New" ? "bg-success" :
-                                                                asset.Condition == "Good" ? "bg-info" :
-                                                                asset.Condition == "Fair" ? "bg-warning" :
-                                                                asset.Condition == "Poor" ? "bg-danger" : "bg-secondary")">
-                            @asset.Condition
-                        </span>
-                    </td>
-
-                        <!-- Purchase Date -->
-                        <td>@asset.PurchaseDate?.ToString("MMM dd, yyyy")</td>
-
-                        <!-- Current Value -->
+                        </td>
+                        <td>@asset.Name</td>
+                        <td>@(string.IsNullOrEmpty(asset.Description) ? "No description" : asset.Description)</td>
+                        <td>@Model.GetCategoryName(asset.CategoryId)</td>
+                        <td>@Model.GetLocationName(asset.LocationId)</td>
+                        <td>@Model.GetDepartmentName(asset.DepartmentId)</td>
                         <td>
-                        @if (asset.CurrentValue.HasValue)
+                            <span class="badge @GetStatusBadgeClass(asset.Status)">
+                                @asset.Status
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge @GetConditionBadgeClass(asset.Condition)">
+                                @asset.Condition
+                            </span>
+                        </td>
+                        <td>@asset.PurchaseDate?.ToString("MMM dd, yyyy")</td>
+                        <td>
+                            @if (asset.CurrentValue.HasValue)
                             {
                                 <text>@asset.CurrentValue.Value.ToString("C")</text>
                             }
@@ -237,16 +285,11 @@
                                 <span class="text-muted">N/A</span>
                             }
                         </td>
-
-                        <!-- Action Buttons -->
                         <td>
                             <div class="btn-group" role="group">
-                                <!-- View Details Button -->
                                 <a asp-page="./Details" asp-route-id="@asset.AssetId" class="btn btn-info btn-sm me-1">
                                     <i class="bi bi-eye"></i> View
                                 </a>
-
-                                <!-- Edit Button with Data Attributes for Modal -->
                                 <button class="btn btn-primary btn-sm me-1"
                                         data-bs-toggle="modal"
                                         data-bs-target="#editModal"
@@ -279,8 +322,6 @@
                                         data-remarks="@asset.Remarks">
                                     <i class="bi bi-pencil"></i> Edit
                                 </button>
-
-                                <!-- Delete Button -->
                                 <button class="btn btn-danger btn-sm"
                                         data-bs-toggle="modal"
                                         data-bs-target="#deleteModal"
@@ -293,7 +334,48 @@
                 }
             </tbody>
         </table>
-    </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            No assets found. 
+            @if (Model.HasActiveFilters)
+            {
+                <text>Try clearing your filters or </text>
+            }
+            <a href="#" data-bs-toggle="modal" data-bs-target="#createModal">create a new asset</a>.
+        </div>
+    }
+</div>
+
+@functions {
+    string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Available" => "bg-success",
+            "In Use" => "bg-primary",
+            "Under Maintenance" => "bg-warning",
+            "Retired" => "bg-secondary",
+            "Lost" => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    string GetConditionBadgeClass(string condition)
+    {
+        return condition switch
+        {
+            "New" => "bg-success",
+            "Good" => "bg-info",
+            "Fair" => "bg-warning",
+            "Poor" => "bg-danger",
+            "Broken" => "bg-secondary",
+            _ => "bg-secondary"
+        };
+    }
+}
 </div>
 
 <!-- Create Asset Modal -->
@@ -336,7 +418,7 @@
                     <div class="row">
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label asp-for="CreateDto.CategoryId" class="form-label"></label>
+                                <label asp-for = "CreateDto.CategoryId" class="form-label"></label>
                                 <select asp-for="CreateDto.CategoryId" class="form-select">
                                     <option value="">Select Category</option>
                                     @foreach (var category in Model.Categories)
@@ -873,30 +955,36 @@
     <script>
         // Performance-optimized search and filter functionality
         document.addEventListener('DOMContentLoaded', function() {
+            initializeFilters();
+            restoreFilterState();
 
-            // Debounce function to limit API calls during search
-            function debounce(func, wait) {
-                let timeout;
-                return function executedFunction(...args) {
-                    const later = () => {
-                        clearTimeout(timeout);
-                        func(...args);
-                    };
-                    clearTimeout(timeout);
-                    timeout = setTimeout(later, wait);
-                };
-            }
+            // Initialize Bootstrap modals
+            initializeModals();
+        });
 
-            // Auto-submit search with debouncing (500ms delay)
+        function initializeFilters() {
             const searchInput = document.getElementById('searchInput');
+            const filterForm = document.getElementById('filterForm');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const assetsTable = document.querySelector('.table-responsive');
+
+            // Debounced search with loading indicator
             if (searchInput) {
                 const debouncedSearch = debounce(function() {
-                    document.getElementById('filterForm').submit();
-                }, 500);
+                    showLoading();
+                    filterForm.submit();
+                }, 600);
 
                 searchInput.addEventListener('input', debouncedSearch);
             }
 
+            // Store filter state before submission
+            filterForm.addEventListener('submit', function() {
+                saveFilterState();
+            });
+        }
+
+        function initializeModals() {
             // Edit Modal - Populate form with asset data
             var editModal = document.getElementById('editModal');
             if (editModal) {
@@ -958,71 +1046,103 @@
                     }
                     </text>
             }
-        });
+        }
 
-        // Utility function to clear search
-        function clearSearch() {
-            document.getElementById('searchInput').value = '';
+        function submitFilterForm() {
+            showLoading();
             document.getElementById('filterForm').submit();
         }
 
-        // Export to CSV functionality
-        function exportToCsv() {
-            const headers = ['Asset Tag', 'Name', 'Description', 'Category', 'Location', 'Department', 'Status', 'Condition', 'Purchase Date', 'Current Value', 'Serial Number'];
-            const rows = [];
+        function showLoading() {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const assetsTable = document.querySelector('.table-responsive');
 
-            // Extract data from visible table rows
-            document.querySelectorAll('table tbody tr').forEach(row => {
-                const cells = row.querySelectorAll('td');
-                if (cells.length >= 10) {
-                    rows.push([
-                        cells[0].querySelector('strong')?.textContent?.trim() || '',
-                        cells[1].textContent.trim(),
-                        cells[2].textContent.trim(),
-                        cells[3].textContent.trim(),
-                        cells[4].textContent.trim(),
-                        cells[5].textContent.trim(),
-                        cells[6].textContent.trim(),
-                        cells[7].textContent.trim(),
-                        cells[8].textContent.trim(),
-                        cells[9].textContent.trim(),
-                        cells[0].querySelector('small')?.textContent?.replace('SN:', '').trim() || ''
-                    ]);
-                }
-            });
-
-            // Create CSV content
-            const csvContent = [headers, ...rows]
-                .map(row => row.map(cell => `"${cell}"`).join(','))
-                .join('\n');
-
-            // Create and trigger download
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `assets-export-${new Date().toISOString().split('T')[0]}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
+            if (loadingIndicator && assetsTable) {
+                loadingIndicator.classList.remove('d-none');
+                assetsTable.style.opacity = '0.5';
+            }
         }
 
-        // Export to Excel functionality (placeholder - would require SheetJS or similar library)
-        function exportToExcel() {
-            // For a complete implementation, you would use a library like SheetJS
-            // This is a simplified version that redirects to an export endpoint
-            alert('Excel export functionality would be implemented with a library like SheetJS. For now, use CSV export.');
+        function removeFilter(filterName) {
+            const url = new URL(window.location.href);
+            url.searchParams.delete(filterName);
+            window.location.href = url.toString();
+        }
 
-            // Example implementation:
-            // const params = new URLSearchParams({
-            //     searchTerm: '@Model.SearchTerm',
-            //     statusFilter: '@Model.StatusFilter',
-            //     format: 'excel'
-            // });
-            // window.location.href = `?handler=Export&${params}`;
+        function clearAllFilters() {
+            const url = new URL(window.location.href);
+            // Remove all filter parameters
+            ['SearchTerm', 'StatusFilter', 'ConditionFilter', 'CategoryFilter', 'LocationFilter', 'DepartmentFilter']
+                .forEach(param => url.searchParams.delete(param));
+            window.location.href = url.toString();
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            submitFilterForm();
+        }
+
+        // Save and restore filter state
+        function saveFilterState() {
+            const filters = {
+                searchTerm: document.getElementById('searchInput')?.value,
+                status: document.getElementById('statusFilter')?.value,
+                condition: document.getElementById('conditionFilter')?.value,
+                category: document.getElementById('categoryFilter')?.value,
+                location: document.getElementById('locationFilter')?.value,
+                department: document.getElementById('departmentFilter')?.value
+            };
+            sessionStorage.setItem('assetFilters', JSON.stringify(filters));
+        }
+
+        function restoreFilterState() {
+            try {
+                const saved = sessionStorage.getItem('assetFilters');
+                if (saved) {
+                    const filters = JSON.parse(saved);
+
+                    // Only restore if no current filters in URL
+                    const urlParams = new URLSearchParams(window.location.search);
+                    if (!urlParams.toString()) {
+                        if (filters.searchTerm) document.getElementById('searchInput').value = filters.searchTerm;
+                        if (filters.status) document.getElementById('statusFilter').value = filters.status;
+                        if (filters.condition) document.getElementById('conditionFilter').value = filters.condition;
+                        if (filters.category) document.getElementById('categoryFilter').value = filters.category;
+                        if (filters.location) document.getElementById('locationFilter').value = filters.location;
+                        if (filters.department) document.getElementById('departmentFilter').value = filters.department;
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not restore filter state:', e);
+            }
+        }
+
+        // Enhanced debounce function
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Enhanced export with current filters
+        function exportToCsv() {
+            const currentParams = new URLSearchParams(window.location.search);
+            currentParams.set('format', 'csv');
+            currentParams.set('handler', 'export');
+            window.location.href = `?${currentParams.toString()}`;
+        }
+
+        function exportToExcel() {
+            const currentParams = new URLSearchParams(window.location.search);
+            currentParams.set('format', 'excel');
+            currentParams.set('handler', 'export');
+            window.location.href = `?${currentParams.toString()}`;
         }
     </script>
-
-    
 }
