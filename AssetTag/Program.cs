@@ -64,6 +64,9 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.Configure<EmailService.EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddScoped<IEmailService, EmailService>();
 
+builder.Configuration.AddEnvironmentVariables();
+
+
 
 var app = builder.Build();
 
