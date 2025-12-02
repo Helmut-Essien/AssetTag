@@ -1,0 +1,257 @@
+name: Smart Deployment with Migrations
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'AssetTag/**'
+      - 'Portal/**'
+      - 'Shared/**'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '9.x'
+  SOLUTION_PATH: 'AssetTag.sln'
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      api-changed: ${{ steps.filter.outputs.api }}
+      portal-changed: ${{ steps.filter.outputs.portal }}
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Detect project changes
+      id: filter
+      uses: dorny/paths-filter@v3
+      with:
+        filters: |
+          api:
+            - 'AssetTag/**'
+            - 'Shared/**'
+            - '.github/workflows/**'
+          portal:
+            - 'Portal/**'
+            - 'Shared/**'
+            - '.github/workflows/**'
+
+  build-and-publish:
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    if: needs.detect-changes.outputs.api-changed == 'true' || needs.detect-changes.outputs.portal-changed == 'true'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.SOLUTION_PATH }}
+    
+    # Create publish directories first
+    - name: Create publish directories
+      run: |
+        mkdir -p ./publish/api
+        mkdir -p ./publish/portal
+    
+    - name: Build and Publish API (if changed)
+      if: needs.detect-changes.outputs.api-changed == 'true'
+      env:
+        JWT_SECURITY_KEY: ${{ secrets.JWT_SECURITY_KEY }}
+        EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        ConnectionStrings__DefaultConnection: ${{ secrets.MONSTERASP_DATABASE_CONNECTION }}
+      run: |
+        dotnet publish AssetTag/AssetTag.csproj \
+          --configuration Release \
+          --output ./publish/api \
+          -p:UseAppHost=false
+        
+        echo '{
+          "ConnectionStrings": {
+            "DefaultConnection": "${{ secrets.MONSTERASP_DATABASE_CONNECTION }}"
+          },
+          "Jwt": {
+            "Key": "${{ secrets.JWT_SECURITY_KEY }}"
+          },
+          "EmailSettings": {
+            "Username": "${{ secrets.EMAIL_USERNAME }}",
+            "Password": "${{ secrets.EMAIL_PASSWORD }}"
+          },
+          "Logging": {
+            "LogLevel": {
+              "Default": "Information",
+              "Microsoft.AspNetCore": "Warning"
+            }
+          }
+        }' > ./publish/api/appsettings.Production.json
+    
+    - name: Build and Publish Portal (if changed)
+      if: needs.detect-changes.outputs.portal-changed == 'true'
+      run: |
+        dotnet publish Portal/Portal.csproj \
+          --configuration Release \
+          --output ./publish/portal \
+          -p:UseAppHost=false
+        
+        echo '{
+          "ApiSettings": {
+            "BaseUrl": "https://your-assettag-api.monsterasp.net"
+          },
+          "Logging": {
+            "LogLevel": {
+              "Default": "Information",
+              "Microsoft.AspNetCore": "Warning"
+            }
+          }
+        }' > ./publish/portal/appsettings.Production.json
+    
+    - name: Upload API artifact
+      if: needs.detect-changes.outputs.api-changed == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: api-deployment
+        path: ./publish/api/
+    
+    - name: Upload Portal artifact
+      if: needs.detect-changes.outputs.portal-changed == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: portal-deployment
+        path: ./publish/portal/
+
+  run-migrations:
+    needs: 
+      - detect-changes
+      - build-and-publish
+    if: needs.detect-changes.outputs.api-changed == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Restore for EF Tool
+      run: dotnet restore ${{ env.SOLUTION_PATH }}
+    
+    - name: Run Database Migrations
+      env:
+        ConnectionStrings__DefaultConnection: ${{ secrets.MONSTERASP_DATABASE_CONNECTION }}
+        JWT_SECURITY_KEY: ${{ secrets.JWT_SECURITY_KEY }}
+        EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+      run: |
+        dotnet tool install --global dotnet-ef --version 9.*
+        dotnet ef database update \
+          --project AssetTag/AssetTag.csproj \
+          --startup-project AssetTag/AssetTag.csproj \
+          --configuration Release
+        echo "✅ Database migrations completed"
+
+  deploy-api:
+    needs: 
+      - detect-changes
+      - build-and-publish
+      - run-migrations
+    if: needs.detect-changes.outputs.api-changed == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+    # Create directory first
+    - name: Create deployment directory
+      run: mkdir -p ./api-deployment
+    
+    - name: Download API artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: api-deployment
+        path: ./api-deployment/  # This also helps ensure directory exists
+    
+    - name: Verify files exist before deployment
+      run: |
+        echo "Checking deployment files..."
+        echo "Directory contents:"
+        ls -la ./api-deployment/
+        echo ""
+        echo "File count: $(find ./api-deployment -type f | wc -l)"
+        
+        if [ ! -d "./api-deployment" ]; then
+          echo "❌ ERROR: Deployment directory not found"
+          exit 1
+        fi
+        
+        if [ -z "$(ls -A ./api-deployment)" ]; then
+          echo "❌ ERROR: Deployment directory is empty"
+          exit 1
+        fi
+    
+    - name: Deploy API to MonsterASP via FTP
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      with:
+        server: ${{ secrets.MONSTERASP_FTP_SERVER_API }}
+        username: ${{ secrets.MONSTERASP_FTP_USERNAME_API }}
+        password: ${{ secrets.MONSTERASP_FTP_PASSWORD_API }}
+        local-dir: ./api-deployment/
+        server-dir: /wwwroot/
+        exclude: |
+          **/.git*
+          **/.git*/
+          **/appsettings.Development.json
+        log-level: verbose
+
+  deploy-portal:
+    needs: 
+      - detect-changes
+      - build-and-publish
+    if: needs.detect-changes.outputs.portal-changed == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Create deployment directory
+      run: mkdir -p ./portal-deployment
+    
+    - name: Download Portal artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: portal-deployment
+        path: ./portal-deployment/
+    
+    - name: Verify files exist before deployment
+      run: |
+        echo "Checking deployment files..."
+        if [ ! -d "./portal-deployment" ]; then
+          echo "❌ ERROR: Deployment directory not found"
+          exit 1
+        fi
+        
+        if [ -z "$(ls -A ./portal-deployment)" ]; then
+          echo "❌ ERROR: Deployment directory is empty"
+          exit 1
+        fi
+        echo "✅ Ready to deploy $(find ./portal-deployment -type f | wc -l) files"
+    
+    - name: Deploy Portal to MonsterASP via FTP
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      with:
+        server: ${{ secrets.MONSTERASP_FTP_SERVER_PORTAL }}
+        username: ${{ secrets.MONSTERASP_FTP_USERNAME_PORTAL }}
+        password: ${{ secrets.MONSTERASP_FTP_PASSWORD_PORTAL }}
+        local-dir: ./portal-deployment/
+        server-dir: /wwwroot/
+        exclude: |
+          **/.git*
+          **/.git*/
+          **/appsettings.Development.json
+        log-level: verbose
