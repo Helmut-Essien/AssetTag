@@ -169,7 +169,6 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    # Create directory first
     - name: Create deployment directory
       run: mkdir -p ./api-deployment
     
@@ -177,7 +176,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: api-deployment
-        path: ./api-deployment/  # This also helps ensure directory exists
+        path: ./api-deployment/
     
     - name: Verify files exist before deployment
       run: |
@@ -197,6 +196,100 @@ jobs:
           exit 1
         fi
     
+    - name: Create app_offline.htm for API
+      run: |
+        echo '<!DOCTYPE html>
+        <html>
+        <head>
+            <title>Site Under Maintenance</title>
+            <style>
+                body { 
+                    font-family: Arial, sans-serif; 
+                    text-align: center; 
+                    padding: 50px; 
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    min-height: 100vh;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    align-items: center;
+                }
+                .container {
+                    background: rgba(255, 255, 255, 0.1);
+                    padding: 40px;
+                    border-radius: 15px;
+                    backdrop-filter: blur(10px);
+                    max-width: 600px;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+                }
+                h1 { 
+                    font-size: 2.5em; 
+                    margin-bottom: 20px; 
+                    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+                }
+                p { 
+                    font-size: 1.2em; 
+                    margin-bottom: 30px; 
+                    line-height: 1.6;
+                }
+                .spinner {
+                    border: 5px solid rgba(255, 255, 255, 0.3);
+                    border-radius: 50%;
+                    border-top: 5px solid white;
+                    width: 50px;
+                    height: 50px;
+                    animation: spin 1s linear infinite;
+                    margin: 30px auto;
+                }
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+                .footer {
+                    margin-top: 40px;
+                    font-size: 0.9em;
+                    opacity: 0.8;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🔄 Maintenance in Progress</h1>
+                <p>We are currently updating the application to bring you new features and improvements.</p>
+                <p>The site will be back online in a few moments. Thank you for your patience!</p>
+                <div class="spinner"></div>
+                <div class="footer">
+                    <p>Deployment started: $(date)</p>
+                    <p>This page will automatically disappear when the deployment is complete.</p>
+                </div>
+            </div>
+            <script>
+                // Auto-refresh every 10 seconds to check if site is back
+                setTimeout(function() {
+                    window.location.reload();
+                }, 10000);
+            </script>
+        </body>
+        </html>' > ./app_offline_api.htm
+    
+    - name: Upload app_offline.htm to take API offline
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      with:
+        server: ${{ secrets.MONSTERASP_FTP_SERVER_API }}
+        username: ${{ secrets.MONSTERASP_FTP_USERNAME_API }}
+        password: ${{ secrets.MONSTERASP_FTP_PASSWORD_API }}
+        local-dir: ./
+        server-dir: /wwwroot/
+        exclude: |
+          **/*
+        include: |
+          app_offline_api.htm
+        log-level: verbose
+    
+    - name: Wait for API to gracefully shutdown (15 seconds)
+      run: sleep 15
+    
     - name: Deploy API to MonsterASP via FTP
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
@@ -210,6 +303,34 @@ jobs:
           **/.git*/
           **/appsettings.Development.json
         log-level: verbose
+    
+    - name: Remove app_offline.htm to bring API online
+      run: |
+        # Create a temporary empty directory for deletion
+        mkdir -p ./empty-deploy
+        echo '' > ./empty-deploy/.keep
+    
+    - name: Delete app_offline.htm via FTP
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      with:
+        server: ${{ secrets.MONSTERASP_FTP_SERVER_API }}
+        username: ${{ secrets.MONSTERASP_FTP_USERNAME_API }}
+        password: ${{ secrets.MONSTERASP_FTP_PASSWORD_API }}
+        local-dir: ./empty-deploy/
+        server-dir: /wwwroot/
+        exclude: |
+          **/*
+        dangerous-clean-slate: false
+        log-level: verbose
+      env:
+        FTP_DELETE_EXTRA: true
+    
+    - name: Verify API deployment
+      run: |
+        echo "✅ API deployment completed"
+        echo "Waiting 5 seconds for API to start up..."
+        sleep 5
+        echo "API should now be online and serving requests"
 
   deploy-portal:
     needs: 
@@ -242,6 +363,100 @@ jobs:
         fi
         echo "✅ Ready to deploy $(find ./portal-deployment -type f | wc -l) files"
     
+    - name: Create app_offline.htm for Portal
+      run: |
+        echo '<!DOCTYPE html>
+        <html>
+        <head>
+            <title>Portal Under Maintenance</title>
+            <style>
+                body { 
+                    font-family: Arial, sans-serif; 
+                    text-align: center; 
+                    padding: 50px; 
+                    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                    color: white;
+                    min-height: 100vh;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    align-items: center;
+                }
+                .container {
+                    background: rgba(255, 255, 255, 0.1);
+                    padding: 40px;
+                    border-radius: 15px;
+                    backdrop-filter: blur(10px);
+                    max-width: 600px;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+                }
+                h1 { 
+                    font-size: 2.5em; 
+                    margin-bottom: 20px; 
+                    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+                }
+                p { 
+                    font-size: 1.2em; 
+                    margin-bottom: 30px; 
+                    line-height: 1.6;
+                }
+                .spinner {
+                    border: 5px solid rgba(255, 255, 255, 0.3);
+                    border-radius: 50%;
+                    border-top: 5px solid white;
+                    width: 50px;
+                    height: 50px;
+                    animation: spin 1s linear infinite;
+                    margin: 30px auto;
+                }
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+                .footer {
+                    margin-top: 40px;
+                    font-size: 0.9em;
+                    opacity: 0.8;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🚀 Upgrading Your Experience</h1>
+                <p>We are enhancing the portal with new features and improvements.</p>
+                <p>Please check back in a few moments. We appreciate your patience!</p>
+                <div class="spinner"></div>
+                <div class="footer">
+                    <p>Deployment started: $(date)</p>
+                    <p>This page will automatically disappear when the update is complete.</p>
+                </div>
+            </div>
+            <script>
+                // Auto-refresh every 10 seconds to check if site is back
+                setTimeout(function() {
+                    window.location.reload();
+                }, 10000);
+            </script>
+        </body>
+        </html>' > ./app_offline_portal.htm
+    
+    - name: Upload app_offline.htm to take Portal offline
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      with:
+        server: ${{ secrets.MONSTERASP_FTP_SERVER_PORTAL }}
+        username: ${{ secrets.MONSTERASP_FTP_USERNAME_PORTAL }}
+        password: ${{ secrets.MONSTERASP_FTP_PASSWORD_PORTAL }}
+        local-dir: ./
+        server-dir: /wwwroot/
+        exclude: |
+          **/*
+        include: |
+          app_offline_portal.htm
+        log-level: verbose
+    
+    - name: Wait for Portal to gracefully shutdown (10 seconds)
+      run: sleep 10
+    
     - name: Deploy Portal to MonsterASP via FTP
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
@@ -254,4 +469,32 @@ jobs:
           **/.git*
           **/.git*/
           **/appsettings.Development.json
+          app_offline_portal.htm
         log-level: verbose
+    
+    - name: Remove app_offline.htm to bring Portal online
+      run: |
+        mkdir -p ./empty-deploy-portal
+        echo '' > ./empty-deploy-portal/.keep
+    
+    - name: Delete app_offline.htm via FTP
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      with:
+        server: ${{ secrets.MONSTERASP_FTP_SERVER_PORTAL }}
+        username: ${{ secrets.MONSTERASP_FTP_USERNAME_PORTAL }}
+        password: ${{ secrets.MONSTERASP_FTP_PASSWORD_PORTAL }}
+        local-dir: ./empty-deploy-portal/
+        server-dir: /wwwroot/
+        exclude: |
+          **/*
+        dangerous-clean-slate: false
+        log-level: verbose
+      env:
+        FTP_DELETE_EXTRA: true
+    
+    - name: Verify Portal deployment
+      run: |
+        echo "✅ Portal deployment completed"
+        echo "Waiting 5 seconds for Portal to start up..."
+        sleep 5
+        echo "Portal should now be online and serving requests"
