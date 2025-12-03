@@ -82,7 +82,7 @@ jobs:
               "DefaultConnection": "$CONN"
             },
             "JwtSettings": {
-              "Key": "$JWT",
+              "SecurityKey": "$JWT",
               "Issuer": "AssetTagApi",
               "Audience": "AssetTagApiClient"
             },
