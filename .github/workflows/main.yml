@@ -2,7 +2,7 @@ name: Smart Deployment with Migrations
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'AssetTag/**'
       - 'Portal/**'
@@ -104,7 +104,7 @@ jobs:
         
         echo '{
           "ApiSettings": {
-            "BaseUrl": "https://your-assettag-api.monsterasp.net"
+            "BaseUrl": "http://mugassetapi.runasp.net/"
           },
           "Logging": {
             "LogLevel": {
