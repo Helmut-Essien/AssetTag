@@ -2,7 +2,7 @@ name: Smart Deployment with Migrations
 
 on:
   push:
-    branches: [master]
+    branches: [ master ]
     paths:
       - 'AssetTag/**'
       - 'Portal/**'
@@ -20,238 +20,268 @@ jobs:
     outputs:
       api-changed: ${{ steps.filter.outputs.api }}
       portal-changed: ${{ steps.filter.outputs.portal }}
-    
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    
-    - name: Detect project changes
-      id: filter
-      uses: dorny/paths-filter@v3
-      with:
-        filters: |
-          api:
-            - 'AssetTag/**'
-            - 'Shared/**'
-            - '.github/workflows/**'
-          portal:
-            - 'Portal/**'
-            - 'Shared/**'
-            - '.github/workflows/**'
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect project changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            api:
+              - 'AssetTag/**'
+              - 'Shared/**'
+              - '.github/workflows/**'
+            portal:
+              - 'Portal/**'
+              - 'Shared/**'
+              - '.github/workflows/**'
 
   build-and-publish:
     needs: detect-changes
     runs-on: ubuntu-latest
     if: needs.detect-changes.outputs.api-changed == 'true' || needs.detect-changes.outputs.portal-changed == 'true'
-    
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
-    
-    - name: Restore dependencies
-      run: dotnet restore ${{ env.SOLUTION_PATH }}
-    
-    # Create publish directories first
-    - name: Create publish directories
-      run: |
-        mkdir -p ./publish/api
-        mkdir -p ./publish/portal
-    
-    - name: Build and Publish API (if changed)
-      if: needs.detect-changes.outputs.api-changed == 'true'
-      env:
-        JWT_SECURITY_KEY: ${{ secrets.JWT_SECURITY_KEY }}
-        EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
-        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-        ConnectionStrings__DefaultConnection: ${{ secrets.MONSTERASP_DATABASE_CONNECTION }}
-      run: |
-        dotnet publish AssetTag/AssetTag.csproj \
-          --configuration Release \
-          --output ./publish/api \
-          -p:UseAppHost=false
-        
-        echo '{
-          "ConnectionStrings": {
-            "DefaultConnection": "${{ secrets.MONSTERASP_DATABASE_CONNECTION }}"
-          },
-          "Jwt": {
-            "Key": "${{ secrets.JWT_SECURITY_KEY }}"
-          },
-          "EmailSettings": {
-            "Username": "${{ secrets.EMAIL_USERNAME }}",
-            "Password": "${{ secrets.EMAIL_PASSWORD }}"
-          },
-          "Logging": {
-            "LogLevel": {
-              "Default": "Information",
-              "Microsoft.AspNetCore": "Warning"
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Create publish directories
+        run: |
+          mkdir -p ./publish/api
+          mkdir -p ./publish/portal
+
+      - name: Build and Publish API (if changed)
+        if: needs.detect-changes.outputs.api-changed == 'true'
+        env:
+          CONN: ${{ secrets.MONSTERASP_DATABASE_CONNECTION }}
+          JWT: ${{ secrets.JWT_SECURITY_KEY }}
+          EMAIL_USER: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASSWORD }}
+        run: |
+          dotnet publish AssetTag/AssetTag.csproj \
+            --configuration Release \
+            --output ./publish/api \
+            -p:UseAppHost=false \
+            -p:AspNetCoreHostingModel=OutOfProcess \
+            -p:EnvironmentName=Production
+
+          mkdir -p ./publish/api/logs
+
+          cat > ./publish/api/appsettings.Production.json << EOF
+          {
+            "ConnectionStrings": {
+              "DefaultConnection": "$CONN"
+            },
+            "JwtSettings": {
+              "SecurityKey": "$JWT",
+              "Issuer": "AssetTagApi",
+              "Audience": "AssetTagApiClient"
+            },
+            "EmailSettings": {
+              "Username": "$EMAIL_USER",
+              "Password": "$EMAIL_PASS"
+            },
+            "Logging": {
+              "LogLevel": {
+                "Default": "Information",
+                "Microsoft.AspNetCore": "Warning"
+              }
             }
           }
-        }' > ./publish/api/appsettings.Production.json
-    
-    - name: Build and Publish Portal (if changed)
-      if: needs.detect-changes.outputs.portal-changed == 'true'
-      run: |
-        dotnet publish Portal/Portal.csproj \
-          --configuration Release \
-          --output ./publish/portal \
-          -p:UseAppHost=false
-        
-        echo '{
-          "ApiSettings": {
-            "BaseUrl": "http://mugassetapi.runasp.net/"
-          },
-          "Logging": {
-            "LogLevel": {
-              "Default": "Information",
-              "Microsoft.AspNetCore": "Warning"
+          EOF
+
+          cat > ./publish/api/web.config << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <location path="." inheritInChildApplications="false">
+              <system.webServer>
+                <handlers>
+                  <add name="aspNetCore" path="*" verb="*" modules="AspNetCoreModuleV2" resourceType="Unspecified"/>
+                </handlers>
+                <aspNetCore processPath="dotnet" arguments=".\AssetTag.dll" stdoutLogEnabled="true" stdoutLogFile=".\logs\stdout" hostingModel="OutOfProcess">
+                  <environmentVariables>
+                    <environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production"/>
+                  </environmentVariables>
+                </aspNetCore>
+              </system.webServer>
+            </location>
+          </configuration>
+          EOF
+
+      - name: Build and Publish Portal (if changed)
+        if: needs.detect-changes.outputs.portal-changed == 'true'
+        run: |
+          dotnet publish Portal/Portal.csproj \
+            --configuration Release \
+            --output ./publish/portal \
+            -p:UseAppHost=false
+
+          cat > ./publish/portal/appsettings.Production.json << 'EOF'
+          {
+            "ApiSettings": {
+              "BaseUrl": "http://mugassetapi.runasp.net/"
+            },
+            "Logging": {
+              "LogLevel": {
+                "Default": "Information",
+                "Microsoft.AspNetCore": "Warning"
+              }
             }
           }
-        }' > ./publish/portal/appsettings.Production.json
-    
-    - name: Upload API artifact
-      if: needs.detect-changes.outputs.api-changed == 'true'
-      uses: actions/upload-artifact@v4
-      with:
-        name: api-deployment
-        path: ./publish/api/
-    
-    - name: Upload Portal artifact
-      if: needs.detect-changes.outputs.portal-changed == 'true'
-      uses: actions/upload-artifact@v4
-      with:
-        name: portal-deployment
-        path: ./publish/portal/
+          EOF
+
+      - name: Upload API artifact
+        if: needs.detect-changes.outputs.api-changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-deployment
+          path: ./publish/api/
+
+      - name: Upload Portal artifact
+        if: needs.detect-changes.outputs.portal-changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-deployment
+          path: ./publish/portal/
 
   run-migrations:
-    needs: 
-      - detect-changes
-      - build-and-publish
+    needs: [detect-changes, build-and-publish]
     if: needs.detect-changes.outputs.api-changed == 'true'
     runs-on: ubuntu-latest
-    
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
-    
-    - name: Restore for EF Tool
-      run: dotnet restore ${{ env.SOLUTION_PATH }}
-    
-    - name: Run Database Migrations
-      env:
-        ConnectionStrings__DefaultConnection: ${{ secrets.MONSTERASP_DATABASE_CONNECTION }}
-        JWT_SECURITY_KEY: ${{ secrets.JWT_SECURITY_KEY }}
-        EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
-        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-      run: |
-        dotnet tool install --global dotnet-ef --version 9.*
-        dotnet ef database update \
-          --project AssetTag/AssetTag.csproj \
-          --startup-project AssetTag/AssetTag.csproj \
-          --configuration Release
-        echo "✅ Database migrations completed"
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore for EF Tool
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Run Database Migrations
+        env:
+          ConnectionStrings__DefaultConnection: ${{ secrets.MONSTERASP_DATABASE_CONNECTION }}
+        run: |
+          dotnet tool install --global dotnet-ef --version 9.*
+          dotnet ef database update \
+            --project AssetTag/AssetTag.csproj \
+            --startup-project AssetTag/AssetTag.csproj \
+            --configuration Release
+          echo "Database migrations completed"
 
   deploy-api:
-    needs: 
-      - detect-changes
-      - build-and-publish
-      - run-migrations
+    needs: [detect-changes, build-and-publish, run-migrations]
     if: needs.detect-changes.outputs.api-changed == 'true'
     runs-on: ubuntu-latest
-    
     steps:
-    # Create directory first
-    - name: Create deployment directory
-      run: mkdir -p ./api-deployment
-    
-    - name: Download API artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: api-deployment
-        path: ./api-deployment/  # This also helps ensure directory exists
-    
-    - name: Verify files exist before deployment
-      run: |
-        echo "Checking deployment files..."
-        echo "Directory contents:"
-        ls -la ./api-deployment/
-        echo ""
-        echo "File count: $(find ./api-deployment -type f | wc -l)"
-        
-        if [ ! -d "./api-deployment" ]; then
-          echo "❌ ERROR: Deployment directory not found"
-          exit 1
-        fi
-        
-        if [ -z "$(ls -A ./api-deployment)" ]; then
-          echo "❌ ERROR: Deployment directory is empty"
-          exit 1
-        fi
-    
-    - name: Deploy API to MonsterASP via FTP
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-      with:
-        server: ${{ secrets.MONSTERASP_FTP_SERVER_API }}
-        username: ${{ secrets.MONSTERASP_FTP_USERNAME_API }}
-        password: ${{ secrets.MONSTERASP_FTP_PASSWORD_API }}
-        local-dir: ./api-deployment/
-        server-dir: /wwwroot/
-        exclude: |
-          **/.git*
-          **/.git*/
-          **/appsettings.Development.json
-        log-level: verbose
+      - name: Create deployment directory
+        run: mkdir -p ./api-deployment
+
+      - name: Download API artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: api-deployment
+          path: ./api-deployment/
+
+      - name: Verify files
+        run: |
+          echo "Deploying $(find ./api-deployment -type f | wc -l) files"
+          [ -f "./api-deployment/AssetTag.dll" ] && echo "DLL found" || (echo "DLL missing!" && exit 1)
+
+      - name: Create app_offline.htm
+        run: |
+          cat > app_offline.htm << 'HTML'
+          <!DOCTYPE html><html><head><title>Maintenance</title><style>body{font-family:Arial;text-align:center;padding:50px;background:#667eea;color:white}h1{font-size:3em}</style></head><body><h1>Updating API...</h1><p>Back in a few seconds.</p><script>setTimeout(()=>location.reload(),10000)</script></body></html>
+          HTML
+
+      - name: Take API offline
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.MONSTERASP_FTP_SERVER_API }}
+          username: ${{ secrets.MONSTERASP_FTP_USERNAME_API }}
+          password: ${{ secrets.MONSTERASP_FTP_PASSWORD_API }}
+          local-dir: ./
+          server-dir: /wwwroot/
+          exclude: |
+            **/*
+          include: |
+            app_offline.htm
+          log-level: standard
+
+      - name: Wait for shutdown
+        run: sleep 15
+
+      - name: Deploy API (with delete old files)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.MONSTERASP_FTP_SERVER_API }}
+          username: ${{ secrets.MONSTERASP_FTP_USERNAME_API }}
+          password: ${{ secrets.MONSTERASP_FTP_PASSWORD_API }}
+          local-dir: ./api-deployment/
+          server-dir: /wwwroot/
+          dangerous-clean-slate: true
+          log-level: standard
+
+      - name: Bring API online
+        run: echo "Deployment complete – app_offline.htm removed automatically by clean-slate"
 
   deploy-portal:
-    needs: 
-      - detect-changes
-      - build-and-publish
+    needs: [detect-changes, build-and-publish]
     if: needs.detect-changes.outputs.portal-changed == 'true'
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Create deployment directory
-      run: mkdir -p ./portal-deployment
-    
-    - name: Download Portal artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: portal-deployment
-        path: ./portal-deployment/
-    
-    - name: Verify files exist before deployment
-      run: |
-        echo "Checking deployment files..."
-        if [ ! -d "./portal-deployment" ]; then
-          echo "❌ ERROR: Deployment directory not found"
-          exit 1
-        fi
-        
-        if [ -z "$(ls -A ./portal-deployment)" ]; then
-          echo "❌ ERROR: Deployment directory is empty"
-          exit 1
-        fi
-        echo "✅ Ready to deploy $(find ./portal-deployment -type f | wc -l) files"
-    
-    - name: Deploy Portal to MonsterASP via FTP
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-      with:
-        server: ${{ secrets.MONSTERASP_FTP_SERVER_PORTAL }}
-        username: ${{ secrets.MONSTERASP_FTP_USERNAME_PORTAL }}
-        password: ${{ secrets.MONSTERASP_FTP_PASSWORD_PORTAL }}
-        local-dir: ./portal-deployment/
-        server-dir: /wwwroot/
-        exclude: |
-          **/.git*
-          **/.git*/
-          **/appsettings.Development.json
-        log-level: verbose
+      - name: Create deployment directory
+        run: mkdir -p ./portal-deployment
+
+      - name: Download Portal artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: portal-deployment
+          path: ./portal-deployment/
+
+      - name: Create app_offline.htm
+        run: |
+          cat > app_offline.htm << 'HTML'
+          <!DOCTYPE html><html><head><title>Portal Update</title><style>body{font-family:Arial;text-align:center;padding:50px;background:#f093fb;color:white}h1{font-size:3em}</style></head><body><h1>Portal Updating...</h1><p>Be right back!</p><script>setTimeout(()=>location.reload(),10000)</script></body></html>
+          HTML
+
+      - name: Take Portal offline
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.MONSTERASP_FTP_SERVER_PORTAL }}
+          username: ${{ secrets.MONSTERASP_FTP_USERNAME_PORTAL }}
+          password: ${{ secrets.MONSTERASP_FTP_PASSWORD_PORTAL }}
+          local-dir: ./
+          server-dir: /wwwroot/
+          exclude: |
+            **/*
+          include: |
+            app_offline.htm
+          log-level: standard
+
+      - name: Wait for shutdown
+        run: sleep 10
+
+      - name: Deploy Portal (with delete old files)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.MONSTERASP_FTP_SERVER_PORTAL }}
+          username: ${{ secrets.MONSTERASP_FTP_USERNAME_PORTAL }}
+          password: ${{ secrets.MONSTERASP_FTP_PASSWORD_PORTAL }}
+          local-dir: ./portal-deployment/
+          server-dir: /wwwroot/
+          dangerous-clean-slate: true
+          log-level: standard
+
+      - name: Done
+        run: echo "Portal deployed and online!"
