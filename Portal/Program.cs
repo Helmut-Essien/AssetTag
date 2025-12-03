@@ -29,8 +29,9 @@ builder.Services.AddHttpClient("AssetTagApi", client =>
     client.DefaultRequestHeaders.Accept.Add(
         new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 })
-    .AddHttpMessageHandler<Portal.Services.TokenRefreshHandler>()
-    .AddHttpMessageHandler<UnauthorizedRedirectHandler>();// <--- attach handler here
+    .AddHttpMessageHandler<UnauthorizedRedirectHandler>()// <--- attach handler here
+    .AddHttpMessageHandler<Portal.Services.TokenRefreshHandler>();
+    
 
 
 // cookie auth for portal users
