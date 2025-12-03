@@ -80,10 +80,10 @@ jobs:
             exit 1
           fi
           if [ -z "$EMAIL_USER" ]; then
-            echo "❌ WARNING: EMAIL_USERNAME secret is not set"
+            echo "⚠️ WARNING: EMAIL_USERNAME secret is not set"
           fi
           if [ -z "$EMAIL_PASS" ]; then
-            echo "❌ WARNING: EMAIL_PASSWORD secret is not set"
+            echo "⚠️ WARNING: EMAIL_PASSWORD secret is not set"
           fi
           
           echo "Building API..."
@@ -98,45 +98,45 @@ jobs:
           
           # Create appsettings.Production.json with actual values
           cat > ./publish/api/appsettings.Production.json << EOF
-          {
-            "ConnectionStrings": {
-              "DefaultConnection": "$CONN"
-            },
-            "Jwt": {
-              "Key": "$JWT"
-            },
-            "EmailSettings": {
-              "Username": "$EMAIL_USER",
-              "Password": "$EMAIL_PASS"
-            },
-            "Logging": {
-              "LogLevel": {
-                "Default": "Information",
-                "Microsoft.AspNetCore": "Warning"
-              }
-            }
-          }
-          EOF
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "$CONN"
+  },
+  "Jwt": {
+    "Key": "$JWT"
+  },
+  "EmailSettings": {
+    "Username": "$EMAIL_USER",
+    "Password": "$EMAIL_PASS"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  }
+}
+EOF
           
           echo "Created appsettings.Production.json"
           
           cat > ./publish/api/web.config << EOF
-          <?xml version="1.0" encoding="utf-8"?>
-          <configuration>
-            <location path="." inheritInChildApplications="false">
-              <system.webServer>
-                <handlers>
-                  <add name="aspNetCore" path="*" verb="*" modules="AspNetCoreModuleV2" resourceType="Unspecified"/>
-                </handlers>
-                <aspNetCore processPath="dotnet" arguments=".\AssetTag.dll" stdoutLogEnabled="true" stdoutLogFile=".\logs\stdout" hostingModel="OutOfProcess">
-                  <environmentVariables>
-                    <environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production"/>
-                  </environmentVariables>
-                </aspNetCore>
-              </system.webServer>
-            </location>
-          </configuration>
-          EOF
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <location path="." inheritInChildApplications="false">
+    <system.webServer>
+      <handlers>
+        <add name="aspNetCore" path="*" verb="*" modules="AspNetCoreModuleV2" resourceType="Unspecified"/>
+      </handlers>
+      <aspNetCore processPath="dotnet" arguments=".\AssetTag.dll" stdoutLogEnabled="true" stdoutLogFile=".\logs\stdout" hostingModel="OutOfProcess">
+        <environmentVariables>
+          <environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production"/>
+        </environmentVariables>
+      </aspNetCore>
+    </system.webServer>
+  </location>
+</configuration>
+EOF
       
       - name: Build and Publish Portal (if changed)
         if: needs.detect-changes.outputs.portal-changed == 'true'
@@ -147,16 +147,16 @@ jobs:
             -p:UseAppHost=false
           
           echo '{
-            "ApiSettings": {
-              "BaseUrl": "http://mugassetapi.runasp.net/"
-            },
-            "Logging": {
-              "LogLevel": {
-                "Default": "Information",
-                "Microsoft.AspNetCore": "Warning"
-              }
-            }
-          }' > ./publish/portal/appsettings.Production.json
+  "ApiSettings": {
+    "BaseUrl": "http://mugassetapi.runasp.net/"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  }
+}' > ./publish/portal/appsettings.Production.json
       
       - name: Upload API artifact
         if: needs.detect-changes.outputs.api-changed == 'true'
@@ -190,50 +190,63 @@ jobs:
       - name: Restore for EF Tool
         run: dotnet restore ${{ env.SOLUTION_PATH }}
       
-      - name: Create appsettings for migrations
+      - name: Install EF Tool
+        run: |
+          dotnet tool install --global dotnet-ef --version 9.*
+      
+      - name: Create temporary appsettings for migrations
         env:
           CONN: ${{ secrets.MONSTERASP_DATABASE_CONNECTION }}
           JWT: ${{ secrets.JWT_SECURITY_KEY }}
           EMAIL_USER: ${{ secrets.EMAIL_USERNAME }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASSWORD }}
         run: |
-          # Create appsettings.Production.json in the project directory for EF migrations
-          cat > AssetTag/appsettings.Production.json << EOF
-          {
-            "ConnectionStrings": {
-              "DefaultConnection": "$CONN"
-            },
-            "Jwt": {
-              "Key": "$JWT"
-            },
-            "EmailSettings": {
-              "Username": "$EMAIL_USER",
-              "Password": "$EMAIL_PASS"
-            },
-            "Logging": {
-              "LogLevel": {
-                "Default": "Information",
-                "Microsoft.AspNetCore": "Warning"
-              }
-            }
-          }
-          EOF
+          # Create a simple appsettings.json that only contains what's needed for migrations
+          mkdir -p ./temp-migration
           
-          echo "Created appsettings.Production.json for migrations"
-          echo "JWT Key length: ${#JWT}"
-      
-      - name: Install EF Tool
-        run: |
-          dotnet tool install --global dotnet-ef --version 9.*
+          # First, let's debug by showing what we have
+          echo "Database connection string length: ${#CONN}"
+          echo "JWT key length: ${#JWT}"
+          
+          # Create a minimal appsettings.json with just connection string
+          cat > ./temp-migration/appsettings.json << EOF
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "$CONN"
+  },
+  "Jwt": {
+    "Key": "$JWT"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  }
+}
+EOF
+          
+          # Copy this appsettings.json to the AssetTag project directory
+          cp ./temp-migration/appsettings.json ./AssetTag/appsettings.json
+          
+          # Also create appsettings.Production.json for good measure
+          cp ./temp-migration/appsettings.json ./AssetTag/appsettings.Production.json
+          
+          echo "Created appsettings files for migrations"
       
       - name: Run Database Migrations
         env:
           ASPNETCORE_ENVIRONMENT: Production
         run: |
           echo "Running database migrations..."
+          
+          # Change to the AssetTag directory
           cd AssetTag
+          
+          # Run the migrations - the appsettings files in this directory will be used
           dotnet ef database update \
             --configuration Release
+          
           echo "✅ Database migrations completed"
 
   deploy-api:
@@ -275,79 +288,79 @@ jobs:
       - name: Create app_offline.htm for API
         run: |
           echo '<!DOCTYPE html>
-          <html>
-          <head>
-              <title>Site Under Maintenance</title>
-              <style>
-                  body { 
-                      font-family: Arial, sans-serif; 
-                      text-align: center; 
-                      padding: 50px; 
-                      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                      color: white;
-                      min-height: 100vh;
-                      display: flex;
-                      flex-direction: column;
-                      justify-content: center;
-                      align-items: center;
-                  }
-                  .container {
-                      background: rgba(255, 255, 255, 0.1);
-                      padding: 40px;
-                      border-radius: 15px;
-                      backdrop-filter: blur(10px);
-                      max-width: 600px;
-                      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-                  }
-                  h1 { 
-                      font-size: 2.5em; 
-                      margin-bottom: 20px; 
-                      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-                  }
-                  p { 
-                      font-size: 1.2em; 
-                      margin-bottom: 30px; 
-                      line-height: 1.6;
-                  }
-                  .spinner {
-                      border: 5px solid rgba(255, 255, 255, 0.3);
-                      border-radius: 50%;
-                      border-top: 5px solid white;
-                      width: 50px;
-                      height: 50px;
-                      animation: spin 1s linear infinite;
-                      margin: 30px auto;
-                  }
-                  @keyframes spin {
-                      0% { transform: rotate(0deg); }
-                      100% { transform: rotate(360deg); }
-                  }
-                  .footer {
-                      margin-top: 40px;
-                      font-size: 0.9em;
-                      opacity: 0.8;
-                  }
-              </style>
-          </head>
-          <body>
-              <div class="container">
-                  <h1>🔄 Maintenance in Progress</h1>
-                  <p>We are currently updating the application to bring you new features and improvements.</p>
-                  <p>The site will be back online in a few moments. Thank you for your patience!</p>
-                  <div class="spinner"></div>
-                  <div class="footer">
-                      <p>Deployment started: $(date)</p>
-                      <p>This page will automatically disappear when the deployment is complete.</p>
-                  </div>
-              </div>
-              <script>
-                  // Auto-refresh every 10 seconds to check if site is back
-                  setTimeout(function() {
-                      window.location.reload();
-                  }, 10000);
-              </script>
-          </body>
-          </html>' > ./app_offline_api.htm
+<html>
+<head>
+    <title>Site Under Maintenance</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            padding: 50px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            max-width: 600px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        h1 { 
+            font-size: 2.5em; 
+            margin-bottom: 20px; 
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        p { 
+            font-size: 1.2em; 
+            margin-bottom: 30px; 
+            line-height: 1.6;
+        }
+        .spinner {
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 5px solid white;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 30px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .footer {
+            margin-top: 40px;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Maintenance in Progress</h1>
+        <p>We are currently updating the application to bring you new features and improvements.</p>
+        <p>The site will be back online in a few moments. Thank you for your patience!</p>
+        <div class="spinner"></div>
+        <div class="footer">
+            <p>Deployment started: $(date)</p>
+            <p>This page will automatically disappear when the deployment is complete.</p>
+        </div>
+    </div>
+    <script>
+        // Auto-refresh every 10 seconds to check if site is back
+        setTimeout(function() {
+            window.location.reload();
+        }, 10000);
+    </script>
+</body>
+</html>' > ./app_offline_api.htm
       
       - name: Upload app_offline.htm to take API offline
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
@@ -442,79 +455,79 @@ jobs:
       - name: Create app_offline.htm for Portal
         run: |
           echo '<!DOCTYPE html>
-          <html>
-          <head>
-              <title>Portal Under Maintenance</title>
-              <style>
-                  body { 
-                      font-family: Arial, sans-serif; 
-                      text-align: center; 
-                      padding: 50px; 
-                      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-                      color: white;
-                      min-height: 100vh;
-                      display: flex;
-                      flex-direction: column;
-                      justify-content: center;
-                      align-items: center;
-                  }
-                  .container {
-                      background: rgba(255, 255, 255, 0.1);
-                      padding: 40px;
-                      border-radius: 15px;
-                      backdrop-filter: blur(10px);
-                      max-width: 600px;
-                      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-                  }
-                  h1 { 
-                      font-size: 2.5em; 
-                      margin-bottom: 20px; 
-                      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-                  }
-                  p { 
-                      font-size: 1.2em; 
-                      margin-bottom: 30px; 
-                      line-height: 1.6;
-                  }
-                  .spinner {
-                      border: 5px solid rgba(255, 255, 255, 0.3);
-                      border-radius: 50%;
-                      border-top: 5px solid white;
-                      width: 50px;
-                      height: 50px;
-                      animation: spin 1s linear infinite;
-                      margin: 30px auto;
-                  }
-                  @keyframes spin {
-                      0% { transform: rotate(0deg); }
-                      100% { transform: rotate(360deg); }
-                  }
-                  .footer {
-                      margin-top: 40px;
-                      font-size: 0.9em;
-                      opacity: 0.8;
-                  }
-              </style>
-          </head>
-          <body>
-              <div class="container">
-                  <h1>🚀 Upgrading Your Experience</h1>
-                  <p>We are enhancing the portal with new features and improvements.</p>
-                  <p>Please check back in a few moments. We appreciate your patience!</p>
-                  <div class="spinner"></div>
-                  <div class="footer">
-                      <p>Deployment started: $(date)</p>
-                      <p>This page will automatically disappear when the update is complete.</p>
-                  </div>
-              </div>
-              <script>
-                  // Auto-refresh every 10 seconds to check if site is back
-                  setTimeout(function() {
-                      window.location.reload();
-                  }, 10000);
-              </script>
-          </body>
-          </html>' > ./app_offline_portal.htm
+<html>
+<head>
+    <title>Portal Under Maintenance</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            padding: 50px; 
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            max-width: 600px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        h1 { 
+            font-size: 2.5em; 
+            margin-bottom: 20px; 
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        p { 
+            font-size: 1.2em; 
+            margin-bottom: 30px; 
+            line-height: 1.6;
+        }
+        .spinner {
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 5px solid white;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 30px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .footer {
+            margin-top: 40px;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Upgrading Your Experience</h1>
+        <p>We are enhancing the portal with new features and improvements.</p>
+        <p>Please check back in a few moments. We appreciate your patience!</p>
+        <div class="spinner"></div>
+        <div class="footer">
+            <p>Deployment started: $(date)</p>
+            <p>This page will automatically disappear when the update is complete.</p>
+        </div>
+    </div>
+    <script>
+        // Auto-refresh every 10 seconds to check if site is back
+        setTimeout(function() {
+            window.location.reload();
+        }, 10000);
+    </script>
+</body>
+</html>' > ./app_offline_portal.htm
       
       - name: Upload app_offline.htm to take Portal offline
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
