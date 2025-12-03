@@ -63,7 +63,7 @@ jobs:
     
     - name: Build and Publish API (if changed)
       if: needs.detect-changes.outputs.api-changed == 'true'
-      env:
+    env:
       CONN: ${{ secrets.MONSTERASP_DATABASE_CONNECTION }}
       JWT: ${{ secrets.JWT_SECURITY_KEY }}
       EMAIL_USER: ${{ secrets.EMAIL_USERNAME }}
