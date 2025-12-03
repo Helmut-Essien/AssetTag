@@ -104,7 +104,7 @@ jobs:
         
         echo '{
           "ApiSettings": {
-            "BaseUrl": "https://your-assettag-api.monsterasp.net"
+            "BaseUrl": "http://mugassetapi.runasp.net/"
           },
           "Logging": {
             "LogLevel": {
