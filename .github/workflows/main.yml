@@ -1,5 +1,4 @@
 name: Smart Deployment with Migrations
-
 on:
   push:
     branches: [master]
@@ -9,23 +8,19 @@ on:
       - 'Shared/**'
       - '.github/workflows/**'
   workflow_dispatch:
-
 env:
   DOTNET_VERSION: '9.x'
   SOLUTION_PATH: 'AssetTag.sln'
-
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
       api-changed: ${{ steps.filter.outputs.api }}
       portal-changed: ${{ steps.filter.outputs.portal }}
-    
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
       - name: Detect project changes
         id: filter
         uses: dorny/paths-filter@v3
@@ -39,29 +34,22 @@ jobs:
               - 'Portal/**'
               - 'Shared/**'
               - '.github/workflows/**'
-  
   build-and-publish:
     needs: detect-changes
     runs-on: ubuntu-latest
     if: needs.detect-changes.outputs.api-changed == 'true' || needs.detect-changes.outputs.portal-changed == 'true'
-    
     steps:
       - uses: actions/checkout@v4
-      
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-      
       - name: Restore dependencies
         run: dotnet restore ${{ env.SOLUTION_PATH }}
-      
-      # Create publish directories first
       - name: Create publish directories
         run: |
           mkdir -p ./publish/api
           mkdir -p ./publish/portal
-      
       - name: Build and Publish API (if changed)
         if: needs.detect-changes.outputs.api-changed == 'true'
         env:
@@ -70,23 +58,6 @@ jobs:
           EMAIL_USER: ${{ secrets.EMAIL_USERNAME }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASSWORD }}
         run: |
-          # First, verify that all required secrets are set
-          if [ -z "$CONN" ]; then
-            echo "❌ ERROR: MONSTERASP_DATABASE_CONNECTION secret is not set"
-            exit 1
-          fi
-          if [ -z "$JWT" ]; then
-            echo "❌ ERROR: JWT_SECURITY_KEY secret is not set"
-            exit 1
-          fi
-          if [ -z "$EMAIL_USER" ]; then
-            echo "⚠️ WARNING: EMAIL_USERNAME secret is not set"
-          fi
-          if [ -z "$EMAIL_PASS" ]; then
-            echo "⚠️ WARNING: EMAIL_PASSWORD secret is not set"
-          fi
-          
-          echo "Building API..."
           dotnet publish AssetTag/AssetTag.csproj \
             --configuration Release \
             --output ./publish/api \
@@ -96,48 +67,44 @@ jobs:
           
           mkdir -p ./publish/api/logs
           
-          # Create appsettings.Production.json with actual values
           cat > ./publish/api/appsettings.Production.json << EOF
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "$CONN"
-  },
-  "Jwt": {
-    "Key": "$JWT"
-  },
-  "EmailSettings": {
-    "Username": "$EMAIL_USER",
-    "Password": "$EMAIL_PASS"
-  },
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
-    }
-  }
-}
-EOF
-          
-          echo "Created appsettings.Production.json"
+          {
+            "ConnectionStrings": {
+              "DefaultConnection": "$CONN"
+            },
+            "Jwt": {
+              "Key": "$JWT"
+            },
+            "EmailSettings": {
+              "Username": "$EMAIL_USER",
+              "Password": "$EMAIL_PASS"
+            },
+            "Logging": {
+              "LogLevel": {
+                "Default": "Information",
+                "Microsoft.AspNetCore": "Warning"
+              }
+            }
+          }
+          EOF
           
           cat > ./publish/api/web.config << EOF
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-  <location path="." inheritInChildApplications="false">
-    <system.webServer>
-      <handlers>
-        <add name="aspNetCore" path="*" verb="*" modules="AspNetCoreModuleV2" resourceType="Unspecified"/>
-      </handlers>
-      <aspNetCore processPath="dotnet" arguments=".\AssetTag.dll" stdoutLogEnabled="true" stdoutLogFile=".\logs\stdout" hostingModel="OutOfProcess">
-        <environmentVariables>
-          <environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production"/>
-        </environmentVariables>
-      </aspNetCore>
-    </system.webServer>
-  </location>
-</configuration>
-EOF
-      
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <location path="." inheritInChildApplications="false">
+              <system.webServer>
+                <handlers>
+                  <add name="aspNetCore" path="*" verb="*" modules="AspNetCoreModuleV2" resourceType="Unspecified"/>
+                </handlers>
+                <aspNetCore processPath="dotnet" arguments=".\AssetTag.dll" stdoutLogEnabled="true" stdoutLogFile=".\logs\stdout" hostingModel="OutOfProcess">
+                  <environmentVariables>
+                    <environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production"/>
+                  </environmentVariables>
+                </aspNetCore>
+              </system.webServer>
+            </location>
+          </configuration>
+          EOF
       - name: Build and Publish Portal (if changed)
         if: needs.detect-changes.outputs.portal-changed == 'true'
         run: |
@@ -147,126 +114,70 @@ EOF
             -p:UseAppHost=false
           
           echo '{
-  "ApiSettings": {
-    "BaseUrl": "http://mugassetapi.runasp.net/"
-  },
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
-    }
-  }
-}' > ./publish/portal/appsettings.Production.json
-      
+            "ApiSettings": {
+              "BaseUrl": "http://mugassetapi.runasp.net/"
+            },
+            "Logging": {
+              "LogLevel": {
+                "Default": "Information",
+                "Microsoft.AspNetCore": "Warning"
+              }
+            }
+          }' > ./publish/portal/appsettings.Production.json
       - name: Upload API artifact
         if: needs.detect-changes.outputs.api-changed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: api-deployment
           path: ./publish/api/
-      
       - name: Upload Portal artifact
         if: needs.detect-changes.outputs.portal-changed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: portal-deployment
           path: ./publish/portal/
-
   run-migrations:
-    needs: 
+    needs:
       - detect-changes
       - build-and-publish
     if: needs.detect-changes.outputs.api-changed == 'true'
     runs-on: ubuntu-latest
-    
     steps:
       - uses: actions/checkout@v4
-      
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-      
       - name: Restore for EF Tool
         run: dotnet restore ${{ env.SOLUTION_PATH }}
-      
-      - name: Install EF Tool
-        run: |
-          dotnet tool install --global dotnet-ef --version 9.*
-      
-      - name: Create temporary appsettings for migrations
-        env:
-          CONN: ${{ secrets.MONSTERASP_DATABASE_CONNECTION }}
-          JWT: ${{ secrets.JWT_SECURITY_KEY }}
-          EMAIL_USER: ${{ secrets.EMAIL_USERNAME }}
-          EMAIL_PASS: ${{ secrets.EMAIL_PASSWORD }}
-        run: |
-          # Create a simple appsettings.json that only contains what's needed for migrations
-          mkdir -p ./temp-migration
-          
-          # First, let's debug by showing what we have
-          echo "Database connection string length: ${#CONN}"
-          echo "JWT key length: ${#JWT}"
-          
-          # Create a minimal appsettings.json with just connection string
-          cat > ./temp-migration/appsettings.json << EOF
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "$CONN"
-  },
-  "Jwt": {
-    "Key": "$JWT"
-  },
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
-    }
-  }
-}
-EOF
-          
-          # Copy this appsettings.json to the AssetTag project directory
-          cp ./temp-migration/appsettings.json ./AssetTag/appsettings.json
-          
-          # Also create appsettings.Production.json for good measure
-          cp ./temp-migration/appsettings.json ./AssetTag/appsettings.Production.json
-          
-          echo "Created appsettings files for migrations"
-      
       - name: Run Database Migrations
         env:
-          ASPNETCORE_ENVIRONMENT: Production
+          ConnectionStrings__DefaultConnection: ${{ secrets.MONSTERASP_DATABASE_CONNECTION }}
+          Jwt__Key: ${{ secrets.JWT_SECURITY_KEY }}
+          EmailSettings__Username: ${{ secrets.EMAIL_USERNAME }}
+          EmailSettings__Password: ${{ secrets.EMAIL_PASSWORD }}
         run: |
-          echo "Running database migrations..."
-          
-          # Change to the AssetTag directory
-          cd AssetTag
-          
-          # Run the migrations - the appsettings files in this directory will be used
+          dotnet tool install --global dotnet-ef --version 9.*
           dotnet ef database update \
+            --project AssetTag/AssetTag.csproj \
+            --startup-project AssetTag/AssetTag.csproj \
             --configuration Release
-          
           echo "✅ Database migrations completed"
-
   deploy-api:
-    needs: 
+    needs:
       - detect-changes
       - build-and-publish
       - run-migrations
     if: needs.detect-changes.outputs.api-changed == 'true'
     runs-on: ubuntu-latest
-    
     steps:
       - name: Create deployment directory
         run: mkdir -p ./api-deployment
-      
       - name: Download API artifact
         uses: actions/download-artifact@v4
         with:
           name: api-deployment
           path: ./api-deployment/
-      
       - name: Verify files exist before deployment
         run: |
           echo "Checking deployment files..."
@@ -284,84 +195,82 @@ EOF
             echo "❌ ERROR: Deployment directory is empty"
             exit 1
           fi
-      
       - name: Create app_offline.htm for API
         run: |
           echo '<!DOCTYPE html>
-<html>
-<head>
-    <title>Site Under Maintenance</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            text-align: center; 
-            padding: 50px; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-        .container {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 40px;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            max-width: 600px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-        h1 { 
-            font-size: 2.5em; 
-            margin-bottom: 20px; 
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-        }
-        p { 
-            font-size: 1.2em; 
-            margin-bottom: 30px; 
-            line-height: 1.6;
-        }
-        .spinner {
-            border: 5px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top: 5px solid white;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin: 30px auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .footer {
-            margin-top: 40px;
-            font-size: 0.9em;
-            opacity: 0.8;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🔄 Maintenance in Progress</h1>
-        <p>We are currently updating the application to bring you new features and improvements.</p>
-        <p>The site will be back online in a few moments. Thank you for your patience!</p>
-        <div class="spinner"></div>
-        <div class="footer">
-            <p>Deployment started: $(date)</p>
-            <p>This page will automatically disappear when the deployment is complete.</p>
-        </div>
-    </div>
-    <script>
-        // Auto-refresh every 10 seconds to check if site is back
-        setTimeout(function() {
-            window.location.reload();
-        }, 10000);
-    </script>
-</body>
-</html>' > ./app_offline_api.htm
-      
+          <html>
+          <head>
+              <title>Site Under Maintenance</title>
+              <style>
+                  body {
+                      font-family: Arial, sans-serif;
+                      text-align: center;
+                      padding: 50px;
+                      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                      color: white;
+                      min-height: 100vh;
+                      display: flex;
+                      flex-direction: column;
+                      justify-content: center;
+                      align-items: center;
+                  }
+                  .container {
+                      background: rgba(255, 255, 255, 0.1);
+                      padding: 40px;
+                      border-radius: 15px;
+                      backdrop-filter: blur(10px);
+                      max-width: 600px;
+                      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+                  }
+                  h1 {
+                      font-size: 2.5em;
+                      margin-bottom: 20px;
+                      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+                  }
+                  p {
+                      font-size: 1.2em;
+                      margin-bottom: 30px;
+                      line-height: 1.6;
+                  }
+                  .spinner {
+                      border: 5px solid rgba(255, 255, 255, 0.3);
+                      border-radius: 50%;
+                      border-top: 5px solid white;
+                      width: 50px;
+                      height: 50px;
+                      animation: spin 1s linear infinite;
+                      margin: 30px auto;
+                  }
+                  @keyframes spin {
+                      0% { transform: rotate(0deg); }
+                      100% { transform: rotate(360deg); }
+                  }
+                  .footer {
+                      margin-top: 40px;
+                      font-size: 0.9em;
+                      opacity: 0.8;
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>🔄 Maintenance in Progress</h1>
+                  <p>We are currently updating the application to bring you new features and improvements.</p>
+                  <p>The site will be back online in a few moments. Thank you for your patience!</p>
+                  <div class="spinner"></div>
+                  <div class="footer">
+                      <p>Deployment started: $(date)</p>
+                      <p>This page will automatically disappear when the deployment is complete.</p>
+                  </div>
+              </div>
+              <script>
+                  // Auto-refresh every 10 seconds to check if site is back
+                  setTimeout(function() {
+                      window.location.reload();
+                  }, 10000);
+              </script>
+          </body>
+          </html>' > ./app_offline.htm
       - name: Upload app_offline.htm to take API offline
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
@@ -373,12 +282,10 @@ EOF
           exclude: |
             **/*
           include: |
-            app_offline_api.htm
+            app_offline.htm
           log-level: verbose
-      
       - name: Wait for API to gracefully shutdown (15 seconds)
         run: sleep 15
-      
       - name: Deploy API to MonsterASP via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
@@ -391,53 +298,28 @@ EOF
             **/.git*
             **/.git*/
             **/appsettings.Development.json
+          additional-args: --delete
           log-level: verbose
-      
-      - name: Remove app_offline.htm to bring API online
-        run: |
-          # Create a temporary empty directory for deletion
-          mkdir -p ./empty-deploy
-          echo '' > ./empty-deploy/.keep
-      
-      - name: Delete app_offline.htm via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-        with:
-          server: ${{ secrets.MONSTERASP_FTP_SERVER_API }}
-          username: ${{ secrets.MONSTERASP_FTP_USERNAME_API }}
-          password: ${{ secrets.MONSTERASP_FTP_PASSWORD_API }}
-          local-dir: ./empty-deploy/
-          server-dir: /wwwroot/
-          exclude: |
-            **/*
-          dangerous-clean-slate: false
-          log-level: verbose
-        env:
-          FTP_DELETE_EXTRA: true
-      
       - name: Verify API deployment
         run: |
           echo "✅ API deployment completed"
           echo "Waiting 5 seconds for API to start up..."
           sleep 5
           echo "API should now be online and serving requests"
-
   deploy-portal:
-    needs: 
+    needs:
       - detect-changes
       - build-and-publish
     if: needs.detect-changes.outputs.portal-changed == 'true'
     runs-on: ubuntu-latest
-    
     steps:
       - name: Create deployment directory
         run: mkdir -p ./portal-deployment
-      
       - name: Download Portal artifact
         uses: actions/download-artifact@v4
         with:
           name: portal-deployment
           path: ./portal-deployment/
-      
       - name: Verify files exist before deployment
         run: |
           echo "Checking deployment files..."
@@ -451,84 +333,82 @@ EOF
             exit 1
           fi
           echo "✅ Ready to deploy $(find ./portal-deployment -type f | wc -l) files"
-      
       - name: Create app_offline.htm for Portal
         run: |
           echo '<!DOCTYPE html>
-<html>
-<head>
-    <title>Portal Under Maintenance</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            text-align: center; 
-            padding: 50px; 
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-        .container {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 40px;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            max-width: 600px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-        h1 { 
-            font-size: 2.5em; 
-            margin-bottom: 20px; 
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-        }
-        p { 
-            font-size: 1.2em; 
-            margin-bottom: 30px; 
-            line-height: 1.6;
-        }
-        .spinner {
-            border: 5px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top: 5px solid white;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin: 30px auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .footer {
-            margin-top: 40px;
-            font-size: 0.9em;
-            opacity: 0.8;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🚀 Upgrading Your Experience</h1>
-        <p>We are enhancing the portal with new features and improvements.</p>
-        <p>Please check back in a few moments. We appreciate your patience!</p>
-        <div class="spinner"></div>
-        <div class="footer">
-            <p>Deployment started: $(date)</p>
-            <p>This page will automatically disappear when the update is complete.</p>
-        </div>
-    </div>
-    <script>
-        // Auto-refresh every 10 seconds to check if site is back
-        setTimeout(function() {
-            window.location.reload();
-        }, 10000);
-    </script>
-</body>
-</html>' > ./app_offline_portal.htm
-      
+          <html>
+          <head>
+              <title>Portal Under Maintenance</title>
+              <style>
+                  body {
+                      font-family: Arial, sans-serif;
+                      text-align: center;
+                      padding: 50px;
+                      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                      color: white;
+                      min-height: 100vh;
+                      display: flex;
+                      flex-direction: column;
+                      justify-content: center;
+                      align-items: center;
+                  }
+                  .container {
+                      background: rgba(255, 255, 255, 0.1);
+                      padding: 40px;
+                      border-radius: 15px;
+                      backdrop-filter: blur(10px);
+                      max-width: 600px;
+                      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+                  }
+                  h1 {
+                      font-size: 2.5em;
+                      margin-bottom: 20px;
+                      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+                  }
+                  p {
+                      font-size: 1.2em;
+                      margin-bottom: 30px;
+                      line-height: 1.6;
+                  }
+                  .spinner {
+                      border: 5px solid rgba(255, 255, 255, 0.3);
+                      border-radius: 50%;
+                      border-top: 5px solid white;
+                      width: 50px;
+                      height: 50px;
+                      animation: spin 1s linear infinite;
+                      margin: 30px auto;
+                  }
+                  @keyframes spin {
+                      0% { transform: rotate(0deg); }
+                      100% { transform: rotate(360deg); }
+                  }
+                  .footer {
+                      margin-top: 40px;
+                      font-size: 0.9em;
+                      opacity: 0.8;
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>🚀 Upgrading Your Experience</h1>
+                  <p>We are enhancing the portal with new features and improvements.</p>
+                  <p>Please check back in a few moments. We appreciate your patience!</p>
+                  <div class="spinner"></div>
+                  <div class="footer">
+                      <p>Deployment started: $(date)</p>
+                      <p>This page will automatically disappear when the update is complete.</p>
+                  </div>
+              </div>
+              <script>
+                  // Auto-refresh every 10 seconds to check if site is back
+                  setTimeout(function() {
+                      window.location.reload();
+                  }, 10000);
+              </script>
+          </body>
+          </html>' > ./app_offline.htm
       - name: Upload app_offline.htm to take Portal offline
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
@@ -540,12 +420,10 @@ EOF
           exclude: |
             **/*
           include: |
-            app_offline_portal.htm
+            app_offline.htm
           log-level: verbose
-      
       - name: Wait for Portal to gracefully shutdown (10 seconds)
         run: sleep 10
-      
       - name: Deploy Portal to MonsterASP via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
@@ -558,29 +436,8 @@ EOF
             **/.git*
             **/.git*/
             **/appsettings.Development.json
-            app_offline_portal.htm
+          additional-args: --delete
           log-level: verbose
-      
-      - name: Remove app_offline.htm to bring Portal online
-        run: |
-          mkdir -p ./empty-deploy-portal
-          echo '' > ./empty-deploy-portal/.keep
-      
-      - name: Delete app_offline.htm via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-        with:
-          server: ${{ secrets.MONSTERASP_FTP_SERVER_PORTAL }}
-          username: ${{ secrets.MONSTERASP_FTP_USERNAME_PORTAL }}
-          password: ${{ secrets.MONSTERASP_FTP_PASSWORD_PORTAL }}
-          local-dir: ./empty-deploy-portal/
-          server-dir: /wwwroot/
-          exclude: |
-            **/*
-          dangerous-clean-slate: false
-          log-level: verbose
-        env:
-          FTP_DELETE_EXTRA: true
-      
       - name: Verify Portal deployment
         run: |
           echo "✅ Portal deployment completed"
