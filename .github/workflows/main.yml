@@ -73,9 +73,7 @@ jobs:
             -p:UseAppHost=false \
             -p:AspNetCoreHostingModel=OutOfProcess \
             -p:EnvironmentName=Production
-
           mkdir -p ./publish/api/logs
-
           cat > ./publish/api/appsettings.Production.json << EOF
           {
             "ConnectionStrings": {
@@ -98,7 +96,6 @@ jobs:
             }
           }
           EOF
-
           cat > ./publish/api/web.config << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <configuration>
@@ -123,8 +120,10 @@ jobs:
           dotnet publish Portal/Portal.csproj \
             --configuration Release \
             --output ./publish/portal \
-            -p:UseAppHost=false
-
+            -p:UseAppHost=false \
+            -p:AspNetCoreHostingModel=OutOfProcess \
+            -p:EnvironmentName=Production
+          mkdir -p ./publish/portal/logs
           cat > ./publish/portal/appsettings.Production.json << 'EOF'
           {
             "ApiSettings": {
@@ -137,6 +136,23 @@ jobs:
               }
             }
           }
+          EOF
+          cat > ./publish/portal/web.config << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <location path="." inheritInChildApplications="false">
+              <system.webServer>
+                <handlers>
+                  <add name="aspNetCore" path="*" verb="*" modules="AspNetCoreModuleV2" resourceType="Unspecified"/>
+                </handlers>
+                <aspNetCore processPath="dotnet" arguments=".\Portal.dll" stdoutLogEnabled="true" stdoutLogFile=".\logs\stdout" hostingModel="OutOfProcess">
+                  <environmentVariables>
+                    <environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production"/>
+                  </environmentVariables>
+                </aspNetCore>
+              </system.webServer>
+            </location>
+          </configuration>
           EOF
 
       - name: Upload API artifact
@@ -252,6 +268,15 @@ jobs:
         with:
           name: portal-deployment
           path: ./portal-deployment/
+
+      - name: Create DataProtection Keys directory
+        run: |
+          mkdir -p ./portal-deployment/App_Data/Keys
+
+      - name: Verify files
+        run: |
+          echo "Deploying $(find ./portal-deployment -type f | wc -l) files"
+          [ -f "./portal-deployment/Portal.dll" ] && echo "DLL found" || (echo "DLL missing!" && exit 1)
 
       - name: Create app_offline.htm
         run: |
