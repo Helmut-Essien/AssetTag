@@ -192,6 +192,10 @@ jobs:
         with:
           name: api-deployment
           path: ./api-deployment/
+          
+      - name: Create DataProtection Keys directory
+        run: |
+          mkdir -p ./api-deployment/App_Data/Keys
 
       - name: Verify files
         run: |
