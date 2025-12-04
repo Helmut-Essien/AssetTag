@@ -33,7 +33,21 @@ builder.Services.AddHttpClient("AssetTagApi", client =>
     .AddHttpMessageHandler<UnauthorizedRedirectHandler>()// <--- attach handler here
     .AddHttpMessageHandler<Portal.Services.TokenRefreshHandler>();
 
+if (builder.Environment.IsProduction())
+{
+    var keysPath = Path.Combine(builder.Environment.ContentRootPath, "App_Data", "Keys");
+    var keysDirectory = new DirectoryInfo(keysPath);
 
+    if (!keysDirectory.Exists)
+    {
+        keysDirectory.Create(); // Creates the folder at runtime if missing (e.g. first deploy)
+    }
+
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(keysDirectory)
+        .SetApplicationName("AssetTag")
+        .SetDefaultKeyLifetime(TimeSpan.FromDays(90)); // Optional: keys rotate every 90 days
+}
 
 
 // cookie auth for portal users
