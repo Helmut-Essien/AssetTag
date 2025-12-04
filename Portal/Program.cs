@@ -33,9 +33,7 @@ builder.Services.AddHttpClient("AssetTagApi", client =>
     .AddHttpMessageHandler<UnauthorizedRedirectHandler>()// <--- attach handler here
     .AddHttpMessageHandler<Portal.Services.TokenRefreshHandler>();
 
-builder.Services.AddDataProtection()
-    .PersistKeysToFileSystem(new DirectoryInfo(@"D:\home\site\wwwroot\App_Data\Keys"))
-    .SetApplicationName("AssetPortal");
+
 
 
 // cookie auth for portal users
