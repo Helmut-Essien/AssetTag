@@ -126,15 +126,27 @@ jobs:
           mkdir -p ./publish/portal/logs
           cat > ./publish/portal/appsettings.Production.json << 'EOF'
           {
-            "ApiSettings": {
-              "BaseUrl": "http://mugassetapi.runasp.net/"
-            },
             "Logging": {
-              "LogLevel": {
-                "Default": "Information",
-                "Microsoft.AspNetCore": "Warning"
-              }
+          "LogLevel": {
+          "Default": "Information",
+          "Microsoft.AspNetCore": "Warning"
             }
+          },
+          "Api": {
+          "BaseUrl": "http://mugassetapi.runasp.net/"
+            },
+          "Dashboard": {
+          "EnableCaching": true,
+          "CacheDurationMinutes": 5,
+          "AutoRefreshIntervalMinutes": 2,
+          "ChartAnimation": true,
+          "LazyLoading": true
+          },
+          "Performance": {
+          "MaxParallelRequests": 10,
+          "RequestTimeoutSeconds": 30
+          },
+            "AllowedHosts": "*"
           }
           EOF
           cat > ./publish/portal/web.config << 'EOF'
