@@ -46,7 +46,8 @@ if (builder.Environment.IsProduction())
     builder.Services.AddDataProtection()
         .PersistKeysToFileSystem(keysDirectory)
         .SetApplicationName("AssetTag")
-        .SetDefaultKeyLifetime(TimeSpan.FromDays(90)); // Optional: keys rotate every 90 days
+        .SetDefaultKeyLifetime(TimeSpan.FromDays(90))// Optional: keys rotate every 90 days
+        .ProtectKeysWithDpapi(); // Add this for Windows hosting
 }
 
 
