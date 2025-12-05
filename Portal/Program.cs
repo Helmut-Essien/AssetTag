@@ -16,7 +16,7 @@ builder.Services.AddScoped<UnauthorizedRedirectHandler>();
 // Separate HttpClient for auth operations (no handlers)
 builder.Services.AddHttpClient("AuthApi", client =>
 {
-    client.BaseAddress = new Uri(builder.Configuration["Api:BaseUrl"] ?? "https://localhost:7135/");
+    client.BaseAddress = new Uri(builder.Configuration["Api:BaseUrl"] ?? "http://mugassetapi.runasp.net/");
     client.DefaultRequestHeaders.Accept.Clear();
     client.DefaultRequestHeaders.Accept.Add(
         new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
@@ -46,8 +46,8 @@ if (builder.Environment.IsProduction())
     builder.Services.AddDataProtection()
         .PersistKeysToFileSystem(keysDirectory)
         .SetApplicationName("AssetTag")
-        .SetDefaultKeyLifetime(TimeSpan.FromDays(90))// Optional: keys rotate every 90 days
-        .ProtectKeysWithDpapi(); // Add this for Windows hosting
+        .SetDefaultKeyLifetime(TimeSpan.FromDays(90));// Optional: keys rotate every 90 days
+        //.ProtectKeysWithDpapi(); // Add this for Windows hosting
 }
 
 
