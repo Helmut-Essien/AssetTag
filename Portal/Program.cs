@@ -25,7 +25,7 @@ builder.Services.AddHttpClient("AuthApi", client =>
 // Main HttpClient with handlers for regular API calls
 builder.Services.AddHttpClient("AssetTagApi", client =>
 {
-    client.BaseAddress = new Uri(builder.Configuration["Api:BaseUrl"] ?? "https://localhost:7135/");
+    client.BaseAddress = new Uri(builder.Configuration["Api:BaseUrl"] ?? "http://mugassetapi.runasp.net/");
     client.DefaultRequestHeaders.Accept.Clear();
     client.DefaultRequestHeaders.Accept.Add(
         new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
