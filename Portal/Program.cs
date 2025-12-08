@@ -116,8 +116,8 @@ builder.Services.AddHttpClient("AssetTagApi", client =>
         new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
     client.Timeout = TimeSpan.FromSeconds(30);
 })
-    .AddHttpMessageHandler<TokenRefreshHandler>()        // First: Handle token refresh
-    .AddHttpMessageHandler<UnauthorizedRedirectHandler>(); // Then: Handle redirect if still unauthorized
+    .AddHttpMessageHandler<TokenRefreshHandler>();        // First: Handle token refresh
+    //.AddHttpMessageHandler<UnauthorizedRedirectHandler>(); // Then: Handle redirect if still unauthorized
 
 if (builder.Environment.IsProduction())
 {
