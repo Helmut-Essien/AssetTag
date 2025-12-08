@@ -105,11 +105,83 @@ namespace AssetTag.Controllers
             }
         }
 
+        //[HttpPost("refresh-token")]
+        //public async Task<IActionResult> RefreshToken([FromBody] TokenResponseDTO dto)
+        //{
+        //    try
+        //    {
+        //        // Fast validation query first
+        //        var isValidToken = await _context.RefreshTokens
+        //            .AsNoTracking()
+        //            .AnyAsync(rt => rt.Token == dto.RefreshToken &&
+        //                           rt.Revoked == null &&
+        //                           rt.Expires > DateTime.UtcNow);
+
+        //        if (!isValidToken)
+        //            return Unauthorized(new { Message = "Invalid or expired refresh token." });
+
+        //        // Get full token with user for update
+        //        var refreshToken = await _context.RefreshTokens
+        //            .Include(rt => rt.ApplicationUser)
+        //            .FirstOrDefaultAsync(rt => rt.Token == dto.RefreshToken);
+
+        //        if (refreshToken?.ApplicationUser is null)
+        //            return Unauthorized(new { Message = "Token or user not found." });
+
+        //        var user = refreshToken.ApplicationUser;
+
+        //        // Parallel operations for maximum performance
+        //        var rolesTask = _userManager.GetRolesAsync(user);
+        //        var newRefreshTokenTask = Task.Run(() => _tokenService.CreateRefreshToken(GetIpAddress()));
+        //        await Task.WhenAll(rolesTask, newRefreshTokenTask);
+
+        //        var roles = await rolesTask;
+        //        var newRefreshToken = await newRefreshTokenTask;
+
+        //        // Update operations
+        //        refreshToken.Revoked = DateTime.UtcNow;
+        //        refreshToken.RevokedByIp = GetIpAddress();
+        //        refreshToken.ReplacedByToken = newRefreshToken.Token;
+
+        //        // Add new token directly to context for better performance
+        //        newRefreshToken.ApplicationUserId = user.Id;
+        //        _context.RefreshTokens.Add(newRefreshToken);
+
+        //        // Single save operation for both updates
+        //        await _context.SaveChangesAsync();
+
+        //        // Create access token
+        //        var newAccessToken = _tokenService.CreateAccessToken(user, roles);
+
+        //        return Ok(new TokenResponseDTO(newAccessToken, newRefreshToken.Token));
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Error refreshing token");
+        //        return StatusCode(500, new { Message = "An error occurred while refreshing token." });
+        //    }
+        //}
+
+
+
+        // Add this improved version of the refresh-token endpoint to your AuthController
+
         [HttpPost("refresh-token")]
         public async Task<IActionResult> RefreshToken([FromBody] TokenResponseDTO dto)
         {
             try
             {
+                _logger.LogInformation("Refresh token request received");
+
+                if (string.IsNullOrWhiteSpace(dto.RefreshToken))
+                {
+                    _logger.LogWarning("Refresh token request with null/empty token");
+                    return Unauthorized(new { Message = "Refresh token is required." });
+                }
+
+                // Log token length for debugging (not the actual token)
+                _logger.LogDebug("Refresh token length: {Length}", dto.RefreshToken.Length);
+
                 // Fast validation query first
                 var isValidToken = await _context.RefreshTokens
                     .AsNoTracking()
@@ -118,7 +190,39 @@ namespace AssetTag.Controllers
                                    rt.Expires > DateTime.UtcNow);
 
                 if (!isValidToken)
+                {
+                    _logger.LogWarning("Invalid or expired refresh token");
+
+                    // Check if token exists at all
+                    var tokenExists = await _context.RefreshTokens
+                        .AsNoTracking()
+                        .AnyAsync(rt => rt.Token == dto.RefreshToken);
+
+                    if (!tokenExists)
+                    {
+                        _logger.LogWarning("Refresh token not found in database");
+                    }
+                    else
+                    {
+                        // Token exists but is invalid - check why
+                        var tokenInfo = await _context.RefreshTokens
+                            .AsNoTracking()
+                            .Where(rt => rt.Token == dto.RefreshToken)
+                            .Select(rt => new { rt.Revoked, rt.Expires })
+                            .FirstOrDefaultAsync();
+
+                        if (tokenInfo?.Revoked != null)
+                        {
+                            _logger.LogWarning("Refresh token was revoked at {RevokedAt}", tokenInfo.Revoked);
+                        }
+                        else if (tokenInfo?.Expires < DateTime.UtcNow)
+                        {
+                            _logger.LogWarning("Refresh token expired at {ExpiresAt}", tokenInfo.Expires);
+                        }
+                    }
+
                     return Unauthorized(new { Message = "Invalid or expired refresh token." });
+                }
 
                 // Get full token with user for update
                 var refreshToken = await _context.RefreshTokens
@@ -126,9 +230,21 @@ namespace AssetTag.Controllers
                     .FirstOrDefaultAsync(rt => rt.Token == dto.RefreshToken);
 
                 if (refreshToken?.ApplicationUser is null)
+                {
+                    _logger.LogError("Refresh token found but user is null");
                     return Unauthorized(new { Message = "Token or user not found." });
+                }
 
                 var user = refreshToken.ApplicationUser;
+
+                // Check if user is still active
+                if (!user.IsActive)
+                {
+                    _logger.LogWarning("Refresh attempt for inactive user {UserId}", user.Id);
+                    return Unauthorized(new { Message = "User account is deactivated." });
+                }
+
+                _logger.LogInformation("Valid refresh token for user {UserId}", user.Id);
 
                 // Parallel operations for maximum performance
                 var rolesTask = _userManager.GetRolesAsync(user);
@@ -153,14 +269,25 @@ namespace AssetTag.Controllers
                 // Create access token
                 var newAccessToken = _tokenService.CreateAccessToken(user, roles);
 
+                _logger.LogInformation("Successfully refreshed tokens for user {UserId}", user.Id);
+
                 return Ok(new TokenResponseDTO(newAccessToken, newRefreshToken.Token));
+            }
+            catch (DbUpdateException ex)
+            {
+                _logger.LogError(ex, "Database error during token refresh");
+                return StatusCode(500, new { Message = "A database error occurred." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error refreshing token");
+                _logger.LogError(ex, "Unexpected error during token refresh");
                 return StatusCode(500, new { Message = "An error occurred while refreshing token." });
             }
         }
+
+
+
+
 
         [HttpPost("revoke")]
         public async Task<IActionResult> Revoke([FromBody] TokenResponseDTO dto)
