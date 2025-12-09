@@ -1,4 +1,4 @@
-name: Smart Deployment with Migrations
+name: Smart Deployment with Migrations (WebDeploy)
 
 on:
   push:
@@ -24,7 +24,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - name: Detect project changes
         id: filter
         uses: dorny/paths-filter@v3
@@ -73,12 +72,12 @@ jobs:
             -p:UseAppHost=false \
             -p:AspNetCoreHostingModel=OutOfProcess \
             -p:EnvironmentName=Production
+
           mkdir -p ./publish/api/logs
+
           cat > ./publish/api/appsettings.Production.json << EOF
           {
-            "ConnectionStrings": {
-              "DefaultConnection": "$CONN"
-            },
+            "ConnectionStrings": { "DefaultConnection": "$CONN" },
             "JwtSettings": {
               "SecurityKey": "$JWT",
               "Issuer": "AssetTagApi",
@@ -96,6 +95,7 @@ jobs:
             }
           }
           EOF
+
           cat > ./publish/api/web.config << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <configuration>
@@ -123,32 +123,33 @@ jobs:
             -p:UseAppHost=false \
             -p:AspNetCoreHostingModel=OutOfProcess \
             -p:EnvironmentName=Production
+
           mkdir -p ./publish/portal/logs
+
           cat > ./publish/portal/appsettings.Production.json << 'EOF'
           {
             "Logging": {
-          "LogLevel": {
-          "Default": "Information",
-          "Microsoft.AspNetCore": "Warning"
-            }
-          },
-          "Api": {
-          "BaseUrl": "http://mugassetapi.runasp.net/"
+              "LogLevel": {
+                "Default": "Information",
+                "Microsoft.AspNetCore": "Warning"
+              }
             },
-          "Dashboard": {
-          "EnableCaching": true,
-          "CacheDurationMinutes": 5,
-          "AutoRefreshIntervalMinutes": 2,
-          "ChartAnimation": true,
-          "LazyLoading": true
-          },
-          "Performance": {
-          "MaxParallelRequests": 10,
-          "RequestTimeoutSeconds": 30
-          },
+            "Api": { "BaseUrl": "http://mugassetapi.runasp.net/" },
+            "Dashboard": {
+              "EnableCaching": true,
+              "CacheDurationMinutes": 5,
+              "AutoRefreshIntervalMinutes": 2,
+              "ChartAnimation": true,
+              "LazyLoading": true
+            },
+            "Performance": {
+              "MaxParallelRequests": 10,
+              "RequestTimeoutSeconds": 30
+            },
             "AllowedHosts": "*"
           }
           EOF
+
           cat > ./publish/portal/web.config << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <configuration>
@@ -187,16 +188,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-
-      - name: Restore for EF Tool
-        run: dotnet restore ${{ env.SOLUTION_PATH }}
-
-      - name: Run Database Migrations
+      - name: Restore & Run EF Migrations
         env:
           ConnectionStrings__DefaultConnection: ${{ secrets.MONSTERASP_DATABASE_CONNECTION }}
         run: |
@@ -205,124 +201,65 @@ jobs:
             --project AssetTag/AssetTag.csproj \
             --startup-project AssetTag/AssetTag.csproj \
             --configuration Release
-          echo "Database migrations completed"
+          echo "Database migrations applied successfully"
 
+  # ========================================
+  # DEPLOY API VIA WEB DEPLOY
+  # ========================================
   deploy-api:
     needs: [detect-changes, build-and-publish, run-migrations]
     if: needs.detect-changes.outputs.api-changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
-      - name: Create deployment directory
-        run: mkdir -p ./api-deployment
-
       - name: Download API artifact
         uses: actions/download-artifact@v4
         with:
           name: api-deployment
-          path: ./api-deployment/
-          
-      - name: Create DataProtection Keys directory
-        run: |
-          mkdir -p ./api-deployment/App_Data/Keys
+          path: api-deployment
 
-      - name: Verify files
-        run: |
-          echo "Deploying $(find ./api-deployment -type f | wc -l) files"
-          [ -f "./api-deployment/AssetTag.dll" ] && echo "DLL found" || (echo "DLL missing!" && exit 1)
+      - name: Create DataProtection Keys folder
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path "api-deployment/App_Data/Keys"
 
-      - name: Create app_offline.htm
-        run: |
-          cat > app_offline.htm << 'HTML'
-          <!DOCTYPE html><html><head><title>Maintenance</title><style>body{font-family:Arial;text-align:center;padding:50px;background:#667eea;color:white}h1{font-size:3em}</style></head><body><h1>Updating API...</h1><p>Back in a few seconds.</p><script>setTimeout(()=>location.reload(),10000)</script></body></html>
-          HTML
-
-      - name: Take API offline
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      - name: Deploy API using Web Deploy
+        uses: ChristopheLav/iis-deploy@v1
         with:
-          server: ${{ secrets.MONSTERASP_FTP_SERVER_API }}
-          username: ${{ secrets.MONSTERASP_FTP_USERNAME_API }}
-          password: ${{ secrets.MONSTERASP_FTP_PASSWORD_API }}
-          local-dir: ./
-          server-dir: /wwwroot/
-          exclude: |
-            **/*
-          include: |
-            app_offline.htm
-          log-level: standard
+          website-name: ${{ secrets.API_WEBSITE_NAME }}
+          msdeploy-service-url: ${{ secrets.API_DEPLOY_URL }}
+          msdeploy-username: ${{ secrets.API_USERNAME }}
+          msdeploy-password: ${{ secrets.API_USERPASSWORD }}
+          source-path: api-deployment
+          skip-extra-files: false   # deletes old files not in new publish (clean slate)
+          enable-app-offline: true  # automatically handles app_offline.htm + graceful shutdown
 
-      - name: Wait for shutdown
-        run: sleep 15
-
-      - name: Deploy API (with delete old files)
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-        with:
-          server: ${{ secrets.MONSTERASP_FTP_SERVER_API }}
-          username: ${{ secrets.MONSTERASP_FTP_USERNAME_API }}
-          password: ${{ secrets.MONSTERASP_FTP_PASSWORD_API }}
-          local-dir: ./api-deployment/
-          server-dir: /wwwroot/
-          dangerous-clean-slate: true
-          log-level: standard
-
-      - name: Bring API online
-        run: echo "Deployment complete – app_offline.htm removed automatically by clean-slate"
-
+  # ========================================
+  # DEPLOY PORTAL VIA WEB DEPLOY
+  # ========================================
   deploy-portal:
     needs: [detect-changes, build-and-publish]
     if: needs.detect-changes.outputs.portal-changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
-      - name: Create deployment directory
-        run: mkdir -p ./portal-deployment
-
       - name: Download Portal artifact
         uses: actions/download-artifact@v4
         with:
           name: portal-deployment
-          path: ./portal-deployment/
+          path: portal-deployment
 
-      - name: Create DataProtection Keys directory
-        run: |
-          mkdir -p ./portal-deployment/App_Data/Keys
+      - name: Create DataProtection Keys folder
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path "portal-deployment/App_Data/Keys"
 
-      - name: Verify files
-        run: |
-          echo "Deploying $(find ./portal-deployment -type f | wc -l) files"
-          [ -f "./portal-deployment/Portal.dll" ] && echo "DLL found" || (echo "DLL missing!" && exit 1)
-
-      - name: Create app_offline.htm
-        run: |
-          cat > app_offline.htm << 'HTML'
-          <!DOCTYPE html><html><head><title>Portal Update</title><style>body{font-family:Arial;text-align:center;padding:50px;background:#f093fb;color:white}h1{font-size:3em}</style></head><body><h1>Portal Updating...</h1><p>Be right back!</p><script>setTimeout(()=>location.reload(),10000)</script></body></html>
-          HTML
-
-      - name: Take Portal offline
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      - name: Deploy Portal using Web Deploy
+        uses: ChristopheLav/iis-deploy@v1
         with:
-          server: ${{ secrets.MONSTERASP_FTP_SERVER_PORTAL }}
-          username: ${{ secrets.MONSTERASP_FTP_USERNAME_PORTAL }}
-          password: ${{ secrets.MONSTERASP_FTP_PASSWORD_PORTAL }}
-          local-dir: ./
-          server-dir: /wwwroot/
-          exclude: |
-            **/*
-          include: |
-            app_offline.htm
-          log-level: standard
+          website-name: ${{ secrets.PORTAL_WEBSITE_NAME }}
+          msdeploy-service-url: ${{ secrets.PORTAL_DEPLOY_URL }}
+          msdeploy-username: ${{ secrets.PORTAL_USERNAME }}
+          msdeploy-password: ${{ secrets.PORTAL_USERPASSWORD }}
+          source-path: portal-deployment
+          skip-extra-files: false
+          enable-app-offline: true
 
-      - name: Wait for shutdown
-        run: sleep 10
-
-      - name: Deploy Portal (with delete old files)
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-        with:
-          server: ${{ secrets.MONSTERASP_FTP_SERVER_PORTAL }}
-          username: ${{ secrets.MONSTERASP_FTP_USERNAME_PORTAL }}
-          password: ${{ secrets.MONSTERASP_FTP_PASSWORD_PORTAL }}
-          local-dir: ./portal-deployment/
-          server-dir: /wwwroot/
-          dangerous-clean-slate: true
-          log-level: standard
-
-      - name: Done
-        run: echo "Portal deployed and online!"
+      - name: Portal deployed successfully
+        run: echo "Portal is now live!"
