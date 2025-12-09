@@ -48,7 +48,7 @@
 
 <!-- Registration Form (Multi-step Wizard) - Only show if token is valid -->
 @if (Model.IsValidToken && !Model.IsSuccess)
-{
+{ 
     <form method="post" id="registerForm" asp-antiforgery="true" novalidate>
         <input type="hidden" asp-for="Input.Token" />
         <input type="hidden" asp-for="Input.Email" />
@@ -157,7 +157,7 @@
                        placeholder="Password" minlength="6" required id="passwordInput" />
                 <div class="form-text">At least 6 characters</div>
                 <span asp-validation-for="Input.Password" class="text-danger small validation-error"></span>
-                <span class="password-toggle" onclick="togglePassword('passwordInput', 'passwordToggle')" id="passwordToggle">👁️</span>
+            <span class="password-toggleR" onclick="togglePassword('passwordInput', 'passwordToggle')" id="passwordToggle">🙈</span>
             </div>
 
             <div class="form-group mb-4 position-relative">
@@ -165,7 +165,7 @@
                 <input asp-for="Input.ConfirmPassword" type="password" class="form-control form-control-lg"
                        placeholder="Confirm Password" required id="confirmPasswordInput" />
                 <span asp-validation-for="Input.ConfirmPassword" class="text-danger small validation-error"></span>
-                <span class="password-toggle" onclick="togglePassword('confirmPasswordInput', 'confirmPasswordToggle')" id="confirmPasswordToggle">👁️</span>
+            <span class="password-toggleR" onclick="togglePassword('confirmPasswordInput', 'confirmPasswordToggle')" id="confirmPasswordToggle">🙈</span>
             </div>
 
             <div class="d-flex justify-content-between">
@@ -201,10 +201,10 @@
             const toggleIcon = document.getElementById(toggleId);
             if (passwordInput.type === 'password') {
                 passwordInput.type = 'text';
-                toggleIcon.textContent = '🙈';
+                toggleIcon.textContent = '👁️';
             } else {
                 passwordInput.type = 'password';
-                toggleIcon.textContent = '👁️';
+                toggleIcon.textContent = '🙈';
             }
         }
 
@@ -404,15 +404,6 @@
             font-weight: 500;
         }
 
-        .password-toggle {
-            position: absolute;
-            right: 12px;
-            top: 38px;
-            cursor: pointer;
-            user-select: none;
-            z-index: 10;
-        }
-
         .button--loading .button__text {
             visibility: hidden;
             opacity: 0;
@@ -421,6 +412,15 @@
         .button--loading .button__spinner {
             visibility: visible;
             opacity: 1;
+        }
+
+        .password-toggleR {
+            position: absolute;
+            right: 12px;
+            top: 48px;
+            cursor: pointer;
+            user-select: none;
+            z-index: 10;
         }
 
         .is-invalid {
