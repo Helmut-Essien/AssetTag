@@ -140,7 +140,7 @@ builder.Services.AddAuthentication("PortalCookie")
     .AddCookie("PortalCookie", options =>
     {
         options.Cookie.Name = "PortalAuth";
-        options.Cookie.HttpOnly = true;
+        options.Cookie.HttpOnly = false;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         options.Cookie.SameSite = SameSiteMode.Lax; // Allow cookies to be sent on redirects
         options.LoginPath = "/Account/Login";
