@@ -146,6 +146,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="post" asp-page-handler="Update" id="editUserForm">
+                @Html.AntiForgeryToken()
                 <div class="modal-body">
                     <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
                     <input type="hidden" id="editUserId" asp-for="UpdateDto.Id" />
@@ -305,6 +306,7 @@
 
                 <h6>Add New Role:</h6>
                 <form id="addRoleForm">
+                    @Html.AntiForgeryToken()
                     <input type="hidden" id="rolesUserId" name="id" />
                     <div class="input-group mb-3">
                         <select id="newRoleName" name="roleName" class="form-select" required>
@@ -340,6 +342,7 @@
 
                 <h6>Create New Role:</h6>
                 <form id="createRoleForm">
+                    @Html.AntiForgeryToken()
                     <div class="input-group mb-3">
                         <input type="text" id="newSystemRoleName" name="roleName" class="form-control" placeholder="Role Name" required />
                         <button type="submit" class="btn btn-success">Create Role</button>
