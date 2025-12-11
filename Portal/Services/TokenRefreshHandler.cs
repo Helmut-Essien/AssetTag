@@ -1,17 +1,18 @@
 
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using Portal.Services;
+using Shared.DTOs;
 using System;
+using System.Collections.Concurrent;
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Collections.Concurrent;
-using Portal.Services;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-using Shared.DTOs;
 
 namespace Portal.Services;
 
@@ -56,6 +57,24 @@ public sealed class TokenRefreshHandler : DelegatingHandler
             await SignOutAsync(ctx);
             return new HttpResponseMessage(HttpStatusCode.Unauthorized);
         }
+        // Log token ValidTo and server UTC before using it (do NOT log token value)
+        try
+        {
+            var handler = new JwtSecurityTokenHandler();
+            if (handler.CanReadToken(accessToken))
+            {
+                var jwt = handler.ReadJwtToken(accessToken);
+                _logger.LogDebug("Using access token: ValidTo={ValidTo:u}, PortalUtcNow={Now:u}", jwt.ValidTo, DateTime.UtcNow);
+            }
+            else
+            {
+                _logger.LogDebug("Access token present but cannot be read by JwtSecurityTokenHandler. PortalUtcNow={Now:u}", DateTime.UtcNow);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to decode access token for logging. PortalUtcNow={Now:u}", DateTime.UtcNow);
+        }
 
         // Attach bearer token
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
@@ -86,6 +105,25 @@ public sealed class TokenRefreshHandler : DelegatingHandler
         var newAccessToken = ctx.User.FindFirst("AccessToken")?.Value;
         if (!string.IsNullOrWhiteSpace(newAccessToken))
         {
+            // Log new token ValidTo and server UTC before retry
+            try
+            {
+                var handler = new JwtSecurityTokenHandler();
+                if (handler.CanReadToken(newAccessToken))
+                {
+                    var jwt = handler.ReadJwtToken(newAccessToken);
+                    _logger.LogDebug("Retrying with refreshed access token: ValidTo={ValidTo:u}, PortalUtcNow={Now:u}", jwt.ValidTo, DateTime.UtcNow);
+                }
+                else
+                {
+                    _logger.LogDebug("Refreshed access token present but cannot be read. PortalUtcNow={Now:u}", DateTime.UtcNow);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to decode refreshed access token for logging. PortalUtcNow={Now:u}", DateTime.UtcNow);
+            }
+
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", newAccessToken);
             _logger.LogInformation("Retrying request with refreshed token");
             return await base.SendAsync(request, cancellationToken);
@@ -157,6 +195,21 @@ public sealed class TokenRefreshHandler : DelegatingHandler
             {
                 _logger.LogWarning("Refresh token response was null or invalid for user {UserId}", userId);
                 return false;
+            }
+
+            // Log new token ValidTo and server UTC (do NOT log token string)
+            try
+            {
+                var handler = new JwtSecurityTokenHandler();
+                if (handler.CanReadToken(tokenResponse.AccessToken))
+                {
+                    var jwt = handler.ReadJwtToken(tokenResponse.AccessToken);
+                    _logger.LogDebug("Received refreshed token from AuthApi: ValidTo={ValidTo:u}, PortalUtcNow={Now:u}", jwt.ValidTo, DateTime.UtcNow);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to decode refreshed token for logging");
             }
 
             // Update cookie with new tokens
