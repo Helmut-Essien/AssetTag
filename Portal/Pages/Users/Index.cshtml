@@ -603,6 +603,13 @@
 
             // ========== ROLE MANAGEMENT FUNCTIONS ==========
 
+                    function getToken() {
+            const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value ||
+                          document.querySelector('input[name="__RequestVerificationToken_Lax"]')?.value;
+            if (!token) showRolesMessage('Security token missing. Reload page.', 'danger');
+            return token;
+        }
+
             // Function to load user roles via AJAX
             function loadUserRoles(userId) {
                 fetch(`?handler=RolesData&id=${userId}`)
@@ -749,7 +756,7 @@
                     method: 'POST',
                     body: formData,
                     headers: {
-                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                        'RequestVerificationToken': getToken()/* document.querySelector('input[name="__RequestVerificationToken"]').value */
                     }
                 })
                 .then(response => {
