@@ -603,12 +603,16 @@
 
             // ========== ROLE MANAGEMENT FUNCTIONS ==========
 
-                    function getToken() {
-            const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value ||
-                          document.querySelector('input[name="__RequestVerificationToken_Lax"]')?.value;
-            if (!token) showRolesMessage('Security token missing. Reload page.', 'danger');
+                      function getAntiforgeryToken() {
+            // Find the token from any form (not just one)
+            const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+            if (!token) {
+                console.error("Anti-forgery token not found!");
+                return null;
+            }
             return token;
         }
+        
 
             // Function to load user roles via AJAX
             function loadUserRoles(userId) {
@@ -748,16 +752,20 @@
 
             // Function to add role to user via AJAX
             function addUserRole(userId, roleName) {
-                var formData = new FormData();
-                formData.append('id', userId);
-                formData.append('roleName', roleName);
+                    const token = getAntiforgeryToken();
+        if (!token) return;
 
-                fetch('?handler=AddRole', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'RequestVerificationToken': getToken()/* document.querySelector('input[name="__RequestVerificationToken"]').value */
-                    }
+                    const formData = new FormData();
+        formData.append('id', userId);
+        formData.append('roleName', roleName);
+
+        fetch('?handler=AddRole', {
+            method: 'POST',
+            body: formData,
+            credentials: 'include',                    // This is critical!
+            headers: {
+                'RequestVerificationToken': token       // Still send it
+            }
                 })
                 .then(response => {
                     if (response.ok) {
