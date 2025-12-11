@@ -267,6 +267,7 @@ public sealed class TokenRefreshHandler : DelegatingHandler
             CookieScheme,
             new ClaimsPrincipal(identity),
             properties);
+        ctx.User = new ClaimsPrincipal(identity);
 
         _logger.LogDebug("Authentication cookie updated with new tokens");
     }
