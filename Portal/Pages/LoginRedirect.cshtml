@@ -1,47 +1,83 @@
 ﻿@page
 @model Portal.Pages.LoginRedirectModel
 @{
-    Layout = null;
+    Layout = "_AuthLayout";
+    ViewData["Title"] = "Initializing Session";
 }
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Initializing Session...</title>
-    
-        <link rel="stylesheet" href="~/css/loginRedirect.css" asp-append-version="true" />
-    
 
-</head>
-<body>
-    <div class="loader-container">
-        <div class="spinner"></div>
-        <h2>Setting up your session...</h2>
-        <p class="countdown" id="countdown">3</p>
-        <p>Please wait while we initialize your authentication session.</p>
-        <p><small>This ensures your dashboard loads correctly.</small></p>
+@section Styles {
+    <link rel="stylesheet" href="~/css/loginRedirect.css" asp-append-version="true" />
+}
+
+<!-- Meta refresh for reliable redirect -->
+<meta http-equiv="refresh" content="3;url=@Model.ReturnUrl" />
+
+<!-- Logo -->
+<img src="~/Resources/mlogo.jpeg" alt="Methodist University Ghana Logo" class="logo-img" />
+<h2 class="h5 fw-bold mb-2 text-center">Initializing Session</h2>
+<p class="text-muted mb-4 text-center">Preparing your dashboard securely</p>
+<p class="values text-center">Excellence • Morality • Service</p>
+
+<!-- Main content -->
+<div class="redirect-loader">
+    <!-- Minimal spinner -->
+    <div class="spinner"></div>
+
+    <!-- Countdown -->
+    <div class="countdown-display">
+        <div class="countdown-number" id="countdown">3</div>
+        <p class="text-muted small">seconds remaining</p>
     </div>
 
-    <script>
-        // CRITICAL: Force a 3-second delay to ensure auth cookie is fully established
-        let seconds = 3;
-        const countdownEl = document.getElementById('countdown');
-        const interval = setInterval(() => {
-            seconds--;
-            if (seconds <= 0) {
-                clearInterval(interval);
-                countdownEl.textContent = "Redirecting...";
-                // Add a small additional delay before actual redirect
-                setTimeout(() => {
-                    window.location.href = '@Model.ReturnUrl';
-                }, 500);
-            } else {
-                countdownEl.textContent = seconds;
-            }
-        }, 1000);
+    <!-- Status messages -->
+    <div class="status-messages">
+        <p><i class="bi bi-shield-check"></i> Verifying authentication...</p>
+        <p><i class="bi bi-person-check"></i> Loading profile...</p>
+        <p><i class="bi bi-gear"></i> Preparing interface...</p>
+    </div>
 
-        // Also store a flag in localStorage that we've just logged in
-        sessionStorage.setItem('justLoggedIn', 'true');
-        sessionStorage.setItem('loginTime', new Date().getTime());
+    <!-- Info message -->
+    <div class="alert">
+        <i class="bi bi-info-circle"></i>
+        You will be redirected automatically
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set session flags
+            sessionStorage.setItem('justLoggedIn', 'true');
+            sessionStorage.setItem('loginTime', Date.now());
+
+            // Visual countdown
+            let seconds = 3;
+            const countdownEl = document.getElementById('countdown');
+            const interval = setInterval(() => {
+                seconds--;
+
+                if (seconds <= 0) {
+                    clearInterval(interval);
+
+                    // Show success state
+                    document.querySelector('.redirect-loader').classList.add('success-animation');
+                    countdownEl.textContent = "✓";
+
+                    // Update message
+                    const alertEl = document.querySelector('.alert');
+                    alertEl.innerHTML = '<i class="bi bi-check-circle"></i> Ready! Redirecting...';
+
+                } else {
+                    countdownEl.textContent = seconds;
+                }
+            }, 1000);
+
+            // Safety fallback
+            setTimeout(() => {
+                if (window.location.pathname.includes('/LoginRedirect')) {
+                    window.location.href = '@Model.ReturnUrl';
+                }
+            }, 5000);
+        });
     </script>
-</body>
-</html>
+}
