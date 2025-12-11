@@ -1,4 +1,5 @@
 using Shared.DTOs;
+using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -39,8 +40,33 @@ public sealed class ApiAuthService : IApiAuthService
             }
             return null;
         }
+        var tokenResponse = await response.Content.ReadFromJsonAsync<TokenResponseDTO>(_jsonOptions, cancellationToken);
 
-        return await response.Content.ReadFromJsonAsync<TokenResponseDTO>(_jsonOptions, cancellationToken);
+        // Log token ValidTo and portal server UTC when login returns a token (do NOT log token value)
+        try
+        {
+            if (tokenResponse is not null && !string.IsNullOrWhiteSpace(tokenResponse.AccessToken))
+            {
+                var handler = new JwtSecurityTokenHandler();
+                if (handler.CanReadToken(tokenResponse.AccessToken))
+                {
+                    var jwt = handler.ReadJwtToken(tokenResponse.AccessToken);
+                    _logger.LogInformation("Login returned access token ValidTo={ValidTo:u}, PortalUtcNow={Now:u}", jwt.ValidTo, DateTime.UtcNow);
+                }
+                else
+                {
+                    _logger.LogInformation("Login returned access token but it cannot be read by JwtSecurityTokenHandler. PortalUtcNow={Now:u}", DateTime.UtcNow);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to decode returned access token for logging. PortalUtcNow={Now:u}", DateTime.UtcNow);
+        }
+
+        return tokenResponse;
+
+        //return await response.Content.ReadFromJsonAsync<TokenResponseDTO>(_jsonOptions, cancellationToken);
     }
 
     public async Task<TokenResponseDTO?> RefreshAsync(string refreshToken, CancellationToken cancellationToken = default)
@@ -48,9 +74,32 @@ public sealed class ApiAuthService : IApiAuthService
         var request = new TokenResponseDTO(string.Empty, refreshToken);
         using var response = await _httpClient.PostAsJsonAsync("api/auth/refresh-token", request, _jsonOptions, cancellationToken);
 
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<TokenResponseDTO>(_jsonOptions, cancellationToken)
-            : null;
+        //return response.IsSuccessStatusCode
+        //    ? await response.Content.ReadFromJsonAsync<TokenResponseDTO>(_jsonOptions, cancellationToken)
+        //    : null;
+        var tokenResponse = response.IsSuccessStatusCode
+           ? await response.Content.ReadFromJsonAsync<TokenResponseDTO>(_jsonOptions, cancellationToken)
+           : null;
+
+        // Log refreshed token ValidTo and portal UTC for diagnostics
+        try
+        {
+            if (tokenResponse is not null && !string.IsNullOrWhiteSpace(tokenResponse.AccessToken))
+            {
+                var handler = new JwtSecurityTokenHandler();
+                if (handler.CanReadToken(tokenResponse.AccessToken))
+                {
+                    var jwt = handler.ReadJwtToken(tokenResponse.AccessToken);
+                    _logger.LogInformation("Refresh returned access token ValidTo={ValidTo:u}, PortalUtcNow={Now:u}", jwt.ValidTo, DateTime.UtcNow);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to decode refreshed access token for logging. PortalUtcNow={Now:u}", DateTime.UtcNow);
+        }
+
+        return tokenResponse;
     }
 
     public async Task<bool> RegisterAsync(RegisterDTO registerDto, CancellationToken cancellationToken = default)
