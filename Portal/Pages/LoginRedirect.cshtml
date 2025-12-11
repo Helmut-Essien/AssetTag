@@ -6,13 +6,42 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Redirecting...</title>
-    <meta http-equiv="refresh" content="0;url=@Model.ReturnUrl">
-    <script>
-        window.location.href = '@Model.ReturnUrl';
-    </script>
+    <title>Initializing Session...</title>
+    
+        <link rel="stylesheet" href="~/css/loginRedirect.css" asp-append-version="true" />
+    
+
 </head>
 <body>
-    <p>Redirecting to dashboard...</p>
+    <div class="loader-container">
+        <div class="spinner"></div>
+        <h2>Setting up your session...</h2>
+        <p class="countdown" id="countdown">3</p>
+        <p>Please wait while we initialize your authentication session.</p>
+        <p><small>This ensures your dashboard loads correctly.</small></p>
+    </div>
+
+    <script>
+        // CRITICAL: Force a 3-second delay to ensure auth cookie is fully established
+        let seconds = 3;
+        const countdownEl = document.getElementById('countdown');
+        const interval = setInterval(() => {
+            seconds--;
+            if (seconds <= 0) {
+                clearInterval(interval);
+                countdownEl.textContent = "Redirecting...";
+                // Add a small additional delay before actual redirect
+                setTimeout(() => {
+                    window.location.href = '@Model.ReturnUrl';
+                }, 500);
+            } else {
+                countdownEl.textContent = seconds;
+            }
+        }, 1000);
+
+        // Also store a flag in localStorage that we've just logged in
+        sessionStorage.setItem('justLoggedIn', 'true');
+        sessionStorage.setItem('loginTime', new Date().getTime());
+    </script>
 </body>
 </html>
