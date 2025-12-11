@@ -1,0 +1,25 @@
+﻿@page
+@model Portal.Pages.Diagnostics.TimeCheckModel
+@{
+    ViewData["Title"] = "Time Check";
+}
+
+<h3>Server Time Check</h3>
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+else
+{
+    <dl class="row">
+        <dt class="col-sm-3">Portal UTC</dt>
+        <dd class="col-sm-9">@Model.PortalUtc.ToString("o")</dd>
+
+        <dt class="col-sm-3">API UTC</dt>
+        <dd class="col-sm-9">@Model.ApiUtc.ToString("o")</dd>
+
+        <dt class="col-sm-3">Skew</dt>
+        <dd class="col-sm-9">@Model.Skew.TotalSeconds.ToString("0.###") seconds</dd>
+    </dl>
+}

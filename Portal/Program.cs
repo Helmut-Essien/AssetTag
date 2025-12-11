@@ -142,7 +142,7 @@ builder.Services.AddAuthentication("PortalCookie")
         options.Cookie.Name = "PortalAuth";
         options.Cookie.HttpOnly = false;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.Cookie.SameSite = SameSiteMode.Lax; // Allow cookies to be sent on redirects
+        options.Cookie.SameSite = SameSiteMode.None; // Allow cookies to be sent on redirects
         options.LoginPath = "/Account/Login";
         options.LogoutPath = "/Account/Logout";
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
