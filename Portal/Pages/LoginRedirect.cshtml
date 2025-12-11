@@ -1,0 +1,18 @@
+﻿@page
+@model Portal.Pages.LoginRedirectModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Redirecting...</title>
+    <meta http-equiv="refresh" content="0;url=@Model.ReturnUrl">
+    <script>
+        window.location.href = '@Model.ReturnUrl';
+    </script>
+</head>
+<body>
+    <p>Redirecting to dashboard...</p>
+</body>
+</html>
