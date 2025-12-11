@@ -147,6 +147,7 @@ builder.Services.AddAuthentication("PortalCookie")
         options.LogoutPath = "/Account/Logout";
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = true; // Refresh cookie expiration on each request
+        options.Cookie.IsEssential = true;
     });
 
 builder.Services.AddRazorPages(options =>
