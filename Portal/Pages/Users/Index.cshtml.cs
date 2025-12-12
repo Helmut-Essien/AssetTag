@@ -7,7 +7,7 @@ using System.Web;
 
 namespace Portal.Pages.Users
 {
-    [ValidateAntiForgeryToken]
+    [IgnoreAntiforgeryToken]
     public class IndexModel : PageModel
     {
         private readonly HttpClient _httpClient;
