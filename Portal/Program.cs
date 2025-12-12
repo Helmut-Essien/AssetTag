@@ -66,6 +66,16 @@ builder.Services.AddAuthentication("PortalCookie")
         options.Cookie.IsEssential = true;
     });
 
+// Configure anti - forgery for production
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "RequestVerificationToken";
+    options.Cookie.Name = "AntiForgeryToken";
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.None;
+    options.SuppressXFrameOptionsHeader = false;
+});
+
 builder.Services.AddRazorPages(options =>
 {
     options.Conventions.AuthorizeFolder("/");
