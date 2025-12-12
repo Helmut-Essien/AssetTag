@@ -7,6 +7,7 @@ using System.Web;
 
 namespace Portal.Pages.Users
 {
+    [ValidateAntiForgeryToken]
     public class IndexModel : PageModel
     {
         private readonly HttpClient _httpClient;
@@ -214,7 +215,8 @@ namespace Portal.Pages.Users
             }
         }
 
-    
+
+        
         public async Task<IActionResult> OnPostAddRoleAsync(string id, string roleName)
         {
             _logger.LogInformation("OnPostAddRoleAsync called with id: {Id}, roleName: {RoleName}", id, roleName);
