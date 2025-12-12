@@ -214,17 +214,21 @@ namespace Portal.Pages.Users
             }
         }
 
-        [IgnoreAntiforgeryToken]
+    
         public async Task<IActionResult> OnPostAddRoleAsync(string id, string roleName)
         {
+            _logger.LogInformation("OnPostAddRoleAsync called with id: {Id}, roleName: {RoleName}", id, roleName);
             try
             {
                 if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(roleName))
                 {
+                    _logger.LogWarning("Missing parameters: id={Id}, roleName={RoleName}", id, roleName);
                     return BadRequest("User ID and role name are required.");
                 }
 
-                var dto = new AssignRoleDTO("", roleName);
+                //var dto = new AssignRoleDTO("", roleName);
+                // FIX: Use the id parameter
+                var dto = new AssignRoleDTO(id, roleName);
                 var response = await _httpClient.PostAsJsonAsync($"api/users/{id}/roles", dto);
 
                 if (response.IsSuccessStatusCode)
@@ -234,6 +238,7 @@ namespace Portal.Pages.Users
                 else
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("Failed to add role: {StatusCode} - {Error}", response.StatusCode, errorContent);
                     return BadRequest($"Failed to add role: {response.StatusCode} - {errorContent}");
                 }
             }
