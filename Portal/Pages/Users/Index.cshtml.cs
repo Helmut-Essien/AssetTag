@@ -214,6 +214,7 @@ namespace Portal.Pages.Users
             }
         }
 
+        [IgnoreAntiforgeryToken]
         public async Task<IActionResult> OnPostAddRoleAsync(string id, string roleName)
         {
             try
