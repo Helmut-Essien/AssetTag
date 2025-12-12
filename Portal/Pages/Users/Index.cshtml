@@ -306,7 +306,7 @@
 
                 <h6>Add New Role:</h6>
                 <form id="addRoleForm">
-                    @Html.AntiForgeryToken()
+                    
                     <input type="hidden" id="rolesUserId" name="id" />
                     <div class="input-group mb-3">
                         <select id="newRoleName" name="roleName" class="form-select" required>
@@ -1322,6 +1322,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData();
         formData.append('id', userId);
         formData.append('roleName', roleName);
+        formData.append('__RequestVerificationToken', token); // Add token to form data
 
         console.log('[ADD_USER_ROLE] FormData entries:');
         for (let pair of formData.entries()) {
@@ -1334,9 +1335,8 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(url, {
             method: 'POST',
             body: formData,
-            credentials: 'include',
             headers: {
-                'RequestVerificationToken': token
+                    'Accept': 'application/json',
             }
         })
         .then(response => {
