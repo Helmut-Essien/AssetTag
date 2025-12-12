@@ -474,531 +474,1064 @@
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-                    // Edit Modal
-        var editModal = document.getElementById('editModal');
-        if (editModal) {
-            editModal.addEventListener('show.bs.modal', function (event) {
-                var button = event.relatedTarget;
+        // document.addEventListener('DOMContentLoaded', function() {
+        //             // Edit Modal
+        // var editModal = document.getElementById('editModal');
+        // if (editModal) {
+        //     editModal.addEventListener('show.bs.modal', function (event) {
+        //         var button = event.relatedTarget;
 
-                // Set the form fields with the data from the button's data-* attributes
-                document.getElementById('editUserId').value = button.getAttribute('data-id');
-                document.getElementById('editFirstName').value = button.getAttribute('data-firstname') || '';
-                document.getElementById('editSurname').value = button.getAttribute('data-surname') || '';
-                document.getElementById('editOtherNames').value = button.getAttribute('data-othernames') || '';
-                document.getElementById('editDateOfBirth').value = button.getAttribute('data-dateofbirth') || '';
-                document.getElementById('editAddress').value = button.getAttribute('data-address') || '';
-                document.getElementById('editJobRole').value = button.getAttribute('data-jobrole') || '';
-                document.getElementById('editProfileImage').value = button.getAttribute('data-profileimage') || '';
+        //         // Set the form fields with the data from the button's data-* attributes
+        //         document.getElementById('editUserId').value = button.getAttribute('data-id');
+        //         document.getElementById('editFirstName').value = button.getAttribute('data-firstname') || '';
+        //         document.getElementById('editSurname').value = button.getAttribute('data-surname') || '';
+        //         document.getElementById('editOtherNames').value = button.getAttribute('data-othernames') || '';
+        //         document.getElementById('editDateOfBirth').value = button.getAttribute('data-dateofbirth') || '';
+        //         document.getElementById('editAddress').value = button.getAttribute('data-address') || '';
+        //         document.getElementById('editJobRole').value = button.getAttribute('data-jobrole') || '';
+        //         document.getElementById('editProfileImage').value = button.getAttribute('data-profileimage') || '';
 
-                // For the select elements, set the value
-                var isActiveValue = button.getAttribute('data-isactive');
-                if (isActiveValue) {
-                    document.getElementById('editIsActive').value = isActiveValue;
-                }
+        //         // For the select elements, set the value
+        //         var isActiveValue = button.getAttribute('data-isactive');
+        //         if (isActiveValue) {
+        //             document.getElementById('editIsActive').value = isActiveValue;
+        //         }
 
-                var departmentIdValue = button.getAttribute('data-departmentid');
-                if (departmentIdValue) {
-                    document.getElementById('editDepartmentId').value = departmentIdValue;
-                }
-            });
-        }
+        //         var departmentIdValue = button.getAttribute('data-departmentid');
+        //         if (departmentIdValue) {
+        //             document.getElementById('editDepartmentId').value = departmentIdValue;
+        //         }
+        //     });
+        // }
 
-            // Deactivate Modal
-            var deactivateModal = document.getElementById('deactivateModal');
-            if (deactivateModal) {
-                deactivateModal.addEventListener('show.bs.modal', function (event) {
-                    var button = event.relatedTarget;
-                    document.getElementById('deactivateId').value = button.getAttribute('data-id');
-                });
-            }
+        //     // Deactivate Modal
+        //     var deactivateModal = document.getElementById('deactivateModal');
+        //     if (deactivateModal) {
+        //         deactivateModal.addEventListener('show.bs.modal', function (event) {
+        //             var button = event.relatedTarget;
+        //             document.getElementById('deactivateId').value = button.getAttribute('data-id');
+        //         });
+        //     }
 
-            // Activate Modal
-            var activateModal = document.getElementById('activateModal');
-            if (activateModal) {
-                activateModal.addEventListener('show.bs.modal', function (event) {
-                    var button = event.relatedTarget;
-                    document.getElementById('activateId').value = button.getAttribute('data-id');
-                });
-            }
+        //     // Activate Modal
+        //     var activateModal = document.getElementById('activateModal');
+        //     if (activateModal) {
+        //         activateModal.addEventListener('show.bs.modal', function (event) {
+        //             var button = event.relatedTarget;
+        //             document.getElementById('activateId').value = button.getAttribute('data-id');
+        //         });
+        //     }
 
-            // Reset Modal
-            var resetModal = document.getElementById('resetModal');
-            if (resetModal) {
-                resetModal.addEventListener('show.bs.modal', function (event) {
-                    var button = event.relatedTarget;
-                    document.getElementById('resetId').value = button.getAttribute('data-id');
-                });
-            }
+        //     // Reset Modal
+        //     var resetModal = document.getElementById('resetModal');
+        //     if (resetModal) {
+        //         resetModal.addEventListener('show.bs.modal', function (event) {
+        //             var button = event.relatedTarget;
+        //             document.getElementById('resetId').value = button.getAttribute('data-id');
+        //         });
+        //     }
 
-            // Roles Modal - Enhanced with AJAX
-            var rolesModal = document.getElementById('rolesModal');
-            if (rolesModal) {
-                rolesModal.addEventListener('show.bs.modal', function (event) {
-                    var button = event.relatedTarget;
-                    var userId = button.getAttribute('data-userid');
+        //     // Roles Modal - Enhanced with AJAX
+        //     var rolesModal = document.getElementById('rolesModal');
+        //     if (rolesModal) {
+        //         rolesModal.addEventListener('show.bs.modal', function (event) {
+        //             var button = event.relatedTarget;
+        //             var userId = button.getAttribute('data-userid');
 
-                    // Set the user ID in the hidden field
-                    document.getElementById('rolesUserId').value = userId;
+        //             // Set the user ID in the hidden field
+        //             document.getElementById('rolesUserId').value = userId;
 
-                    // Clear previous roles and message
-                    document.getElementById('currentRolesList').innerHTML = '';
-                    document.getElementById('rolesModalMessage').innerHTML = '';
-                    document.getElementById('newRoleName').innerHTML = '<option value="">Loading roles...</option>';
-                    document.getElementById('roleNameValidation').textContent = '';
+        //             // Clear previous roles and message
+        //             document.getElementById('currentRolesList').innerHTML = '';
+        //             document.getElementById('rolesModalMessage').innerHTML = '';
+        //             document.getElementById('newRoleName').innerHTML = '<option value="">Loading roles...</option>';
+        //             document.getElementById('roleNameValidation').textContent = '';
 
-                    // Load user roles and available roles
-                    loadUserRoles(userId);
-                    loadAvailableRoles();
-                });
-            }
+        //             // Load user roles and available roles
+        //             loadUserRoles(userId);
+        //             loadAvailableRoles();
+        //         });
+        //     }
 
-            // Manage Roles Modal
-            var manageRolesModal = document.getElementById('manageRolesModal');
-            if (manageRolesModal) {
-                manageRolesModal.addEventListener('show.bs.modal', function (event) {
-                    document.getElementById('manageRolesMessage').innerHTML = '';
-                    document.getElementById('systemRoleNameValidation').textContent = '';
-                    document.getElementById('newSystemRoleName').value = '';
+        //     // Manage Roles Modal
+        //     var manageRolesModal = document.getElementById('manageRolesModal');
+        //     if (manageRolesModal) {
+        //         manageRolesModal.addEventListener('show.bs.modal', function (event) {
+        //             document.getElementById('manageRolesMessage').innerHTML = '';
+        //             document.getElementById('systemRoleNameValidation').textContent = '';
+        //             document.getElementById('newSystemRoleName').value = '';
                     
-                    // Load all system roles
-                    loadAllSystemRoles();
-                });
-            }
+        //             // Load all system roles
+        //             loadAllSystemRoles();
+        //         });
+        //     }
 
-            // Add Role Form Submission
-            var addRoleForm = document.getElementById('addRoleForm');
-            if (addRoleForm) {
-                addRoleForm.addEventListener('submit', function (event) {
-                    event.preventDefault();
+        //     // Add Role Form Submission
+        //     var addRoleForm = document.getElementById('addRoleForm');
+        //     if (addRoleForm) {
+        //         addRoleForm.addEventListener('submit', function (event) {
+        //             event.preventDefault();
 
-                    var userId = document.getElementById('rolesUserId').value;
-                    var roleName = document.getElementById('newRoleName').value;
+        //             var userId = document.getElementById('rolesUserId').value;
+        //             var roleName = document.getElementById('newRoleName').value;
 
-                    if (!roleName.trim()) {
-                        document.getElementById('roleNameValidation').textContent = 'Please select a role.';
-                        return;
-                    }
+        //             if (!roleName.trim()) {
+        //                 document.getElementById('roleNameValidation').textContent = 'Please select a role.';
+        //                 return;
+        //             }
 
-                    addUserRole(userId, roleName);
-                });
-            }
+        //             addUserRole(userId, roleName);
+        //         });
+        //     }
 
-            // Create Role Form Submission
-            var createRoleForm = document.getElementById('createRoleForm');
-            if (createRoleForm) {
-                createRoleForm.addEventListener('submit', function (event) {
-                    event.preventDefault();
+        //     // Create Role Form Submission
+        //     var createRoleForm = document.getElementById('createRoleForm');
+        //     if (createRoleForm) {
+        //         createRoleForm.addEventListener('submit', function (event) {
+        //             event.preventDefault();
 
-                    var roleName = document.getElementById('newSystemRoleName').value.trim();
+        //             var roleName = document.getElementById('newSystemRoleName').value.trim();
 
-                    if (!roleName) {
-                        document.getElementById('systemRoleNameValidation').textContent = 'Role name is required.';
-                        return;
-                    }
+        //             if (!roleName) {
+        //                 document.getElementById('systemRoleNameValidation').textContent = 'Role name is required.';
+        //                 return;
+        //             }
 
-                    createSystemRole(roleName);
-                });
-            }
+        //             createSystemRole(roleName);
+        //         });
+        //     }
 
-            // ========== ROLE MANAGEMENT FUNCTIONS ==========
+        //     // ========== ROLE MANAGEMENT FUNCTIONS ==========
 
-                      function getAntiforgeryToken() {
-            // Find the token from any form (not just one)
-            const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
-            if (!token) {
-                console.error("Anti-forgery token not found!");
-                return null;
-            }
-            return token;
-        }
+        //               function getAntiforgeryToken() {
+        //     // Find the token from any form (not just one)
+        //     const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        //     if (!token) {
+        //         console.error("Anti-forgery token not found!");
+        //         return null;
+        //     }
+        //     return token;
+        // }
         
 
-            // Function to load user roles via AJAX
-            function loadUserRoles(userId) {
-                fetch(`?handler=RolesData&id=${userId}`)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        displayUserRoles(data.roles, data.userId);
-                    })
-                    .catch(error => {
-                        console.error('Error loading user roles:', error);
-                        showRolesMessage('Error loading user roles. Please try again.', 'danger');
-                    });
-            }
+        //     // Function to load user roles via AJAX
+        //     function loadUserRoles(userId) {
+        //         fetch(`?handler=RolesData&id=${userId}`)
+        //             .then(response => {
+        //                 if (!response.ok) {
+        //                     throw new Error('Network response was not ok');
+        //                 }
+        //                 return response.json();
+        //             })
+        //             .then(data => {
+        //                 displayUserRoles(data.roles, data.userId);
+        //             })
+        //             .catch(error => {
+        //                 console.error('Error loading user roles:', error);
+        //                 showRolesMessage('Error loading user roles. Please try again.', 'danger');
+        //             });
+        //     }
 
-            // Function to load available roles for dropdown
-            function loadAvailableRoles() {
-                fetch('?handler=AllRolesData')
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.json();
-                    })
-                    .then(roles => {
-                        populateRolesDropdown(roles);
-                    })
-                    .catch(error => {
-                        console.error('Error loading available roles:', error);
-                        document.getElementById('newRoleName').innerHTML = '<option value="">Error loading roles</option>';
-                    });
-            }
+        //     // Function to load available roles for dropdown
+        //     function loadAvailableRoles() {
+        //         fetch('?handler=AllRolesData')
+        //             .then(response => {
+        //                 if (!response.ok) {
+        //                     throw new Error('Network response was not ok');
+        //                 }
+        //                 return response.json();
+        //             })
+        //             .then(roles => {
+        //                 populateRolesDropdown(roles);
+        //             })
+        //             .catch(error => {
+        //                 console.error('Error loading available roles:', error);
+        //                 document.getElementById('newRoleName').innerHTML = '<option value="">Error loading roles</option>';
+        //             });
+        //     }
 
-            // Function to load all system roles for management
-            function loadAllSystemRoles() {
-                fetch('?handler=AllRolesData')
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.json();
-                    })
-                    .then(roles => {
-                        displaySystemRoles(roles);
-                    })
-                    .catch(error => {
-                        console.error('Error loading system roles:', error);
-                        showManageRolesMessage('Error loading system roles. Please try again.', 'danger');
-                    });
-            }
+        //     // Function to load all system roles for management
+        //     function loadAllSystemRoles() {
+        //         fetch('?handler=AllRolesData')
+        //             .then(response => {
+        //                 if (!response.ok) {
+        //                     throw new Error('Network response was not ok');
+        //                 }
+        //                 return response.json();
+        //             })
+        //             .then(roles => {
+        //                 displaySystemRoles(roles);
+        //             })
+        //             .catch(error => {
+        //                 console.error('Error loading system roles:', error);
+        //                 showManageRolesMessage('Error loading system roles. Please try again.', 'danger');
+        //             });
+        //     }
 
-            // Function to display user roles
-            function displayUserRoles(roles, userId) {
-                var rolesList = document.getElementById('currentRolesList');
-                rolesList.innerHTML = '';
+        //     // Function to display user roles
+        //     function displayUserRoles(roles, userId) {
+        //         var rolesList = document.getElementById('currentRolesList');
+        //         rolesList.innerHTML = '';
 
-                if (roles && roles.length > 0) {
-                    roles.forEach(function(role) {
-                        var listItem = document.createElement('li');
-                        listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
-                        listItem.innerHTML = `
-                            ${role}
-                            <button type="button" class="btn btn-danger btn-sm remove-role-btn"
-                                    data-userid="${userId}" data-rolename="${role}">
-                                Remove
-                            </button>
-                        `;
-                        rolesList.appendChild(listItem);
-                    });
+        //         if (roles && roles.length > 0) {
+        //             roles.forEach(function(role) {
+        //                 var listItem = document.createElement('li');
+        //                 listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+        //                 listItem.innerHTML = `
+        //                     ${role}
+        //                     <button type="button" class="btn btn-danger btn-sm remove-role-btn"
+        //                             data-userid="${userId}" data-rolename="${role}">
+        //                         Remove
+        //                     </button>
+        //                 `;
+        //                 rolesList.appendChild(listItem);
+        //             });
 
-                    // Add event listeners to remove buttons
-                    document.querySelectorAll('.remove-role-btn').forEach(button => {
-                        button.addEventListener('click', function() {
-                            var userId = this.getAttribute('data-userid');
-                            var roleName = this.getAttribute('data-rolename');
-                            removeUserRole(userId, roleName);
-                        });
-                    });
-                } else {
-                    rolesList.innerHTML = '<li class="list-group-item text-muted">No roles assigned.</li>';
-                }
-            }
+        //             // Add event listeners to remove buttons
+        //             document.querySelectorAll('.remove-role-btn').forEach(button => {
+        //                 button.addEventListener('click', function() {
+        //                     var userId = this.getAttribute('data-userid');
+        //                     var roleName = this.getAttribute('data-rolename');
+        //                     removeUserRole(userId, roleName);
+        //                 });
+        //             });
+        //         } else {
+        //             rolesList.innerHTML = '<li class="list-group-item text-muted">No roles assigned.</li>';
+        //         }
+        //     }
 
-            // Function to populate roles dropdown
-            function populateRolesDropdown(roles) {
-                var select = document.getElementById('newRoleName');
-                select.innerHTML = '<option value="">Select a role...</option>';
+        //     // Function to populate roles dropdown
+        //     function populateRolesDropdown(roles) {
+        //         var select = document.getElementById('newRoleName');
+        //         select.innerHTML = '<option value="">Select a role...</option>';
                 
-                if (roles && roles.length > 0) {
-                    roles.forEach(role => {
-                        var option = document.createElement('option');
-                        option.value = role;
-                        option.textContent = role;
-                        select.appendChild(option);
-                    });
-                } else {
-                    select.innerHTML = '<option value="">No roles available</option>';
-                }
+        //         if (roles && roles.length > 0) {
+        //             roles.forEach(role => {
+        //                 var option = document.createElement('option');
+        //                 option.value = role;
+        //                 option.textContent = role;
+        //                 select.appendChild(option);
+        //             });
+        //         } else {
+        //             select.innerHTML = '<option value="">No roles available</option>';
+        //         }
+        //     }
+
+        //     // Function to display system roles in management modal
+        //     function displaySystemRoles(roles) {
+        //         var rolesList = document.getElementById('systemRolesList');
+        //         rolesList.innerHTML = '';
+
+        //         if (roles && roles.length > 0) {
+        //             roles.forEach(function(role) {
+        //                 var listItem = document.createElement('li');
+        //                 listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+        //                 listItem.innerHTML = `
+        //                     ${role}
+        //                     <button type="button" class="btn btn-danger btn-sm delete-system-role-btn"
+        //                             data-rolename="${role}">
+        //                         Delete
+        //                     </button>
+        //                 `;
+        //                 rolesList.appendChild(listItem);
+        //             });
+
+        //             // Add event listeners to delete buttons
+        //             document.querySelectorAll('.delete-system-role-btn').forEach(button => {
+        //                 button.addEventListener('click', function() {
+        //                     var roleName = this.getAttribute('data-rolename');
+        //                     if (confirm(`Are you sure you want to delete the role "${roleName}"?`)) {
+        //                         deleteSystemRole(roleName);
+        //                     }
+        //                 });
+        //             });
+        //         } else {
+        //             rolesList.innerHTML = '<li class="list-group-item text-muted">No roles in system.</li>';
+        //         }
+        //     }
+
+        //     // Function to add role to user via AJAX
+        //     function addUserRole(userId, roleName) {
+        //             const token = getAntiforgeryToken();
+        // if (!token) return;
+
+        //             const formData = new FormData();
+        // formData.append('id', userId);
+        // formData.append('roleName', roleName);
+
+        // fetch('?handler=AddRole', {
+        //     method: 'POST',
+        //     body: formData,
+        //     credentials: 'include',                    // This is critical!
+        //     headers: {
+        //         'RequestVerificationToken': token       // Still send it
+        //     }
+        //         })
+        //         .then(response => {
+        //             if (response.ok) {
+        //                 return response.text();
+        //             }
+        //             throw new Error('Network response was not ok');
+        //         })
+        //         .then(message => {
+        //             // Reload the roles list and refresh dropdown
+        //             loadUserRoles(userId);
+        //             loadAvailableRoles();
+        //             document.getElementById('newRoleName').value = '';
+        //             document.getElementById('roleNameValidation').textContent = '';
+                    
+        //             showRolesMessage('Role added successfully.', 'success');
+        //         })
+        //         .catch(error => {
+        //             console.error('Error adding role:', error);
+        //             showRolesMessage('Error adding role. Please try again.', 'danger');
+        //         });
+        //     }
+
+        //     // Function to remove role from user via AJAX
+        //     function removeUserRole(userId, roleName) {
+        //         var formData = new FormData();
+        //         formData.append('id', userId);
+        //         formData.append('roleName', roleName);
+
+        //         fetch('?handler=RemoveRole', {
+        //             method: 'POST',
+        //             body: formData,
+        //             headers: {
+        //                 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+        //             }
+        //         })
+        //         .then(response => {
+        //             if (response.ok) {
+        //                 return response.text();
+        //             }
+        //             throw new Error('Network response was not ok');
+        //         })
+        //         .then(message => {
+        //             // Reload the roles list and refresh dropdown
+        //             loadUserRoles(userId);
+        //             loadAvailableRoles();
+                    
+        //             showRolesMessage('Role removed successfully.', 'success');
+        //         })
+        //         .catch(error => {
+        //             console.error('Error removing role:', error);
+        //             showRolesMessage('Error removing role. Please try again.', 'danger');
+        //         });
+        //     }
+
+        //     // Function to create system role via AJAX
+        //     function createSystemRole(roleName) {
+        //         var formData = new FormData();
+        //         formData.append('roleName', roleName);
+
+        //         fetch('?handler=CreateRole', {
+        //             method: 'POST',
+        //             body: formData,
+        //             headers: {
+        //                 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+        //             }
+        //         })
+        //         .then(response => {
+        //             if (response.ok) {
+        //                 return response.text();
+        //             }
+        //             throw new Error('Network response was not ok');
+        //         })
+        //         .then(message => {
+        //             // Refresh system roles list and clear form
+        //             loadAllSystemRoles();
+        //             document.getElementById('newSystemRoleName').value = '';
+        //             document.getElementById('systemRoleNameValidation').textContent = '';
+                    
+        //             showManageRolesMessage('Role created successfully.', 'success');
+        //         })
+        //         .catch(error => {
+        //             console.error('Error creating role:', error);
+        //             showManageRolesMessage('Error creating role. Please try again.', 'danger');
+        //         });
+        //     }
+
+        //     // Function to delete system role via AJAX
+        //     function deleteSystemRole(roleName) {
+        //         var formData = new FormData();
+        //         formData.append('roleName', roleName);
+
+        //         fetch('?handler=DeleteRole', {
+        //             method: 'POST',
+        //             body: formData,
+        //             headers: {
+        //                 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+        //             }
+        //         })
+        //         .then(response => {
+        //             if (response.ok) {
+        //                 return response.text();
+        //             }
+        //             throw new Error('Network response was not ok');
+        //         })
+        //         .then(message => {
+        //             // Refresh system roles list
+        //             loadAllSystemRoles();
+                    
+        //             showManageRolesMessage('Role deleted successfully.', 'success');
+        //         })
+        //         .catch(error => {
+        //             console.error('Error deleting role:', error);
+        //             showManageRolesMessage('Error deleting role. Please try again.', 'danger');
+        //         });
+        //     }
+
+        //     // Helper functions for showing messages
+        //     function showRolesMessage(message, type) {
+        //         var messageDiv = document.getElementById('rolesModalMessage');
+        //         messageDiv.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+        //             ${message}
+        //             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        //         </div>`;
+        //     }
+
+        //     function showManageRolesMessage(message, type) {
+        //         var messageDiv = document.getElementById('manageRolesMessage');
+        //         messageDiv.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+        //             ${message}
+        //             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        //         </div>`;
+        //     }
+        //             // Invite Users Modal and Form Handling
+        // var inviteUsersModal = document.getElementById('inviteUsersModal');
+        // if (inviteUsersModal) {
+        //     inviteUsersModal.addEventListener('show.bs.modal', function () {
+        //         document.getElementById('inviteUsersMessage').innerHTML = '';
+        //         document.getElementById('inviteEmails').value = '';
+        //         document.getElementById('inviteRole').value = 'User';
+        //     });
+        // }
+
+        //         // Invite Users Form Submission
+        // var inviteUsersForm = document.getElementById('inviteUsersForm');
+        // if (inviteUsersForm) {
+        //     inviteUsersForm.addEventListener('submit', function (event) {
+        //         event.preventDefault();
+
+        //         var emailsText = document.getElementById('inviteEmails').value.trim();
+        //         var role = document.getElementById('inviteRole').value;
+        //         var sendBtn = document.getElementById('sendInvitationsBtn');
+        //         var spinner = sendBtn.querySelector('.spinner-border');
+
+        //         if (!emailsText) {
+        //             showInviteUsersMessage('Please enter at least one email address.', 'danger');
+        //             return;
+        //         }
+
+        //          // Parse emails - split by commas or new lines
+        // var emails = emailsText.split(/[\n,]/)
+        //     .map(email => email.trim())
+        //     .filter(email => email.length > 0);
+
+        // if (emails.length === 0) {
+        //     showInviteUsersMessage('Please enter at least one valid email address.', 'danger');
+        //     return;
+        // }
+
+        // // Validate email formats
+        // var invalidEmails = emails.filter(email => !isValidEmail(email));
+        // if (invalidEmails.length > 0) {
+        //     showInviteUsersMessage('Invalid email format: ' + invalidEmails.join(', '), 'danger');
+        //     return;
+        // }
+
+        //         // Show loading state
+        //         sendBtn.disabled = true;
+        //         spinner.classList.remove('d-none');
+
+        //         var dto = {
+        //             emails: emails,
+        //             role: role
+        //         };
+
+        //         fetch('/api/Invitations/multiple', {
+        //             method: 'POST',
+        //             headers: {
+        //                 'Content-Type': 'application/json',
+        //                 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+        //             },
+        //             body: JSON.stringify(dto)
+        //         })
+        //         .then(response => {
+        //             if (!response.ok) {
+        //                 throw new Error('Network response was not ok');
+        //             }
+        //             return response.json();
+        //         })
+        //         .then(data => {
+        //             // Show success message with summary
+        //             var message = `Successfully sent ${data.successfulCount} invitation(s).`;
+        //             if (data.failedCount > 0) {
+        //                 message += ` ${data.failedCount} invitation(s) failed.`;
+
+        //                 // Show failed invitations details
+        //                 if (data.failedInvitations && data.failedInvitations.length > 0) {
+        //                     var failedDetails = data.failedInvitations.map(f => `${f.email}: ${f.error}`).join('<br>');
+        //                     message += `<br><br><strong>Failed invitations:</strong><br>${failedDetails}`;
+        //                 }
+        //             }
+
+        //             showInviteUsersMessage(message, data.failedCount > 0 ? 'warning' : 'success');
+
+        //             // Clear form if all successful, otherwise keep for editing
+        //             if (data.failedCount === 0) {
+        //                 document.getElementById('inviteEmails').value = '';
+        //             }
+        //         })
+        //         .catch(error => {
+        //             console.error('Error sending invitations:', error);
+        //             showInviteUsersMessage('Error sending invitations. Please try again.', 'danger');
+        //         })
+        //         .finally(() => {
+        //             // Reset loading state
+        //             sendBtn.disabled = false;
+        //             spinner.classList.add('d-none');
+        //         });
+        //     });
+        // }
+
+
+        
+        // });
+
+        // Add this to your  Scripts block - Enhanced version with comprehensive logging
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('[INIT] Page loaded, initializing event listeners');
+    
+    // Edit Modal
+    var editModal = document.getElementById('editModal');
+    if (editModal) {
+        editModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            document.getElementById('editUserId').value = button.getAttribute('data-id');
+            document.getElementById('editFirstName').value = button.getAttribute('data-firstname') || '';
+            document.getElementById('editSurname').value = button.getAttribute('data-surname') || '';
+            document.getElementById('editOtherNames').value = button.getAttribute('data-othernames') || '';
+            document.getElementById('editDateOfBirth').value = button.getAttribute('data-dateofbirth') || '';
+            document.getElementById('editAddress').value = button.getAttribute('data-address') || '';
+            document.getElementById('editJobRole').value = button.getAttribute('data-jobrole') || '';
+            document.getElementById('editProfileImage').value = button.getAttribute('data-profileimage') || '';
+
+            var isActiveValue = button.getAttribute('data-isactive');
+            if (isActiveValue) {
+                document.getElementById('editIsActive').value = isActiveValue;
             }
 
-            // Function to display system roles in management modal
-            function displaySystemRoles(roles) {
-                var rolesList = document.getElementById('systemRolesList');
-                rolesList.innerHTML = '';
+            var departmentIdValue = button.getAttribute('data-departmentid');
+            if (departmentIdValue) {
+                document.getElementById('editDepartmentId').value = departmentIdValue;
+            }
+        });
+    }
 
-                if (roles && roles.length > 0) {
-                    roles.forEach(function(role) {
-                        var listItem = document.createElement('li');
-                        listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
-                        listItem.innerHTML = `
-                            ${role}
-                            <button type="button" class="btn btn-danger btn-sm delete-system-role-btn"
-                                    data-rolename="${role}">
-                                Delete
-                            </button>
-                        `;
-                        rolesList.appendChild(listItem);
-                    });
+    // Deactivate Modal
+    var deactivateModal = document.getElementById('deactivateModal');
+    if (deactivateModal) {
+        deactivateModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            document.getElementById('deactivateId').value = button.getAttribute('data-id');
+        });
+    }
 
-                    // Add event listeners to delete buttons
-                    document.querySelectorAll('.delete-system-role-btn').forEach(button => {
-                        button.addEventListener('click', function() {
-                            var roleName = this.getAttribute('data-rolename');
-                            if (confirm(`Are you sure you want to delete the role "${roleName}"?`)) {
-                                deleteSystemRole(roleName);
-                            }
-                        });
-                    });
-                } else {
-                    rolesList.innerHTML = '<li class="list-group-item text-muted">No roles in system.</li>';
-                }
+    // Activate Modal
+    var activateModal = document.getElementById('activateModal');
+    if (activateModal) {
+        activateModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            document.getElementById('activateId').value = button.getAttribute('data-id');
+        });
+    }
+
+    // Reset Modal
+    var resetModal = document.getElementById('resetModal');
+    if (resetModal) {
+        resetModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            document.getElementById('resetId').value = button.getAttribute('data-id');
+        });
+    }
+
+    // Roles Modal - Enhanced with AJAX and Logging
+    var rolesModal = document.getElementById('rolesModal');
+    if (rolesModal) {
+        console.log('[INIT] Roles modal found, attaching event listener');
+        rolesModal.addEventListener('show.bs.modal', function (event) {
+            console.log('[ROLES_MODAL] Opening roles modal');
+            var button = event.relatedTarget;
+            var userId = button.getAttribute('data-userid');
+            console.log('[ROLES_MODAL] User ID:', userId);
+
+            document.getElementById('rolesUserId').value = userId;
+            document.getElementById('currentRolesList').innerHTML = '';
+            document.getElementById('rolesModalMessage').innerHTML = '';
+            document.getElementById('newRoleName').innerHTML = '<option value="">Loading roles...</option>';
+            document.getElementById('roleNameValidation').textContent = '';
+
+            loadUserRoles(userId);
+            loadAvailableRoles();
+        });
+    }
+
+    // Manage Roles Modal
+    var manageRolesModal = document.getElementById('manageRolesModal');
+    if (manageRolesModal) {
+        console.log('[INIT] Manage roles modal found');
+        manageRolesModal.addEventListener('show.bs.modal', function (event) {
+            console.log('[MANAGE_ROLES] Opening manage roles modal');
+            document.getElementById('manageRolesMessage').innerHTML = '';
+            document.getElementById('systemRoleNameValidation').textContent = '';
+            document.getElementById('newSystemRoleName').value = '';
+            
+            loadAllSystemRoles();
+        });
+    }
+
+    // Add Role Form Submission
+    var addRoleForm = document.getElementById('addRoleForm');
+    if (addRoleForm) {
+        console.log('[INIT] Add role form found');
+        addRoleForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            console.log('[ADD_ROLE] Form submitted');
+
+            var userId = document.getElementById('rolesUserId').value;
+            var roleName = document.getElementById('newRoleName').value;
+
+            console.log('[ADD_ROLE] UserId:', userId, 'RoleName:', roleName);
+
+            if (!roleName.trim()) {
+                console.warn('[ADD_ROLE] No role selected');
+                document.getElementById('roleNameValidation').textContent = 'Please select a role.';
+                return;
             }
 
-            // Function to add role to user via AJAX
-            function addUserRole(userId, roleName) {
-                    const token = getAntiforgeryToken();
-        if (!token) return;
+            addUserRole(userId, roleName);
+        });
+    }
 
-                    const formData = new FormData();
+    // Create Role Form Submission
+    var createRoleForm = document.getElementById('createRoleForm');
+    if (createRoleForm) {
+        console.log('[INIT] Create role form found');
+        createRoleForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            console.log('[CREATE_ROLE] Form submitted');
+
+            var roleName = document.getElementById('newSystemRoleName').value.trim();
+            console.log('[CREATE_ROLE] Role name:', roleName);
+
+            if (!roleName) {
+                console.warn('[CREATE_ROLE] Empty role name');
+                document.getElementById('systemRoleNameValidation').textContent = 'Role name is required.';
+                return;
+            }
+
+            createSystemRole(roleName);
+        });
+    }
+
+    // ========== HELPER FUNCTIONS ==========
+
+    function getAntiforgeryToken() {
+        console.log('[TOKEN] Attempting to retrieve anti-forgery token');
+        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        
+        if (!token) {
+            console.error('[TOKEN] Anti-forgery token not found in DOM!');
+            console.log('[TOKEN] Available forms:', document.querySelectorAll('form').length);
+            console.log('[TOKEN] Available token inputs:', document.querySelectorAll('input[name="__RequestVerificationToken"]').length);
+        } else {
+            console.log('[TOKEN] Token retrieved successfully, length:', token.length);
+            console.log('[TOKEN] Token preview:', token.substring(0, 20) + '...');
+        }
+        
+        return token;
+    }
+
+    // ========== ROLE MANAGEMENT FUNCTIONS ==========
+
+    function loadUserRoles(userId) {
+        console.log('[LOAD_USER_ROLES] Starting for userId:', userId);
+        const url = `?handler=RolesData&id=${userId}`;
+        console.log('[LOAD_USER_ROLES] URL:', url);
+        
+        fetch(url)
+            .then(response => {
+                console.log('[LOAD_USER_ROLES] Response status:', response.status);
+                console.log('[LOAD_USER_ROLES] Response OK:', response.ok);
+                console.log('[LOAD_USER_ROLES] Response headers:', [...response.headers.entries()]);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('[LOAD_USER_ROLES] Data received:', data);
+                displayUserRoles(data.roles, data.userId);
+            })
+            .catch(error => {
+                console.error('[LOAD_USER_ROLES] Error:', error);
+                console.error('[LOAD_USER_ROLES] Error stack:', error.stack);
+                showRolesMessage('Error loading user roles: ' + error.message, 'danger');
+            });
+    }
+
+    function loadAvailableRoles() {
+        console.log('[LOAD_AVAILABLE_ROLES] Starting');
+        const url = '?handler=AllRolesData';
+        console.log('[LOAD_AVAILABLE_ROLES] URL:', url);
+        
+        fetch(url)
+            .then(response => {
+                console.log('[LOAD_AVAILABLE_ROLES] Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(roles => {
+                console.log('[LOAD_AVAILABLE_ROLES] Roles received:', roles);
+                populateRolesDropdown(roles);
+            })
+            .catch(error => {
+                console.error('[LOAD_AVAILABLE_ROLES] Error:', error);
+                document.getElementById('newRoleName').innerHTML = '<option value="">Error loading roles</option>';
+            });
+    }
+
+    function loadAllSystemRoles() {
+        console.log('[LOAD_SYSTEM_ROLES] Starting');
+        fetch('?handler=AllRolesData')
+            .then(response => {
+                console.log('[LOAD_SYSTEM_ROLES] Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(roles => {
+                console.log('[LOAD_SYSTEM_ROLES] Roles received:', roles);
+                displaySystemRoles(roles);
+            })
+            .catch(error => {
+                console.error('[LOAD_SYSTEM_ROLES] Error:', error);
+                showManageRolesMessage('Error loading system roles: ' + error.message, 'danger');
+            });
+    }
+
+    function displayUserRoles(roles, userId) {
+        console.log('[DISPLAY_USER_ROLES] Displaying roles for userId:', userId, 'Roles:', roles);
+        var rolesList = document.getElementById('currentRolesList');
+        rolesList.innerHTML = '';
+
+        if (roles && roles.length > 0) {
+            roles.forEach(function(role) {
+                var listItem = document.createElement('li');
+                listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                listItem.innerHTML = `
+                    ${role}
+                    <button type="button" class="btn btn-danger btn-sm remove-role-btn"
+                            data-userid="${userId}" data-rolename="${role}">
+                        Remove
+                    </button>
+                `;
+                rolesList.appendChild(listItem);
+            });
+
+            document.querySelectorAll('.remove-role-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    var userId = this.getAttribute('data-userid');
+                    var roleName = this.getAttribute('data-rolename');
+                    console.log('[REMOVE_ROLE_BTN] Clicked for userId:', userId, 'roleName:', roleName);
+                    removeUserRole(userId, roleName);
+                });
+            });
+        } else {
+            rolesList.innerHTML = '<li class="list-group-item text-muted">No roles assigned.</li>';
+        }
+    }
+
+    function populateRolesDropdown(roles) {
+        console.log('[POPULATE_DROPDOWN] Populating with roles:', roles);
+        var select = document.getElementById('newRoleName');
+        select.innerHTML = '<option value="">Select a role...</option>';
+        
+        if (roles && roles.length > 0) {
+            roles.forEach(role => {
+                var option = document.createElement('option');
+                option.value = role;
+                option.textContent = role;
+                select.appendChild(option);
+            });
+        } else {
+            select.innerHTML = '<option value="">No roles available</option>';
+        }
+    }
+
+    function displaySystemRoles(roles) {
+        console.log('[DISPLAY_SYSTEM_ROLES] Displaying roles:', roles);
+        var rolesList = document.getElementById('systemRolesList');
+        rolesList.innerHTML = '';
+
+        if (roles && roles.length > 0) {
+            roles.forEach(function(role) {
+                var listItem = document.createElement('li');
+                listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                listItem.innerHTML = `
+                    ${role}
+                    <button type="button" class="btn btn-danger btn-sm delete-system-role-btn"
+                            data-rolename="${role}">
+                        Delete
+                    </button>
+                `;
+                rolesList.appendChild(listItem);
+            });
+
+            document.querySelectorAll('.delete-system-role-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    var roleName = this.getAttribute('data-rolename');
+                    console.log('[DELETE_ROLE_BTN] Clicked for roleName:', roleName);
+                    if (confirm(`Are you sure you want to delete the role "${roleName}"?`)) {
+                        deleteSystemRole(roleName);
+                    }
+                });
+            });
+        } else {
+            rolesList.innerHTML = '<li class="list-group-item text-muted">No roles in system.</li>';
+        }
+    }
+
+    function addUserRole(userId, roleName) {
+        console.log('[ADD_USER_ROLE] Starting - UserId:', userId, 'RoleName:', roleName);
+        
+        const token = getAntiforgeryToken();
+        if (!token) {
+            console.error('[ADD_USER_ROLE] Aborted - no token available');
+            showRolesMessage('Security token not found. Please refresh the page.', 'danger');
+            return;
+        }
+
+        const formData = new FormData();
         formData.append('id', userId);
         formData.append('roleName', roleName);
 
-        fetch('?handler=AddRole', {
+        console.log('[ADD_USER_ROLE] FormData entries:');
+        for (let pair of formData.entries()) {
+            console.log('[ADD_USER_ROLE]', pair[0], '=', pair[1]);
+        }
+
+        const url = '?handler=AddRole';
+        console.log('[ADD_USER_ROLE] POST URL:', window.location.origin + window.location.pathname + url);
+
+        fetch(url, {
             method: 'POST',
             body: formData,
-            credentials: 'include',                    // This is critical!
+            credentials: 'include',
             headers: {
-                'RequestVerificationToken': token       // Still send it
+                'RequestVerificationToken': token
             }
-                })
-                .then(response => {
-                    if (response.ok) {
-                        return response.text();
-                    }
-                    throw new Error('Network response was not ok');
-                })
-                .then(message => {
-                    // Reload the roles list and refresh dropdown
-                    loadUserRoles(userId);
-                    loadAvailableRoles();
-                    document.getElementById('newRoleName').value = '';
-                    document.getElementById('roleNameValidation').textContent = '';
-                    
-                    showRolesMessage('Role added successfully.', 'success');
-                })
-                .catch(error => {
-                    console.error('Error adding role:', error);
-                    showRolesMessage('Error adding role. Please try again.', 'danger');
+        })
+        .then(response => {
+            console.log('[ADD_USER_ROLE] Response received');
+            console.log('[ADD_USER_ROLE] Status:', response.status, response.statusText);
+            console.log('[ADD_USER_ROLE] Headers:', [...response.headers.entries()]);
+            console.log('[ADD_USER_ROLE] OK:', response.ok);
+            
+            if (!response.ok) {
+                return response.text().then(text => {
+                    console.error('[ADD_USER_ROLE] Error response body:', text);
+                    throw new Error(`HTTP ${response.status}: ${text}`);
                 });
             }
-
-            // Function to remove role from user via AJAX
-            function removeUserRole(userId, roleName) {
-                var formData = new FormData();
-                formData.append('id', userId);
-                formData.append('roleName', roleName);
-
-                fetch('?handler=RemoveRole', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
-                    }
-                })
-                .then(response => {
-                    if (response.ok) {
-                        return response.text();
-                    }
-                    throw new Error('Network response was not ok');
-                })
-                .then(message => {
-                    // Reload the roles list and refresh dropdown
-                    loadUserRoles(userId);
-                    loadAvailableRoles();
-                    
-                    showRolesMessage('Role removed successfully.', 'success');
-                })
-                .catch(error => {
-                    console.error('Error removing role:', error);
-                    showRolesMessage('Error removing role. Please try again.', 'danger');
-                });
-            }
-
-            // Function to create system role via AJAX
-            function createSystemRole(roleName) {
-                var formData = new FormData();
-                formData.append('roleName', roleName);
-
-                fetch('?handler=CreateRole', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
-                    }
-                })
-                .then(response => {
-                    if (response.ok) {
-                        return response.text();
-                    }
-                    throw new Error('Network response was not ok');
-                })
-                .then(message => {
-                    // Refresh system roles list and clear form
-                    loadAllSystemRoles();
-                    document.getElementById('newSystemRoleName').value = '';
-                    document.getElementById('systemRoleNameValidation').textContent = '';
-                    
-                    showManageRolesMessage('Role created successfully.', 'success');
-                })
-                .catch(error => {
-                    console.error('Error creating role:', error);
-                    showManageRolesMessage('Error creating role. Please try again.', 'danger');
-                });
-            }
-
-            // Function to delete system role via AJAX
-            function deleteSystemRole(roleName) {
-                var formData = new FormData();
-                formData.append('roleName', roleName);
-
-                fetch('?handler=DeleteRole', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
-                    }
-                })
-                .then(response => {
-                    if (response.ok) {
-                        return response.text();
-                    }
-                    throw new Error('Network response was not ok');
-                })
-                .then(message => {
-                    // Refresh system roles list
-                    loadAllSystemRoles();
-                    
-                    showManageRolesMessage('Role deleted successfully.', 'success');
-                })
-                .catch(error => {
-                    console.error('Error deleting role:', error);
-                    showManageRolesMessage('Error deleting role. Please try again.', 'danger');
-                });
-            }
-
-            // Helper functions for showing messages
-            function showRolesMessage(message, type) {
-                var messageDiv = document.getElementById('rolesModalMessage');
-                messageDiv.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
-                    ${message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>`;
-            }
-
-            function showManageRolesMessage(message, type) {
-                var messageDiv = document.getElementById('manageRolesMessage');
-                messageDiv.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
-                    ${message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>`;
-            }
-                    // Invite Users Modal and Form Handling
-        var inviteUsersModal = document.getElementById('inviteUsersModal');
-        if (inviteUsersModal) {
-            inviteUsersModal.addEventListener('show.bs.modal', function () {
-                document.getElementById('inviteUsersMessage').innerHTML = '';
-                document.getElementById('inviteEmails').value = '';
-                document.getElementById('inviteRole').value = 'User';
-            });
-        }
-
-                // Invite Users Form Submission
-        var inviteUsersForm = document.getElementById('inviteUsersForm');
-        if (inviteUsersForm) {
-            inviteUsersForm.addEventListener('submit', function (event) {
-                event.preventDefault();
-
-                var emailsText = document.getElementById('inviteEmails').value.trim();
-                var role = document.getElementById('inviteRole').value;
-                var sendBtn = document.getElementById('sendInvitationsBtn');
-                var spinner = sendBtn.querySelector('.spinner-border');
-
-                if (!emailsText) {
-                    showInviteUsersMessage('Please enter at least one email address.', 'danger');
-                    return;
-                }
-
-                 // Parse emails - split by commas or new lines
-        var emails = emailsText.split(/[\n,]/)
-            .map(email => email.trim())
-            .filter(email => email.length > 0);
-
-        if (emails.length === 0) {
-            showInviteUsersMessage('Please enter at least one valid email address.', 'danger');
-            return;
-        }
-
-        // Validate email formats
-        var invalidEmails = emails.filter(email => !isValidEmail(email));
-        if (invalidEmails.length > 0) {
-            showInviteUsersMessage('Invalid email format: ' + invalidEmails.join(', '), 'danger');
-            return;
-        }
-
-                // Show loading state
-                sendBtn.disabled = true;
-                spinner.classList.remove('d-none');
-
-                var dto = {
-                    emails: emails,
-                    role: role
-                };
-
-                fetch('/api/Invitations/multiple', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
-                    },
-                    body: JSON.stringify(dto)
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    // Show success message with summary
-                    var message = `Successfully sent ${data.successfulCount} invitation(s).`;
-                    if (data.failedCount > 0) {
-                        message += ` ${data.failedCount} invitation(s) failed.`;
-
-                        // Show failed invitations details
-                        if (data.failedInvitations && data.failedInvitations.length > 0) {
-                            var failedDetails = data.failedInvitations.map(f => `${f.email}: ${f.error}`).join('<br>');
-                            message += `<br><br><strong>Failed invitations:</strong><br>${failedDetails}`;
-                        }
-                    }
-
-                    showInviteUsersMessage(message, data.failedCount > 0 ? 'warning' : 'success');
-
-                    // Clear form if all successful, otherwise keep for editing
-                    if (data.failedCount === 0) {
-                        document.getElementById('inviteEmails').value = '';
-                    }
-                })
-                .catch(error => {
-                    console.error('Error sending invitations:', error);
-                    showInviteUsersMessage('Error sending invitations. Please try again.', 'danger');
-                })
-                .finally(() => {
-                    // Reset loading state
-                    sendBtn.disabled = false;
-                    spinner.classList.add('d-none');
-                });
-            });
-        }
-
-
-        
+            return response.text();
+        })
+        .then(message => {
+            console.log('[ADD_USER_ROLE] Success:', message);
+            loadUserRoles(userId);
+            loadAvailableRoles();
+            document.getElementById('newRoleName').value = '';
+            document.getElementById('roleNameValidation').textContent = '';
+            showRolesMessage('Role added successfully.', 'success');
+        })
+        .catch(error => {
+            console.error('[ADD_USER_ROLE] Caught error:', error);
+            console.error('[ADD_USER_ROLE] Error stack:', error.stack);
+            showRolesMessage('Error adding role: ' + error.message, 'danger');
         });
+    }
+
+    function removeUserRole(userId, roleName) {
+        console.log('[REMOVE_USER_ROLE] Starting - UserId:', userId, 'RoleName:', roleName);
+        
+        const token = getAntiforgeryToken();
+        if (!token) {
+            console.error('[REMOVE_USER_ROLE] Aborted - no token available');
+            showRolesMessage('Security token not found. Please refresh the page.', 'danger');
+            return;
+        }
+
+        var formData = new FormData();
+        formData.append('id', userId);
+        formData.append('roleName', roleName);
+
+        console.log('[REMOVE_USER_ROLE] FormData entries:');
+        for (let pair of formData.entries()) {
+            console.log('[REMOVE_USER_ROLE]', pair[0], '=', pair[1]);
+        }
+
+        const url = '?handler=RemoveRole';
+        console.log('[REMOVE_USER_ROLE] POST URL:', window.location.origin + window.location.pathname + url);
+
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+            credentials: 'include',
+            headers: {
+                'RequestVerificationToken': token
+            }
+        })
+        .then(response => {
+            console.log('[REMOVE_USER_ROLE] Response received');
+            console.log('[REMOVE_USER_ROLE] Status:', response.status, response.statusText);
+            console.log('[REMOVE_USER_ROLE] Headers:', [...response.headers.entries()]);
+            
+            if (!response.ok) {
+                return response.text().then(text => {
+                    console.error('[REMOVE_USER_ROLE] Error response body:', text);
+                    throw new Error(`HTTP ${response.status}: ${text}`);
+                });
+            }
+            return response.text();
+        })
+        .then(message => {
+            console.log('[REMOVE_USER_ROLE] Success:', message);
+            loadUserRoles(userId);
+            loadAvailableRoles();
+            showRolesMessage('Role removed successfully.', 'success');
+        })
+        .catch(error => {
+            console.error('[REMOVE_USER_ROLE] Caught error:', error);
+            console.error('[REMOVE_USER_ROLE] Error stack:', error.stack);
+            showRolesMessage('Error removing role: ' + error.message, 'danger');
+        });
+    }
+
+    function createSystemRole(roleName) {
+        console.log('[CREATE_SYSTEM_ROLE] Starting - RoleName:', roleName);
+        
+        const token = getAntiforgeryToken();
+        if (!token) {
+            console.error('[CREATE_SYSTEM_ROLE] Aborted - no token available');
+            showManageRolesMessage('Security token not found. Please refresh the page.', 'danger');
+            return;
+        }
+
+        var formData = new FormData();
+        formData.append('roleName', roleName);
+
+        console.log('[CREATE_SYSTEM_ROLE] POST URL:', '?handler=CreateRole');
+
+        fetch('?handler=CreateRole', {
+            method: 'POST',
+            body: formData,
+            credentials: 'include',
+            headers: {
+                'RequestVerificationToken': token
+            }
+        })
+        .then(response => {
+            console.log('[CREATE_SYSTEM_ROLE] Status:', response.status);
+            if (!response.ok) {
+                return response.text().then(text => {
+                    console.error('[CREATE_SYSTEM_ROLE] Error:', text);
+                    throw new Error(`HTTP ${response.status}: ${text}`);
+                });
+            }
+            return response.text();
+        })
+        .then(message => {
+            console.log('[CREATE_SYSTEM_ROLE] Success:', message);
+            loadAllSystemRoles();
+            document.getElementById('newSystemRoleName').value = '';
+            document.getElementById('systemRoleNameValidation').textContent = '';
+            showManageRolesMessage('Role created successfully.', 'success');
+        })
+        .catch(error => {
+            console.error('[CREATE_SYSTEM_ROLE] Error:', error);
+            showManageRolesMessage('Error creating role: ' + error.message, 'danger');
+        });
+    }
+
+    function deleteSystemRole(roleName) {
+        console.log('[DELETE_SYSTEM_ROLE] Starting - RoleName:', roleName);
+        
+        const token = getAntiforgeryToken();
+        if (!token) {
+            console.error('[DELETE_SYSTEM_ROLE] Aborted - no token available');
+            showManageRolesMessage('Security token not found. Please refresh the page.', 'danger');
+            return;
+        }
+
+        var formData = new FormData();
+        formData.append('roleName', roleName);
+
+        fetch('?handler=DeleteRole', {
+            method: 'POST',
+            body: formData,
+            credentials: 'include',
+            headers: {
+                'RequestVerificationToken': token
+            }
+        })
+        .then(response => {
+            console.log('[DELETE_SYSTEM_ROLE] Status:', response.status);
+            if (!response.ok) {
+                return response.text().then(text => {
+                    console.error('[DELETE_SYSTEM_ROLE] Error:', text);
+                    throw new Error(`HTTP ${response.status}: ${text}`);
+                });
+            }
+            return response.text();
+        })
+        .then(message => {
+            console.log('[DELETE_SYSTEM_ROLE] Success:', message);
+            loadAllSystemRoles();
+            showManageRolesMessage('Role deleted successfully.', 'success');
+        })
+        .catch(error => {
+            console.error('[DELETE_SYSTEM_ROLE] Error:', error);
+            showManageRolesMessage('Error deleting role: ' + error.message, 'danger');
+        });
+    }
+
+    function showRolesMessage(message, type) {
+        console.log('[SHOW_ROLES_MSG]', type.toUpperCase(), ':', message);
+        var messageDiv = document.getElementById('rolesModalMessage');
+        messageDiv.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>`;
+    }
+
+    function showManageRolesMessage(message, type) {
+        console.log('[SHOW_MANAGE_MSG]', type.toUpperCase(), ':', message);
+        var messageDiv = document.getElementById('manageRolesMessage');
+        messageDiv.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>`;
+    }
+
+    console.log('[INIT] All event listeners initialized successfully');
+});
 
     </script>
 }
