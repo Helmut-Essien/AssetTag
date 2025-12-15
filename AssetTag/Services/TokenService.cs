@@ -34,41 +34,41 @@ public class TokenService : ITokenService
 
     public string CreateAccessToken(ApplicationUser user, IList<string> roles)
     {
-        var claims = new List<Claim>(roles.Count + 8)
-        {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id),
-            new Claim(JwtRegisteredClaimNames.UniqueName, user.UserName ?? user.Email),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new Claim(ClaimTypes.NameIdentifier, user.Id),
-
-            // 🔥 CRITICAL FIX: Add email claims
-            new Claim(ClaimTypes.Email, user.Email),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email),
-
-            new Claim("is_active", user.IsActive ? "true" : "false"),
-            new Claim("security_stamp", user.SecurityStamp ?? "")
-        };
-
-        //    // CRITICAL: You MUST include Expiration claim
-        //    var expiration = DateTime.UtcNow.AddMinutes(_accessTokenExpirationMinutes);
-
-        //    var claims = new List<Claim>(roles.Count + 10)
+        //var claims = new List<Claim>(roles.Count + 8)
         //{
         //    new Claim(JwtRegisteredClaimNames.Sub, user.Id),
-        //    new Claim(JwtRegisteredClaimNames.UniqueName, user.UserName ?? user.Email ?? "unknown"),
+        //    new Claim(JwtRegisteredClaimNames.UniqueName, user.UserName ?? user.Email),
         //    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-        //    new Claim(JwtRegisteredClaimNames.Iat,
-        //        new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds().ToString(),
-        //        ClaimValueTypes.Integer64),
-        //    new Claim(JwtRegisteredClaimNames.Exp,
-        //        new DateTimeOffset(expiration).ToUnixTimeSeconds().ToString(),
-        //        ClaimValueTypes.Integer64),
         //    new Claim(ClaimTypes.NameIdentifier, user.Id),
+
+        //    // 🔥 CRITICAL FIX: Add email claims
         //    new Claim(ClaimTypes.Email, user.Email),
         //    new Claim(JwtRegisteredClaimNames.Email, user.Email),
+
         //    new Claim("is_active", user.IsActive ? "true" : "false"),
         //    new Claim("security_stamp", user.SecurityStamp ?? "")
         //};
+
+        // CRITICAL: You MUST include Expiration claim
+        var expiration = DateTime.UtcNow.AddMinutes(_accessTokenExpirationMinutes);
+
+        var claims = new List<Claim>(roles.Count + 10)
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, user.Id),
+            new Claim(JwtRegisteredClaimNames.UniqueName, user.UserName ?? user.Email ?? "unknown"),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new Claim(JwtRegisteredClaimNames.Iat,
+                new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds().ToString(),
+                ClaimValueTypes.Integer64),
+            new Claim(JwtRegisteredClaimNames.Exp,
+                new DateTimeOffset(expiration).ToUnixTimeSeconds().ToString(),
+                ClaimValueTypes.Integer64),
+            new Claim(ClaimTypes.NameIdentifier, user.Id),
+            new Claim(ClaimTypes.Email, user.Email),
+            new Claim(JwtRegisteredClaimNames.Email, user.Email),
+            new Claim("is_active", user.IsActive ? "true" : "false"),
+            new Claim("security_stamp", user.SecurityStamp ?? "")
+        };
 
         // Add roles
         foreach (var role in roles)
