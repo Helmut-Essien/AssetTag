@@ -21,7 +21,7 @@ public class TokenService : ITokenService
     public TokenService(IConfiguration configuration)
     {
         var jwtsettings = configuration.GetSection("JwtSettings");
-        var keyBytes = Encoding.UTF8.GetBytes(jwtsettings["securitykey"]!);
+        var keyBytes = Encoding.UTF8.GetBytes(jwtsettings["SecurityKey"]!);
 
         _key = new SymmetricSecurityKey(keyBytes);
         _creds = new SigningCredentials(_key, SecurityAlgorithms.HmacSha256);
