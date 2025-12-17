@@ -298,7 +298,7 @@ namespace Portal.Pages.Account
             await HttpContext.SignInAsync("PortalCookie", principal, authProperties);
             HttpContext.User = principal;
 
-            _logger.LogDebug("Authentication cookie created for {Email} (RememberMe: {RememberMe})",
+            _logger.LogInformation("Authentication cookie created for {Email} (RememberMe: {RememberMe})",
                 email, rememberMe);
         }
 
