@@ -36,12 +36,17 @@ public sealed class TokenRefreshHandler : DelegatingHandler
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
+
+
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
 
 
     {
+        _logger.LogInformation("Portal Server UTC: {Time}",
+      DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"));
+
         var ctx = _httpContextAccessor.HttpContext;
 
         // If no authenticated user, proceed without token
@@ -93,8 +98,7 @@ public sealed class TokenRefreshHandler : DelegatingHandler
         //}
 
 
-        _logger.LogInformation("Portal Server UTC: {Time}",
-        DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"));
+       
 
         if (string.IsNullOrWhiteSpace(accessToken))
         {
@@ -159,6 +163,8 @@ public sealed class TokenRefreshHandler : DelegatingHandler
             _logger.LogInformation("Retrying request with refreshed token");
             return await base.SendAsync(request, cancellationToken);
         }
+
+       
 
         return response;
     }
