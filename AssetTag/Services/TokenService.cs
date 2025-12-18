@@ -17,8 +17,9 @@ public class TokenService : ITokenService
     private readonly int _accessTokenExpirationMinutes;
     private readonly int _refreshTokenExpirationDays;
     private readonly JwtSecurityTokenHandler _tokenHandler;
+    private readonly ILogger _logger;
 
-    public TokenService(IConfiguration configuration)
+    public TokenService(IConfiguration configuration, ILogger logger)
     {
         var jwtsettings = configuration.GetSection("JwtSettings");
         var keyBytes = Encoding.UTF8.GetBytes(jwtsettings["SecurityKey"]!);
@@ -30,6 +31,7 @@ public class TokenService : ITokenService
         _accessTokenExpirationMinutes = int.Parse(jwtsettings["AccessTokenExpirationMinutes"]!);
         _refreshTokenExpirationDays = int.Parse(jwtsettings["RefreshTokenExpirationDays"]!);
         _tokenHandler = new JwtSecurityTokenHandler();
+        _logger = logger;
     }
 
     public string CreateAccessToken(ApplicationUser user, IList<string> roles)
@@ -48,6 +50,9 @@ public class TokenService : ITokenService
         //    new Claim("is_active", user.IsActive ? "true" : "false"),
         //    new Claim("security_stamp", user.SecurityStamp ?? "")
         //};
+
+        
+
 
         // CRITICAL: You MUST include Expiration claim
         var expiration = DateTime.UtcNow.AddMinutes(_accessTokenExpirationMinutes);
@@ -90,8 +95,14 @@ public class TokenService : ITokenService
         //    expires: expiration,  // This must match the Exp claim above
         //    signingCredentials: _creds
         //);
+        var apiServerTime = DateTime.UtcNow;
+        _logger.LogInformation("API Server UTC: {Time}, Token expires: {Expiry}",
+            apiServerTime.ToString("yyyy-MM-dd HH:mm:ss"),
+            expiration.ToString("yyyy-MM-dd HH:mm:ss"));
 
         return _tokenHandler.WriteToken(token);
+
+
     }
 
     public RefreshTokens CreateRefreshToken(string ipAddress)
