@@ -368,7 +368,7 @@ namespace Portal.Pages.Account
             }
 
             _logger.LogDebug("Redirecting to landing page with default target (Index)");
-            return RedirectToPage("/LoginRedirect", new { returnUrl = "/Index" });
+            return RedirectToPage("/LoginRedirect", new { returnUrl = "/Diagnostics/TokenDiagnostics" });
         }
     }
 }

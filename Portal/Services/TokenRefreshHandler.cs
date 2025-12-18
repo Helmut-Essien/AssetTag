@@ -45,37 +45,61 @@ public sealed class TokenRefreshHandler : DelegatingHandler
         // If no authenticated user, proceed without token
         if (ctx?.User?.Identity?.IsAuthenticated != true)
         {
+            _logger.LogInformation("No authenticated user context, proceeding without token");
             return await base.SendAsync(request, cancellationToken);
         }
 
-        // Get current access token
-        var accessToken = ctx.User.FindFirst("AccessToken")?.Value;
+        var authenticateResult = await ctx.AuthenticateAsync("PortalCookie");
+
+        if (!authenticateResult.Succeeded || authenticateResult.Principal == null)
+        {
+            _logger.LogInformation("Authentication result not successful");
+            return await base.SendAsync(request, cancellationToken);
+        }
+
+        //// Get current access token
+        //var accessToken = ctx.User.FindFirst("AccessToken")?.Value;
+
+        //if (string.IsNullOrWhiteSpace(accessToken))
+        //{
+        //    _logger.LogWarning("No access token found for authenticated user. Signing out.");
+        //    await SignOutAsync(ctx);
+        //    return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+        //}
+        //// Log token ValidTo and server UTC before using it (do NOT log token value)
+        //try
+        //{
+        //    var handler = new JwtSecurityTokenHandler();
+        //    if (handler.CanReadToken(accessToken))
+        //    {
+        //        var jwt = handler.ReadJwtToken(accessToken);
+        //        _logger.LogDebug("Using access token: ValidTo={ValidTo:u}, PortalUtcNow={Now:u}", jwt.ValidTo, DateTime.UtcNow);
+        //    }
+        //    else
+        //    {
+        //        _logger.LogDebug("Access token present but cannot be read by JwtSecurityTokenHandler. PortalUtcNow={Now:u}", DateTime.UtcNow);
+        //    }
+        //}
+        //catch (Exception ex)
+        //{
+        //    _logger.LogDebug(ex, "Failed to decode access token for logging. PortalUtcNow={Now:u}", DateTime.UtcNow);
+        //}
+
+
+        // Get token from the authenticated principal
+        var accessToken = authenticateResult.Principal.FindFirst("AccessToken")?.Value;
 
         if (string.IsNullOrWhiteSpace(accessToken))
         {
-            _logger.LogWarning("No access token found for authenticated user. Signing out.");
-            await SignOutAsync(ctx);
-            return new HttpResponseMessage(HttpStatusCode.Unauthorized);
-        }
-        // Log token ValidTo and server UTC before using it (do NOT log token value)
-        try
-        {
-            var handler = new JwtSecurityTokenHandler();
-            if (handler.CanReadToken(accessToken))
-            {
-                var jwt = handler.ReadJwtToken(accessToken);
-                _logger.LogDebug("Using access token: ValidTo={ValidTo:u}, PortalUtcNow={Now:u}", jwt.ValidTo, DateTime.UtcNow);
-            }
-            else
-            {
-                _logger.LogDebug("Access token present but cannot be read by JwtSecurityTokenHandler. PortalUtcNow={Now:u}", DateTime.UtcNow);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Failed to decode access token for logging. PortalUtcNow={Now:u}", DateTime.UtcNow);
+            _logger.LogInformation("No access token found in authenticated principal for user {User}",
+                ctx.User.Identity?.Name ?? "unknown");
+
+            // Don't sign out immediately - maybe they just logged in
+            // Let the request proceed and fail naturally
+            return await base.SendAsync(request, cancellationToken);
         }
 
+        _logger.LogInformation("Access token found and attached for user {User}", ctx.User.Identity?.Name);
         // Attach bearer token
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
@@ -96,7 +120,7 @@ public sealed class TokenRefreshHandler : DelegatingHandler
 
         if (!refreshed)
         {
-            _logger.LogWarning("Token refresh failed. Signing out user.");
+            _logger.LogInformation("Token refresh failed. Signing out user.");
             await SignOutAsync(ctx);
             return response; // Return original 401 response
         }
@@ -112,16 +136,16 @@ public sealed class TokenRefreshHandler : DelegatingHandler
                 if (handler.CanReadToken(newAccessToken))
                 {
                     var jwt = handler.ReadJwtToken(newAccessToken);
-                    _logger.LogDebug("Retrying with refreshed access token: ValidTo={ValidTo:u}, PortalUtcNow={Now:u}", jwt.ValidTo, DateTime.UtcNow);
+                    _logger.LogInformation("Retrying with refreshed access token: ValidTo={ValidTo:u}, PortalUtcNow={Now:u}", jwt.ValidTo, DateTime.UtcNow);
                 }
                 else
                 {
-                    _logger.LogDebug("Refreshed access token present but cannot be read. PortalUtcNow={Now:u}", DateTime.UtcNow);
+                    _logger.LogInformation("Refreshed access token present but cannot be read. PortalUtcNow={Now:u}", DateTime.UtcNow);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "Failed to decode refreshed access token for logging. PortalUtcNow={Now:u}", DateTime.UtcNow);
+                _logger.LogInformation(ex, "Failed to decode refreshed access token for logging. PortalUtcNow={Now:u}", DateTime.UtcNow);
             }
 
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", newAccessToken);
@@ -150,7 +174,7 @@ public sealed class TokenRefreshHandler : DelegatingHandler
 
         if (!lockAcquired)
         {
-            _logger.LogWarning("Could not acquire refresh lock for user {UserId} within timeout", userId);
+            _logger.LogInformation("Could not acquire refresh lock for user {UserId} within timeout", userId);
             return false;
         }
 
@@ -160,7 +184,7 @@ public sealed class TokenRefreshHandler : DelegatingHandler
             var latestAccessToken = ctx.User.FindFirst("AccessToken")?.Value;
             if (!string.IsNullOrWhiteSpace(latestAccessToken) && latestAccessToken != currentAccessToken)
             {
-                _logger.LogDebug("Token already refreshed by another request for user {UserId}", userId);
+                _logger.LogInformation("Token already refreshed by another request for user {UserId}", userId);
                 return true; // Token was already refreshed
             }
 
@@ -168,7 +192,7 @@ public sealed class TokenRefreshHandler : DelegatingHandler
             var refreshToken = ctx.User.FindFirst("RefreshToken")?.Value;
             if (string.IsNullOrWhiteSpace(refreshToken))
             {
-                _logger.LogWarning("No refresh token found for user {UserId}", userId);
+                _logger.LogInformation("No refresh token found for user {UserId}", userId);
                 return false;
             }
 
@@ -183,7 +207,7 @@ public sealed class TokenRefreshHandler : DelegatingHandler
 
             if (!refreshResponse.IsSuccessStatusCode)
             {
-                _logger.LogWarning("Refresh token request failed with status {Status} for user {UserId}",
+                _logger.LogInformation("Refresh token request failed with status {Status} for user {UserId}",
                     refreshResponse.StatusCode, userId);
                 return false;
             }
@@ -193,7 +217,7 @@ public sealed class TokenRefreshHandler : DelegatingHandler
 
             if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.AccessToken))
             {
-                _logger.LogWarning("Refresh token response was null or invalid for user {UserId}", userId);
+                _logger.LogInformation("Refresh token response was null or invalid for user {UserId}", userId);
                 return false;
             }
 
@@ -204,12 +228,12 @@ public sealed class TokenRefreshHandler : DelegatingHandler
                 if (handler.CanReadToken(tokenResponse.AccessToken))
                 {
                     var jwt = handler.ReadJwtToken(tokenResponse.AccessToken);
-                    _logger.LogDebug("Received refreshed token from AuthApi: ValidTo={ValidTo:u}, PortalUtcNow={Now:u}", jwt.ValidTo, DateTime.UtcNow);
+                    _logger.LogInformation("Received refreshed token from AuthApi: ValidTo={ValidTo:u}, PortalUtcNow={Now:u}", jwt.ValidTo, DateTime.UtcNow);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "Failed to decode refreshed token for logging");
+                _logger.LogInformation(ex, "Failed to decode refreshed token for logging");
             }
 
             // Update cookie with new tokens
@@ -220,7 +244,7 @@ public sealed class TokenRefreshHandler : DelegatingHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during token refresh for user {UserId}", userId);
+            _logger.LogInformation(ex, "Error during token refresh for user {UserId}", userId);
             return false;
         }
         finally
@@ -236,7 +260,7 @@ public sealed class TokenRefreshHandler : DelegatingHandler
 
         if (!authenticateResult.Succeeded || authenticateResult.Principal == null)
         {
-            _logger.LogWarning("Failed to retrieve current authentication ticket");
+            _logger.LogInformation("Failed to retrieve current authentication ticket");
             return;
         }
 
@@ -244,7 +268,7 @@ public sealed class TokenRefreshHandler : DelegatingHandler
         var identity = authenticateResult.Principal.Identity as ClaimsIdentity;
         if (identity == null)
         {
-            _logger.LogWarning("Identity is not a ClaimsIdentity");
+            _logger.LogInformation("Identity is not a ClaimsIdentity");
             return;
         }
 
@@ -269,7 +293,7 @@ public sealed class TokenRefreshHandler : DelegatingHandler
             properties);
         ctx.User = new ClaimsPrincipal(identity);
 
-        _logger.LogDebug("Authentication cookie updated with new tokens");
+        _logger.LogInformation("Authentication cookie updated with new tokens");
     }
 
     private async Task SignOutAsync(HttpContext ctx)
@@ -281,7 +305,7 @@ public sealed class TokenRefreshHandler : DelegatingHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error signing out user");
+            _logger.LogInformation(ex, "Error signing out user");
         }
     }
 }
