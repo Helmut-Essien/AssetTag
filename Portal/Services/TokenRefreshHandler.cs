@@ -39,6 +39,8 @@ public sealed class TokenRefreshHandler : DelegatingHandler
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
+
+
     {
         var ctx = _httpContextAccessor.HttpContext;
 
@@ -49,12 +51,17 @@ public sealed class TokenRefreshHandler : DelegatingHandler
             return await base.SendAsync(request, cancellationToken);
         }
 
-        var authenticateResult = await ctx.AuthenticateAsync("PortalCookie");
+        // FIRST: Try to get token from HttpContext.User (most current)
+        var accessToken = ctx.User.FindFirst("AccessToken")?.Value;
 
-        if (!authenticateResult.Succeeded || authenticateResult.Principal == null)
+        // SECOND: If not found in User, try to authenticate from cookie
+        if (string.IsNullOrWhiteSpace(accessToken))
         {
-            _logger.LogInformation("Authentication result not successful");
-            return await base.SendAsync(request, cancellationToken);
+            var authenticateResult = await ctx.AuthenticateAsync("PortalCookie");
+            if (authenticateResult.Succeeded && authenticateResult.Principal != null)
+            {
+                accessToken = authenticateResult.Principal.FindFirst("AccessToken")?.Value;
+            }
         }
 
         //// Get current access token
@@ -86,8 +93,8 @@ public sealed class TokenRefreshHandler : DelegatingHandler
         //}
 
 
-        // Get token from the authenticated principal
-        var accessToken = authenticateResult.Principal.FindFirst("AccessToken")?.Value;
+        _logger.LogInformation("Portal Server UTC: {Time}",
+        DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"));
 
         if (string.IsNullOrWhiteSpace(accessToken))
         {
