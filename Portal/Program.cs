@@ -15,7 +15,7 @@ builder.Services.AddScoped<UnauthorizedRedirectHandler>();
 // IMPORTANT: Separate HttpClient for auth operations (no handlers to avoid circular dependencies)
 builder.Services.AddHttpClient("AuthApi", client =>
 {
-    client.BaseAddress = new Uri(builder.Configuration["Api:BaseUrl"] ?? "http://mugassetapi.runasp.net/");
+    client.BaseAddress = new Uri(builder.Configuration["Api:BaseUrl"] ?? "https://mugassetapi.runasp.net/");
     client.DefaultRequestHeaders.Accept.Clear();
     client.DefaultRequestHeaders.Accept.Add(
         new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
@@ -26,7 +26,7 @@ builder.Services.AddHttpClient("AuthApi", client =>
 // CRITICAL: TokenRefreshHandler MUST come BEFORE UnauthorizedRedirectHandler
 builder.Services.AddHttpClient("AssetTagApi", client =>
 {
-    client.BaseAddress = new Uri(builder.Configuration["Api:BaseUrl"] ?? "http://mugassetapi.runasp.net/");
+    client.BaseAddress = new Uri(builder.Configuration["Api:BaseUrl"] ?? "https://mugassetapi.runasp.net/");
     client.DefaultRequestHeaders.Accept.Clear();
     client.DefaultRequestHeaders.Accept.Add(
         new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
@@ -61,20 +61,20 @@ builder.Services.AddAuthentication("PortalCookie")
         options.Cookie.SameSite = SameSiteMode.None; // Allow cookies to be sent on redirects
         options.LoginPath = "/Account/Login";
         options.LogoutPath = "/Account/Logout";
-        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
         options.SlidingExpiration = true; // Refresh cookie expiration on each request
         options.Cookie.IsEssential = true;
     });
 
 // Configure anti - forgery for production
-builder.Services.AddAntiforgery(options =>
-{
-    options.HeaderName = "RequestVerificationToken";
-    options.Cookie.Name = "AntiForgeryToken";
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    options.Cookie.SameSite = SameSiteMode.None;
-    options.SuppressXFrameOptionsHeader = false;
-});
+//builder.Services.AddAntiforgery(options =>
+//{
+//    options.HeaderName = "RequestVerificationToken";
+//    options.Cookie.Name = "AntiForgeryToken";
+//    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+//    options.Cookie.SameSite = SameSiteMode.None;
+//    options.SuppressXFrameOptionsHeader = false;
+//});
 
 builder.Services.AddRazorPages(options =>
 {

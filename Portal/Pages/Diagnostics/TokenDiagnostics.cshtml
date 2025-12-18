@@ -1,0 +1,324 @@
+﻿@page
+@model Portal.Pages.Diagnostics.TokenDiagnosticsModel
+@{
+    ViewData["Title"] = "JWT Token Diagnostics";
+}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="display-6 mb-4">JWT Token Diagnostics</h1>
+
+            @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+            {
+                <div class="alert alert-danger">
+                    <h5>❌ Error</h5>
+                    <p class="mb-0">@Model.ErrorMessage</p>
+                </div>
+            }
+
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Diagnostics Information</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-3">Check Time (UTC)</dt>
+                        <dd class="col-sm-9">@Model.CheckTime.ToString("yyyy-MM-dd HH:mm:ss")</dd>
+
+                        <dt class="col-sm-3">Authentication Status</dt>
+                        <dd class="col-sm-9">
+                            @if (Model.IsAuthenticated)
+                            {
+                                <span class="badge bg-success">Authenticated</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger">Not Authenticated</span>
+                            }
+                        </dd>
+
+                        <dt class="col-sm-3">API Endpoint</dt>
+                        <dd class="col-sm-9">
+                            <code>@Model.ValidationEndpoint</code>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            @if (Model.IsAuthenticated)
+            {
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">Token Preview</h5>
+                            </div>
+                            <div class="card-body">
+                                @if (!string.IsNullOrEmpty(Model.TruncatedToken))
+                                {
+                                    <div class="mb-3">
+                                        <label class="form-label">Token (truncated):</label>
+                                        <div class="input-group">
+                                            <input type="text"
+                                                   class="form-control font-monospace"
+                                                   value="@Model.TruncatedToken"
+                                                   readonly>
+                                            <button class="btn btn-outline-secondary"
+                                                    type="button"
+                                                    onclick="copyToClipboard('@Model.RawToken')">
+                                                Copy
+                                            </button>
+                                        </div>
+                                        <small class="text-muted">Full token length: @(Model.RawToken?.Length ?? 0) characters</small>
+                                    </div>
+
+                                    <form method="post" class="mt-3">
+                                        <div class="mb-3">
+                                            <label for="customToken" class="form-label">Validate Custom Token:</label>
+                                            <textarea class="form-control font-monospace"
+                                              id="customToken"
+                                              name="customToken"
+                                              rows="3"
+                                              placeholder="Paste a JWT token to validate..."></textarea>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button type="submit" class="btn btn-primary">Validate Token</button>
+                                            <a href="@Url.Page("./TokenDiagnostics")" class="btn btn-outline-secondary">Refresh</a>
+                                        </div>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <div class="alert alert-warning">
+                                        No token available. Please log in.
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">Validation Results</h5>
+                            </div>
+                            <div class="card-body">
+                                @if (Model.ValidationResult != null)
+                                {
+                                    if (Model.ValidationResult.IsValid)
+                                    {
+                                        <div class="alert alert-success">
+                                            <h5>✅ Token is VALID</h5>
+                                            <p class="mb-0">@Model.ValidationResult.Message</p>
+                                        </div>
+
+                                        <dl class="row mb-0">
+                                            <dt class="col-sm-4">User ID</dt>
+                                            <dd class="col-sm-8"><code>@Model.ValidationResult.UserId</code></dd>
+
+                                            <dt class="col-sm-4">Username</dt>
+                                            <dd class="col-sm-8">@Model.ValidationResult.UserName</dd>
+
+                                            <dt class="col-sm-4">Email</dt>
+                                            <dd class="col-sm-8">@Model.ValidationResult.Email</dd>
+
+                                            <dt class="col-sm-4">Roles</dt>
+                                            <dd class="col-sm-8">
+                                                @if (Model.ValidationResult.Roles?.Any() == true)
+                                                {
+                                                    @foreach (var role in Model.ValidationResult.Roles)
+                                                    {
+                                                        <span class="badge bg-primary me-1">@role</span>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">No roles</span>
+                                                }
+                                            </dd>
+
+                                            <dt class="col-sm-4">Issued At</dt>
+                                            <dd class="col-sm-8">
+                                                @if (Model.ValidationResult.IssuedAt.HasValue)
+                                                {
+                                                    @Model.ValidationResult.IssuedAt.Value.ToString("yyyy-MM-dd HH:mm:ss UTC")
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">Unknown</span>
+                                                }
+                                            </dd>
+
+                                            <dt class="col-sm-4">Expires At</dt>
+                                            <dd class="col-sm-8">
+                                                @if (Model.ValidationResult.ExpiresAt.HasValue)
+                                                {
+                                                    @Model.ValidationResult.ExpiresAt.Value.ToString("yyyy-MM-dd HH:mm:ss UTC")
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">Unknown</span>
+                                                }
+                                            </dd>
+
+                                            <dt class="col-sm-4">Time to Expiry</dt>
+                                            <dd class="col-sm-8">
+                                                @if (Model.TimeToExpiry.HasValue)
+                                                {
+                                                    var timeToExpiry = Model.TimeToExpiry.Value;
+                                                    if (timeToExpiry.TotalMinutes < 5)
+                                                    {
+                                                        <span class="text-danger">
+                                                            ⚠️ @timeToExpiry.ToString(@"hh\:mm\:ss") (Expiring soon)
+                                                        </span>
+                                                    }
+                                                    else if (timeToExpiry.TotalHours < 1)
+                                                    {
+                                                        <span class="text-warning">
+                                                            @timeToExpiry.ToString(@"hh\:mm\:ss") (Less than 1 hour)
+                                                        </span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-success">
+                                                            @timeToExpiry.ToString(@"hh\:mm\:ss")
+                                                        </span>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">Unknown</span>
+                                                }
+                                            </dd>
+                                        </dl>
+                                    }
+                                    else
+                                    {
+                                        <div class="alert alert-danger">
+                                            <h5>❌ Token is INVALID</h5>
+                                            <p><strong>@Model.ValidationResult.Message</strong></p>
+                                            @if (!string.IsNullOrEmpty(Model.ValidationResult.DetailedMessage))
+                                            {
+                                                <p class="mb-0"><small>Details: @Model.ValidationResult.DetailedMessage</small></p>
+                                            }
+                                        </div>
+
+                                        <div class="alert alert-info">
+                                            <h6>Common Issues:</h6>
+                                            <ul class="mb-0">
+                                                <li>Token has expired</li>
+                                                <li>Invalid token signature</li>
+                                                <li>Token format incorrect</li>
+                                                <li>Server time mismatch</li>
+                                                <li>Token revoked or blacklisted</li>
+                                            </ul>
+                                        </div>
+                                    }
+                                }
+                                else
+                                {
+                                    <div class="alert alert-info">
+                                        <p class="mb-0">Validation not performed yet. Click "Validate Token" to check.</p>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                @if (Model.TokenClaims?.Any() == true)
+                {
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Token Claims (@Model.TokenClaims.Count)</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th width="30%">Claim Type</th>
+                                            <th width="40%">Value</th>
+                                            <th width="30%">Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var claim in Model.TokenClaims)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <code>@claim.Type</code>
+                                                    @if (claim.Type.StartsWith("http://schemas.microsoft.com/"))
+                                                    {
+                                                        <br />
+                                                        <small class="text-muted">
+                                                            @claim.Type.Split('/').Last()
+                                                        </small>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <span class="font-monospace">@claim.Value</span>
+                                                </td>
+                                                <td>
+                                                    <small>@claim.Description</small>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(function() {
+                // Show success message
+                alert('Token copied to clipboard!');
+            }, function(err) {
+                console.error('Could not copy text: ', err);
+                alert('Failed to copy token. Please copy manually.');
+            });
+        }
+
+        // Auto-refresh page every 30 seconds to check token expiry
+        setTimeout(function() {
+            window.location.reload();
+        }, 30000);
+    </script>
+
+    <style>
+        .font-monospace {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .badge {
+            font-size: 0.85em;
+            padding: 0.35em 0.65em;
+        }
+
+        code {
+            background-color: #f8f9fa;
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
+            font-size: 0.875em;
+        }
+
+        .table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+
+        .alert h5 {
+            margin-bottom: 0.5rem;
+        }
+    </style>
+}
