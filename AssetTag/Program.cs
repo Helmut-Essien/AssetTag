@@ -106,6 +106,44 @@ builder.Services.AddAuthentication(options =>
                 return Task.CompletedTask;
             },
 
+            OnChallenge = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+
+                // Log that a 401 is being issued
+                logger.LogWarning("JWT challenge triggered (401 issued) for request {Method} {Path}",
+                    context.Request.Method,
+                    context.Request.Path);
+
+                // Check if there was an authentication failure (token present but invalid)
+                if (context.AuthenticateFailure != null)
+                {
+                    logger.LogWarning("Authentication failed with exception: {Type} - {Message}",
+                        context.AuthenticateFailure.GetType().Name,
+                        context.AuthenticateFailure.Message);
+
+                    if (context.AuthenticateFailure is SecurityTokenExpiredException)
+                    {
+                        logger.LogWarning("Reason: Token has expired.");
+                    }
+                    else if (context.AuthenticateFailure.Message.Contains("not yet valid"))
+                    {
+                        logger.LogWarning("Reason: Token is not yet valid (possible clock skew).");
+                    }
+                    else if (context.AuthenticateFailure is SecurityTokenInvalidSignatureException)
+                    {
+                        logger.LogWarning("Reason: Invalid token signature.");
+                    }
+                }
+                else
+                {
+                    // No AuthenticateFailure means: no token, malformed header, or scheme mismatch
+                    logger.LogWarning("No token provided or Authorization header is missing/malformed.");
+                }
+
+                return Task.CompletedTask;
+            },
+
             OnTokenValidated = context =>
             {
                 var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
