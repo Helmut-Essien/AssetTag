@@ -12,6 +12,10 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.SetMinimumLevel(LogLevel.Trace);   // or LogLevel.Debug
+
 // Add services to the container.
 
 builder.Services.AddControllers();
