@@ -73,6 +73,48 @@ builder.Services.AddAuthentication(options =>
             IssuerSigningKey = new SymmetricSecurityKey(key),
             ClockSkew = TimeSpan.FromMinutes(5)
         };
+        // === ADD THIS ENTIRE BLOCK ===
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogInformation(context.Exception,
+                    "JWT authentication failed for request {Method} {Path}. Reason: {Message}",
+                    context.Request.Method,
+                    context.Request.Path,
+                    context.Exception.Message);
+
+                // Optional: add more details if needed
+                if (context.Exception is SecurityTokenExpiredException)
+                {
+                    logger.LogInformation("Token has expired.");
+                }
+                else if (context.Exception.Message.Contains("not yet valid"))
+                {
+                    logger.LogInformation("Token is not yet valid (clock skew suspected).");
+                }
+
+                return Task.CompletedTask;
+            },
+
+            OnTokenValidated = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                // Get the email claim (standard claim type: "email")
+                var email = context.Principal?.FindFirst("email")?.Value
+                            ?? context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+                            ?? "unknown";
+
+                // Optional: also get UserId if you still want it
+                var userId = context.Principal?.FindFirst("sub")?.Value ?? "unknown";
+
+                logger.LogInformation("JWT token successfully validated for user {Email}",
+                    email);
+                return Task.CompletedTask;
+            }
+        };
+        // === END OF ADDITION ===
     });
 
 // Add custom user validator to check IsActive status
