@@ -56,17 +56,27 @@ public sealed class TokenRefreshHandler : DelegatingHandler
             return await base.SendAsync(request, cancellationToken);
         }
 
-        // FIRST: Try to get token from HttpContext.User (most current)
-        var accessToken = ctx.User.FindFirst("AccessToken")?.Value;
+        //// FIRST: Try to get token from HttpContext.User (most current)
+        //var accessToken = ctx.User.FindFirst("AccessToken")?.Value;
 
-        // SECOND: If not found in User, try to authenticate from cookie
-        if (string.IsNullOrWhiteSpace(accessToken))
+
+        //// SECOND: If not found in User, try to authenticate from cookie
+        //if (string.IsNullOrWhiteSpace(accessToken))
+        //{
+        //    var authenticateResult = await ctx.AuthenticateAsync("PortalCookie");
+        //    if (authenticateResult.Succeeded && authenticateResult.Principal != null)
+        //    {
+        //        accessToken = authenticateResult.Principal.FindFirst("AccessToken")?.Value;
+        //    }
+        //}
+
+        // CRITICAL: Always authenticate from cookie to get latest claims
+        var authenticateResult = await ctx.AuthenticateAsync(CookieScheme);
+        string? accessToken = null;
+
+        if (authenticateResult.Succeeded && authenticateResult.Principal != null)
         {
-            var authenticateResult = await ctx.AuthenticateAsync("PortalCookie");
-            if (authenticateResult.Succeeded && authenticateResult.Principal != null)
-            {
-                accessToken = authenticateResult.Principal.FindFirst("AccessToken")?.Value;
-            }
+            accessToken = authenticateResult.Principal.FindFirst("AccessToken")?.Value;
         }
 
         //// Get current access token
@@ -98,7 +108,7 @@ public sealed class TokenRefreshHandler : DelegatingHandler
         //}
 
 
-       
+
 
         if (string.IsNullOrWhiteSpace(accessToken))
         {
