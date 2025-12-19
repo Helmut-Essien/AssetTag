@@ -79,20 +79,24 @@ builder.Services.AddAuthentication(options =>
             OnAuthenticationFailed = context =>
             {
                 var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogInformation(context.Exception,
+
+                logger.LogWarning(context.Exception,
                     "JWT authentication failed for request {Method} {Path}. Reason: {Message}",
                     context.Request.Method,
                     context.Request.Path,
                     context.Exception.Message);
 
-                // Optional: add more details if needed
                 if (context.Exception is SecurityTokenExpiredException)
                 {
-                    logger.LogInformation("Token has expired.");
+                    logger.LogWarning("Token has expired.");
                 }
                 else if (context.Exception.Message.Contains("not yet valid"))
                 {
-                    logger.LogInformation("Token is not yet valid (clock skew suspected).");
+                    logger.LogWarning("Token is not yet valid (clock skew suspected).");
+                }
+                else if (context.Exception is SecurityTokenInvalidSignatureException)
+                {
+                    logger.LogWarning("Invalid token signature.");
                 }
 
                 return Task.CompletedTask;
