@@ -77,6 +77,8 @@ public sealed class TokenRefreshHandler : DelegatingHandler
         if (authenticateResult.Succeeded && authenticateResult.Principal != null)
         {
             accessToken = authenticateResult.Principal.FindFirst("AccessToken")?.Value;
+
+            ctx.User = authenticateResult.Principal;
         }
 
         //// Get current access token
