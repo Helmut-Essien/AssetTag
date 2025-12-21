@@ -124,7 +124,17 @@ public sealed class TokenRefreshHandler : DelegatingHandler
 
         _logger.LogInformation("Access token found and attached for user {User}", ctx.User.Identity?.Name);
         // Attach bearer token
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        //request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        // **CHANGE HERE: Use custom header instead of Authorization**
+        request.Headers.Remove("X-Auth-Token"); // Remove if exists
+        request.Headers.Add("X-Auth-Token", $"Bearer {accessToken}");
+        _logger.LogInformation("X-Auth-Token header added to request");
+
+        // Send BOTH headers
+        //request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        //request.Headers.Add("X-Auth-Token", $"Bearer {accessToken}");
+        //_logger.LogInformation("Both Authorization and X-Auth-Token headers added");
 
         // Make the request
         var response = await base.SendAsync(request, cancellationToken);

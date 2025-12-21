@@ -503,6 +503,31 @@ catch (Exception ex)
 
 app.UseHttpsRedirection();
 
+// Add this BEFORE app.UseAuthentication()
+app.Use(async (context, next) =>
+{
+    // Check for custom header and map it to Authorization header
+    if (context.Request.Headers.TryGetValue("X-Auth-Token", out var customToken))
+    {
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+
+        logger.LogInformation("Custom X-Auth-Token header found, mapping to Authorization header");
+
+        // Only add if Authorization header is missing
+        if (!context.Request.Headers.ContainsKey("Authorization"))
+        {
+            context.Request.Headers["Authorization"] = customToken.ToString();
+            logger.LogInformation("Authorization header added from X-Auth-Token");
+        }
+        else
+        {
+            logger.LogWarning("Both X-Auth-Token and Authorization headers present");
+        }
+    }
+
+    await next();
+});
+
 app.UseAuthentication();
 
 app.UseAuthorization();
