@@ -796,37 +796,3 @@ namespace Portal.Pages
     }
 }
 
-    // DTO classes (these should match the API response)
-//    public class DashboardDataDTO
-//    {
-//        public int TotalAssets { get; set; }
-//        public int AvailableAssets { get; set; }
-//        public int InUseAssets { get; set; }
-//        public int UnderMaintenanceAssets { get; set; }
-//        public int RetiredAssets { get; set; }
-//        public int LostAssets { get; set; }
-//        public decimal TotalAssetValue { get; set; }
-//        public decimal MonthlyDepreciation { get; set; }
-//        public int RecentActivities { get; set; }
-//        public int AssetsDueForMaintenance { get; set; }
-//        public int WarrantyExpiringSoon { get; set; }
-//        public List<AssetStatusChartData> StatusChartData { get; set; } = new();
-//        public List<AssetConditionChartData> ConditionChartData { get; set; } = new();
-//        public List<MonthlyValueData> MonthlyValueData { get; set; } = new();
-//        public List<AssetHistoryReadDTO> RecentAssetHistories { get; set; } = new();
-//        public int TotalCategories { get; set; }
-//        public int TotalLocations { get; set; }
-//        public int TotalDepartments { get; set; }
-//        public int TotalUsers { get; set; }
-//        public double DataLoadTimeMs { get; set; }
-//        public DateTime Timestamp { get; set; }
-//    }
-
-//    public class QuickStatsDTO
-//    {
-//        public int TotalAssets { get; set; }
-//        public int AvailableAssets { get; set; }
-//        public decimal TotalValue { get; set; }
-//        public DateTime LastUpdated { get; set; }
-//    }
-//}
