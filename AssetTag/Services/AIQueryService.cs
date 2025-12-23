@@ -72,7 +72,7 @@ QUESTION: {question}
 
 Generate a safe SQL SELECT query:";
 
-            var model = _configuration["Groq:Model"] ?? "mixtral-8x7b-32768";
+            var model = _configuration["Groq:Model"] ?? "llama-3.3-70b-versatile";
 
             var requestData = new
             {
