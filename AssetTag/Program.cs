@@ -457,7 +457,16 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+// Or use named client approach:
+builder.Services.AddHttpClient("GroqClient", client =>
+{
+    client.BaseAddress = new Uri("https://api.groq.com/openai/v1/");
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
+// Register AI Service
+builder.Services.AddScoped<IAIQueryService, AIQueryService>();
 
 
 

@@ -7,6 +7,16 @@ using Portal.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(60);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.Cookie.Name = "Portal.Session";
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+});
+
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IUserRoleService, UserRoleService>();
 builder.Services.AddScoped<IApiAuthService, ApiAuthService>();
@@ -34,7 +44,9 @@ builder.Services.AddHttpClient("AssetTagApi", client =>
     client.Timeout = TimeSpan.FromSeconds(30);
 })
     .AddHttpMessageHandler<TokenRefreshHandler>();        // First: Handle token refresh
-                                                          //.AddHttpMessageHandler<UnauthorizedRedirectHandler>(); // Then: Handle redirect if still unauthorized
+
+// ADD THIS: Create Reports Service
+builder.Services.AddScoped<IReportsService, ReportsService>();                                                       //.AddHttpMessageHandler<UnauthorizedRedirectHandler>(); // Then: Handle redirect if still unauthorized
 
 if (builder.Environment.IsProduction())
 {
@@ -94,6 +106,9 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+
+// ADD THIS LINE: Use session middleware (must come before UseRouting)
+app.UseSession();
 
 app.UseRouting();
 app.UseForwardedHeaders(new ForwardedHeadersOptions
