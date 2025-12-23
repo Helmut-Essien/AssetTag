@@ -65,6 +65,7 @@ jobs:
           JWT: ${{ secrets.JWT_SECURITY_KEY }}
           EMAIL_USER: ${{ secrets.EMAIL_USERNAME }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASSWORD }}
+          APIKey: ${{ secrets.API_KEY }}
         run: |
           dotnet publish AssetTag/AssetTag.csproj \
             --configuration Release \
@@ -86,6 +87,9 @@ jobs:
             "EmailSettings": {
               "Username": "$EMAIL_USER",
               "Password": "$EMAIL_PASS"
+            },
+            "Groq": {
+            "ApiKey": "$APIKey"
             },
             "Logging": {
               "LogLevel": {
