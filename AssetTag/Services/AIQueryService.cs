@@ -3,7 +3,7 @@ using AssetTag.Models;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using System.Data;
-using System.Xml;
+using System.Text.RegularExpressions;
 
 namespace AssetTag.Services;
 
@@ -22,6 +22,12 @@ public class AIQueryService : IAIQueryService
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
 
+    // Allowed tables - whitelist approach
+    private static readonly HashSet<string> AllowedTables = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Assets", "Categories", "Departments", "Locations", "AssetHistories", "AspNetUsers"
+    };
+
     public AIQueryService(
         ApplicationDbContext context,
         ILogger<AIQueryService> logger,
@@ -33,7 +39,6 @@ public class AIQueryService : IAIQueryService
         _httpClient = httpClient;
         _configuration = configuration;
 
-        // Configure HttpClient for Groq API
         var apiKey = _configuration["Groq:ApiKey"];
         if (!string.IsNullOrEmpty(apiKey))
         {
@@ -48,10 +53,7 @@ public class AIQueryService : IAIQueryService
         {
             _logger.LogInformation($"Generating SQL for question: {question}");
 
-            // Get database schema for context
             var schema = await GetDatabaseSchema();
-
-            // Prepare prompt for LLM
             var prompt = $@"You are an expert SQL assistant for an Asset Management System. 
 Generate a safe, read-only SQL SELECT query based on the natural language question.
 
@@ -60,13 +62,15 @@ DATABASE SCHEMA:
 
 IMPORTANT RULES:
 1. Generate ONLY SELECT queries - never DELETE, UPDATE, INSERT, DROP, TRUNCATE, ALTER, CREATE, GRANT, REVOKE, EXEC, or any dangerous operations
-2. Use proper JOINs to connect related tables
+2. Use proper JOINs (INNER JOIN, LEFT JOIN, RIGHT JOIN) to connect related tables
 3. Include WHERE clauses when filtering is needed
 4. Use meaningful column aliases
 5. Format the SQL cleanly with proper indentation
-6. Always limit results to reasonable amounts (use TOP, LIMIT, or FETCH FIRST)
+6. Always limit results to reasonable amounts (use TOP N, LIMIT N, or FETCH FIRST N ROWS ONLY)
 7. Only query from these tables: Assets, Categories, Departments, Locations, AssetHistories, AspNetUsers
 8. For date filtering, use GETDATE() or CURRENT_TIMESTAMP
+9. Use standard SQL functions like COUNT, SUM, AVG, MAX, MIN, GROUP BY, ORDER BY
+10. You can use CTEs (WITH clause) for complex queries
 
 QUESTION: {question}
 
@@ -107,23 +111,14 @@ Generate a safe SQL SELECT query:";
             var sql = result.choices[0].message.content.ToString();
 
             // Clean up the SQL
-            sql = sql.Trim()
-                     .Replace("```sql", "")
-                     .Replace("```", "")
-                     .Trim();
+            sql = CleanSqlResponse(sql);
 
-            // Remove any explanatory text before or after SQL
-            var sqlStart = sql.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase);
-            if (sqlStart > 0)
+            // Validate SQL safety with detailed feedback
+            var validationResult = ValidateSqlSafety(sql);
+            if (!validationResult.Item1)
             {
-                sql = sql.Substring(sqlStart);
-            }
-
-            // Validate SQL safety
-            if (!IsSqlSafe(sql))
-            {
-                _logger.LogWarning($"Generated SQL failed safety check: {sql}");
-                throw new InvalidOperationException("Generated SQL contains potentially dangerous operations");
+                _logger.LogWarning($"Generated SQL failed safety check: {validationResult.Item2}. SQL: {sql}");
+                throw new InvalidOperationException($"Generated SQL contains potentially dangerous operations: {validationResult.Item2}");
             }
 
             _logger.LogInformation($"Successfully generated SQL: {sql.Substring(0, Math.Min(100, sql.Length))}...");
@@ -141,9 +136,10 @@ Generate a safe SQL SELECT query:";
         try
         {
             // Double-check SQL safety
-            if (!IsSqlSafe(sqlQuery))
+            var validationResult = ValidateSqlSafety(sqlQuery);
+            if (!validationResult.Item1)
             {
-                throw new InvalidOperationException("SQL query contains dangerous operations");
+                throw new InvalidOperationException($"SQL query contains dangerous operations: {validationResult.Item2}");
             }
 
             _logger.LogInformation($"Executing safe SQL query: {sqlQuery.Substring(0, Math.Min(100, sqlQuery.Length))}...");
@@ -239,19 +235,262 @@ Generate a safe SQL SELECT query:";
         }
     }
 
+    private string CleanSqlResponse(string sql)
+    {
+        // Remove code fences and explanatory text
+        sql = sql.Trim()
+                 .Replace("```sql", "")
+                 .Replace("```", "")
+                 .Trim();
+
+        // Remove common preamble patterns
+        var preamblePatterns = new[]
+        {
+            @"(?i)^.*?(?:SQL\s+)?query:\s*",
+            @"(?i)^.*?here\s+is\s+the\s+(?:SQL\s+)?query:\s*",
+            @"(?i)^.*?here's\s+the\s+(?:SQL\s+)?query:\s*",
+            @"(?i)^.*?the\s+(?:SQL\s+)?query\s+is:\s*"
+        };
+
+        foreach (var pattern in preamblePatterns)
+        {
+            sql = Regex.Replace(sql, pattern, "", RegexOptions.Multiline);
+        }
+
+        // Remove any explanatory text before SQL
+        var sqlStart = sql.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase);
+        if (sqlStart == -1)
+        {
+            sqlStart = sql.IndexOf("WITH", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (sqlStart > 0)
+        {
+            sql = sql.Substring(sqlStart);
+        }
+
+        // Split by lines and process
+        var lines = sql.Split('\n');
+        var cleanedLines = new List<string>();
+        bool foundExplanation = false;
+
+        foreach (var line in lines)
+        {
+            var trimmedLine = line.Trim();
+
+            // Stop collecting lines if we hit explanatory text after a semicolon
+            if (trimmedLine.StartsWith("-") || // Bullet points
+                trimmedLine.StartsWith("*") || // Markdown bullets
+                trimmedLine.StartsWith("This query", StringComparison.OrdinalIgnoreCase) ||
+                trimmedLine.StartsWith("This will", StringComparison.OrdinalIgnoreCase) ||
+                trimmedLine.StartsWith("This SQL", StringComparison.OrdinalIgnoreCase) ||
+                trimmedLine.StartsWith("Explanation:", StringComparison.OrdinalIgnoreCase) ||
+                trimmedLine.StartsWith("Note:", StringComparison.OrdinalIgnoreCase) ||
+                trimmedLine.StartsWith("The query", StringComparison.OrdinalIgnoreCase) ||
+                trimmedLine.StartsWith("It ", StringComparison.OrdinalIgnoreCase) ||
+                (cleanedLines.Count > 0 && trimmedLine.StartsWith("Selects ", StringComparison.OrdinalIgnoreCase)) ||
+                (cleanedLines.Count > 0 && trimmedLine.StartsWith("Joins ", StringComparison.OrdinalIgnoreCase)) ||
+                (cleanedLines.Count > 0 && trimmedLine.StartsWith("Filters ", StringComparison.OrdinalIgnoreCase)) ||
+                (cleanedLines.Count > 0 && trimmedLine.StartsWith("Orders ", StringComparison.OrdinalIgnoreCase)) ||
+                (cleanedLines.Count > 0 && trimmedLine.StartsWith("Groups ", StringComparison.OrdinalIgnoreCase)))
+            {
+                foundExplanation = true;
+                break;
+            }
+
+            // If we already found the explanation, don't add more lines
+            if (foundExplanation)
+            {
+                break;
+            }
+
+            cleanedLines.Add(line);
+        }
+
+        sql = string.Join("\n", cleanedLines).Trim();
+
+        // Remove trailing semicolons (they can cause the multi-statement check to fail)
+        sql = sql.TrimEnd(';', ' ', '\t', '\r', '\n').Trim();
+
+        return sql;
+    }
+
+    private (bool isSafe, string reason) ValidateSqlSafety(string sql)
+    {
+        if (string.IsNullOrWhiteSpace(sql))
+        {
+            return (false, "SQL query is empty");
+        }
+
+        var normalizedSql = NormalizeSql(sql);
+
+        // 1. Check for data modification commands (DML that modifies data)
+        var modificationKeywords = new[]
+        {
+            @"\bDELETE\b", @"\bUPDATE\b", @"\bINSERT\b", @"\bMERGE\b"
+        };
+
+        foreach (var keyword in modificationKeywords)
+        {
+            if (Regex.IsMatch(normalizedSql, keyword, RegexOptions.IgnoreCase))
+            {
+                return (false, $"Contains prohibited data modification keyword: {keyword.Replace(@"\b", "").Replace(@"\\", "")}");
+            }
+        }
+
+        // 2. Check for DDL (Data Definition Language) commands
+        var ddlKeywords = new[]
+        {
+            @"\bDROP\b", @"\bTRUNCATE\b", @"\bALTER\b", @"\bCREATE\b"
+        };
+
+        foreach (var keyword in ddlKeywords)
+        {
+            if (Regex.IsMatch(normalizedSql, keyword, RegexOptions.IgnoreCase))
+            {
+                return (false, $"Contains prohibited DDL keyword: {keyword.Replace(@"\b", "").Replace(@"\\", "")}");
+            }
+        }
+
+        // 3. Check for DCL (Data Control Language) commands
+        var dclKeywords = new[]
+        {
+            @"\bGRANT\b", @"\bREVOKE\b", @"\bDENY\b"
+        };
+
+        foreach (var keyword in dclKeywords)
+        {
+            if (Regex.IsMatch(normalizedSql, keyword, RegexOptions.IgnoreCase))
+            {
+                return (false, $"Contains prohibited DCL keyword: {keyword.Replace(@"\b", "").Replace(@"\\", "")}");
+            }
+        }
+
+        // 4. Check for dangerous system procedures and commands
+        var systemCommands = new[]
+        {
+            @"\bEXEC\b", @"\bEXECUTE\b", @"\bSP_\w+", @"\bXP_\w+",
+            @"\bSHUTDOWN\b", @"\bBACKUP\b", @"\bRESTORE\b", @"\bKILL\b"
+        };
+
+        foreach (var command in systemCommands)
+        {
+            if (Regex.IsMatch(normalizedSql, command, RegexOptions.IgnoreCase))
+            {
+                return (false, $"Contains prohibited system command: {command.Replace(@"\b", "").Replace(@"\\", "")}");
+            }
+        }
+
+        // 5. Check for SQL injection patterns
+        var injectionPatterns = new[]
+        {
+            @";--",           // SQL comment for injection
+            @"--\s*$",        // Comment at end
+            @"\bXP_CMDSHELL\b",
+            @"\bSP_OACREATE\b",
+            @"\bSP_OAMETHOD\b",
+            @"@@\w+",         // System variables (excluding safe ones)
+        };
+
+        foreach (var pattern in injectionPatterns)
+        {
+            if (Regex.IsMatch(normalizedSql, pattern, RegexOptions.IgnoreCase))
+            {
+                return (false, $"Contains potential SQL injection pattern: {pattern}");
+            }
+        }
+
+        // 6. Check that query starts with SELECT or WITH (for CTEs)
+        var trimmedSql = normalizedSql.TrimStart();
+        if (!trimmedSql.StartsWith("SELECT", StringComparison.OrdinalIgnoreCase) &&
+            !trimmedSql.StartsWith("WITH", StringComparison.OrdinalIgnoreCase))
+        {
+            return (false, "Query must start with SELECT or WITH");
+        }
+
+        // 7. Validate table names (whitelist approach)
+        if (!ValidateTableNames(normalizedSql))
+        {
+            return (false, "Query references unauthorized tables");
+        }
+
+        // 8. Check for stacked queries (multiple statements)
+        // First, remove any trailing semicolons as they're optional in SQL Server
+        var sqlForStatementCheck = normalizedSql.TrimEnd(';', ' ', '\t').Trim();
+
+        var statementCount = sqlForStatementCheck.Split(';')
+            .Select(s => s.Trim())
+            .Count(s => !string.IsNullOrWhiteSpace(s));
+
+        if (statementCount > 1)
+        {
+            return (false, "Multiple SQL statements are not allowed");
+        }
+
+        return (true, "Query is safe");
+    }
+
+    private string NormalizeSql(string sql)
+    {
+        // Remove multi-line comments
+        sql = Regex.Replace(sql, @"/\*.*?\*/", " ", RegexOptions.Singleline);
+
+        // Remove single-line comments (but preserve -- in strings)
+        sql = Regex.Replace(sql, @"--[^\n\r]*", " ");
+
+        // Normalize whitespace
+        sql = Regex.Replace(sql, @"\s+", " ");
+
+        return sql.Trim();
+    }
+
+    private bool ValidateTableNames(string sql)
+    {
+        // Extract table names from FROM and JOIN clauses
+        var fromPattern = @"\bFROM\s+(\[?\w+\]?)(?:\s+(?:AS\s+)?(\w+))?";
+        var joinPattern = @"\b(?:INNER\s+|LEFT\s+|RIGHT\s+|FULL\s+|CROSS\s+)?JOIN\s+(\[?\w+\]?)(?:\s+(?:AS\s+)?(\w+))?";
+
+        var tableNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Find FROM tables
+        var fromMatches = Regex.Matches(sql, fromPattern, RegexOptions.IgnoreCase);
+        foreach (Match match in fromMatches)
+        {
+            var tableName = match.Groups[1].Value.Trim('[', ']');
+            tableNames.Add(tableName);
+        }
+
+        // Find JOIN tables
+        var joinMatches = Regex.Matches(sql, joinPattern, RegexOptions.IgnoreCase);
+        foreach (Match match in joinMatches)
+        {
+            var tableName = match.Groups[1].Value.Trim('[', ']');
+            tableNames.Add(tableName);
+        }
+
+        // Check if all tables are in the whitelist
+        foreach (var tableName in tableNames)
+        {
+            if (!AllowedTables.Contains(tableName))
+            {
+                _logger.LogWarning($"Unauthorized table referenced: {tableName}");
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private async Task<DatabaseSchema> GetDatabaseSchema()
     {
         try
         {
-            // Get table names
-            var tableNames = new List<string> { "Assets", "Categories", "Departments", "Locations", "AssetHistories", "AspNetUsers" };
-
             var schema = new DatabaseSchema
             {
                 Tables = new List<TableSchema>()
             };
 
-            foreach (var tableName in tableNames)
+            foreach (var tableName in AllowedTables)
             {
                 var columns = await GetTableColumns(tableName);
                 schema.Tables.Add(new TableSchema
@@ -277,7 +516,6 @@ Generate a safe SQL SELECT query:";
 
         try
         {
-            // This is a simplified version. In production, you might want to query INFORMATION_SCHEMA
             switch (tableName.ToLower())
             {
                 case "assets":
@@ -397,44 +635,6 @@ Generate a safe SQL SELECT query:";
         };
     }
 
-    private bool IsSqlSafe(string sql)
-    {
-        // Convert to lowercase for case-insensitive checking
-        var lowerSql = sql.ToLowerInvariant();
-
-        // List of dangerous keywords
-        var dangerousKeywords = new[]
-        {
-            "delete", "update", "insert", "drop", "truncate", "alter",
-            "create", "grant", "revoke", "exec", "execute", "sp_", "xp_",
-            "shutdown", "backup", "restore", "kill", "union all", "--", ";--",
-            "/*", "*/", "@@", "char(", "nchar(", "varchar(", "nvarchar(",
-            "alter", "begin", "cast(", "convert(", "declare", "exec", "execute",
-            "fetch", "kill", "open", "sys", "sysobjects", "syscolumns",
-            "xp_cmdshell", "sp_oacreate", "sp_oamethod", "sp_oagetproperty"
-        };
-
-        // Check for any dangerous keywords
-        foreach (var keyword in dangerousKeywords)
-        {
-            if (lowerSql.Contains(keyword))
-            {
-                _logger.LogWarning($"Potential dangerous SQL keyword detected: {keyword}");
-                return false;
-            }
-        }
-
-        // Check that it starts with SELECT (allow with/cte)
-        var trimmedSql = lowerSql.TrimStart();
-        if (!trimmedSql.StartsWith("select") && !trimmedSql.StartsWith("with"))
-        {
-            _logger.LogWarning("SQL does not start with SELECT or WITH");
-            return false;
-        }
-
-        return true;
-    }
-
     private string GenerateFallbackQuery(string question)
     {
         var lowerQuestion = question.ToLowerInvariant();
@@ -505,7 +705,7 @@ Generate a safe SQL SELECT query:";
         }
         else if (lowerQuestion.Contains("value") || lowerQuestion.Contains("worth"))
         {
-            return @"SELECT AssetTag, Name, CurrentValue,
+            return @"SELECT TOP 50 AssetTag, Name, CurrentValue,
                     DepreciationRate,
                     (CurrentValue * DepreciationRate / 100) as YearlyDepreciation,
                     (CurrentValue * DepreciationRate / 12 / 100) as MonthlyDepreciation
@@ -515,13 +715,14 @@ Generate a safe SQL SELECT query:";
         }
         else
         {
-            // Default query for general asset listing
-            return @"SELECT TOP 50 AssetTag, Name, Status, Condition, 
-                    ISNULL(CurrentValue, 0) as CurrentValue,
-                    (SELECT Name FROM Categories WHERE CategoryId = a.CategoryId) as Category,
-                    (SELECT Name FROM Departments WHERE DepartmentId = a.DepartmentId) as Department
+            return @"SELECT TOP 50 a.AssetTag, a.Name, a.Status, a.Condition, 
+                    ISNULL(a.CurrentValue, 0) as CurrentValue,
+                    c.Name as Category,
+                    d.Name as Department
                     FROM Assets a
-                    ORDER BY Name";
+                    LEFT JOIN Categories c ON a.CategoryId = c.CategoryId
+                    LEFT JOIN Departments d ON a.DepartmentId = d.DepartmentId
+                    ORDER BY a.Name";
         }
     }
 }
