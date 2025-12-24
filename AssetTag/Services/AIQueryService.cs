@@ -66,11 +66,17 @@ IMPORTANT RULES:
 3. Include WHERE clauses when filtering is needed
 4. Use meaningful column aliases
 5. Format the SQL cleanly with proper indentation
-6. Always limit results to reasonable amounts (use TOP N, LIMIT N, or FETCH FIRST N ROWS ONLY)
-7. Only query from these tables: Assets, Categories, Departments, Locations, AssetHistories, AspNetUsers
-8. For date filtering, use GETDATE() or CURRENT_TIMESTAMP
-9. Use standard SQL functions like COUNT, SUM, AVG, MAX, MIN, GROUP BY, ORDER BY
-10. You can use CTEs (WITH clause) for complex queries
+6. Only query from these tables: Assets, Categories, Departments, Locations, AssetHistories, AspNetUsers
+7. For date filtering, use GETDATE() or CURRENT_TIMESTAMP
+8. Use standard SQL functions like COUNT, SUM, AVG, MAX, MIN, GROUP BY, ORDER BY
+11. You can use CTEs (WITH clause) for complex queries
+
+OUTPUT FORMAT INSTRUCTIONS (FOLLOW EXACTLY):
+- Output ONLY the SQL query
+- Do not include any explanation, notes, or markdown
+- Do not wrap in ```sql blocks
+- Do not add any text before or after the query
+- End the query with a semicolon only if required
 
 QUESTION: {question}
 
@@ -83,7 +89,13 @@ Generate a safe SQL SELECT query:";
                 model = model,
                 messages = new[]
                 {
-                    new { role = "system", content = "You are a helpful SQL assistant that generates safe, read-only SQL queries for an Asset Management System." },
+                    /*new { role = "system", content = "You are a helpful SQL assistant that generates safe, read-only SQL queries for an Asset Management System." }*/
+                    new {
+                        role = "system",
+                        content = "You are a SQL generator that generates safe, read-only SQL queries for an Asset Management System. Return ONLY the raw SQL code. " +
+                      "Do not include any introductory text, explanations, or markdown code blocks. " +
+                      "Just the SQL statement itself."
+        },
                     new { role = "user", content = prompt }
                 },
                 temperature = 0.1,
@@ -237,80 +249,73 @@ Generate a safe SQL SELECT query:";
 
     private string CleanSqlResponse(string sql)
     {
-        // Remove code fences and explanatory text
-        sql = sql.Trim()
-                 .Replace("```sql", "")
-                 .Replace("```", "")
-                 .Trim();
+        if (string.IsNullOrWhiteSpace(sql))
+            return string.Empty;
 
-        // Remove common preamble patterns
-        var preamblePatterns = new[]
-        {
-            @"(?i)^.*?(?:SQL\s+)?query:\s*",
-            @"(?i)^.*?here\s+is\s+the\s+(?:SQL\s+)?query:\s*",
-            @"(?i)^.*?here's\s+the\s+(?:SQL\s+)?query:\s*",
-            @"(?i)^.*?the\s+(?:SQL\s+)?query\s+is:\s*"
-        };
+        // Remove common markdown code fences
+        sql = Regex.Replace(sql, @"^```(?:sql)?\s*\n?", "", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+        sql = Regex.Replace(sql, @"\n?```$", "", RegexOptions.IgnoreCase | RegexOptions.Multiline);
 
-        foreach (var pattern in preamblePatterns)
+        // Remove any leading text that is clearly explanatory
+        // Match everything up to the first actual SQL keyword (SELECT or WITH)
+        var match = Regex.Match(sql, @"(?i)\b(SELECT|WITH)\b", RegexOptions.Multiline);
+        if (match.Success)
         {
-            sql = Regex.Replace(sql, pattern, "", RegexOptions.Multiline);
+            sql = sql.Substring(match.Index).Trim();
+        }
+        else
+        {
+            // If no SELECT or WITH found at all, something went wrong
+            return string.Empty;
         }
 
-        // Remove any explanatory text before SQL
-        var sqlStart = sql.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase);
-        if (sqlStart == -1)
-        {
-            sqlStart = sql.IndexOf("WITH", StringComparison.OrdinalIgnoreCase);
-        }
-
-        if (sqlStart > 0)
-        {
-            sql = sql.Substring(sqlStart);
-        }
-
-        // Split by lines and process
-        var lines = sql.Split('\n');
+        // Now remove everything AFTER the first complete SQL statement
+        // Find the first semicolon that is not inside parentheses/quotes (simplified)
+        // We'll take everything up to the last semicolon on or before the first major explanatory line
+        var lines = sql.Split(new[] { '\n', '\r' }, StringSplitOptions.None);
         var cleanedLines = new List<string>();
-        bool foundExplanation = false;
+        bool inSql = true;
 
-        foreach (var line in lines)
+        foreach (var rawLine in lines)
         {
-            var trimmedLine = line.Trim();
+            var line = rawLine.TrimStart();
 
-            // Stop collecting lines if we hit explanatory text after a semicolon
-            if (trimmedLine.StartsWith("-") || // Bullet points
-                trimmedLine.StartsWith("*") || // Markdown bullets
-                trimmedLine.StartsWith("This query", StringComparison.OrdinalIgnoreCase) ||
-                trimmedLine.StartsWith("This will", StringComparison.OrdinalIgnoreCase) ||
-                trimmedLine.StartsWith("This SQL", StringComparison.OrdinalIgnoreCase) ||
-                trimmedLine.StartsWith("Explanation:", StringComparison.OrdinalIgnoreCase) ||
-                trimmedLine.StartsWith("Note:", StringComparison.OrdinalIgnoreCase) ||
-                trimmedLine.StartsWith("The query", StringComparison.OrdinalIgnoreCase) ||
-                trimmedLine.StartsWith("It ", StringComparison.OrdinalIgnoreCase) ||
-                (cleanedLines.Count > 0 && trimmedLine.StartsWith("Selects ", StringComparison.OrdinalIgnoreCase)) ||
-                (cleanedLines.Count > 0 && trimmedLine.StartsWith("Joins ", StringComparison.OrdinalIgnoreCase)) ||
-                (cleanedLines.Count > 0 && trimmedLine.StartsWith("Filters ", StringComparison.OrdinalIgnoreCase)) ||
-                (cleanedLines.Count > 0 && trimmedLine.StartsWith("Orders ", StringComparison.OrdinalIgnoreCase)) ||
-                (cleanedLines.Count > 0 && trimmedLine.StartsWith("Groups ", StringComparison.OrdinalIgnoreCase)))
+            // Stop at obvious explanation markers
+            if (inSql && (
+                line.StartsWith("--", StringComparison.OrdinalIgnoreCase) && !line.StartsWith("--", StringComparison.OrdinalIgnoreCase) == false || // not a comment
+                line.StartsWith("/*", StringComparison.OrdinalIgnoreCase) ||
+                line.StartsWith("Explanation:", StringComparison.OrdinalIgnoreCase) ||
+                line.StartsWith("Note:", StringComparison.OrdinalIgnoreCase) ||
+                line.StartsWith("This query", StringComparison.OrdinalIgnoreCase) ||
+                line.StartsWith("The above", StringComparison.OrdinalIgnoreCase) ||
+                line.StartsWith("*", StringComparison.OrdinalIgnoreCase) ||
+                line.StartsWith("-", StringComparison.OrdinalIgnoreCase) ||
+                Regex.IsMatch(line, @"^\w+:$", RegexOptions.IgnoreCase) // labels like "Output:"
+            ))
             {
-                foundExplanation = true;
-                break;
+                inSql = false;
             }
 
-            // If we already found the explanation, don't add more lines
-            if (foundExplanation)
+            if (inSql)
             {
-                break;
+                cleanedLines.Add(rawLine); // preserve original indentation
             }
-
-            cleanedLines.Add(line);
+            else if (!inSql && string.IsNullOrWhiteSpace(line))
+            {
+                // Allow blank lines, but stop adding content
+                continue;
+            }
+            else if (!inSql)
+            {
+                break; // stop completely once explanation starts
+            }
         }
 
         sql = string.Join("\n", cleanedLines).Trim();
 
-        // Remove trailing semicolons (they can cause the multi-statement check to fail)
-        sql = sql.TrimEnd(';', ' ', '\t', '\r', '\n').Trim();
+        // Final cleanup: remove trailing semicolon if present (optional in SQL Server)
+        if (sql.EndsWith(";"))
+            sql = sql.Substring(0, sql.Length - 1).Trim();
 
         return sql;
     }
