@@ -23,32 +23,195 @@ A comprehensive, enterprise-grade asset management platform for Methodist Univer
 
 ## Architecture
 
-### Solution Structure
+### Project Structure
 
 The solution is organized into **three main projects** following a layered architecture pattern:
 
 ```
 AssetTag/
-??? AssetTag/              (API Backend - .NET 9 Web API)
-?   ??? Controllers/       (REST API endpoints)
-?   ??? Services/          (Business logic & external integrations)
-?   ??? Models/            (Entity models & DTOs)
-?   ??? Data/              (Database context & migrations)
-?   ??? Filters/           (Custom action filters)
-?   ??? Program.cs         (Dependency injection & middleware configuration)
-?   ??? appsettings.json   (Configuration)
+??? AssetTag/                                    # API Backend - .NET 9 Web API
+?   ??? Controllers/                             # REST API endpoint handlers
+?   ?   ??? AssetsController.cs                  # Asset CRUD operations
+?   ?   ??? AuthController.cs                    # Authentication & login/logout
+?   ?   ??? CategoriesController.cs              # Asset category management
+?   ?   ??? DashboardController.cs               # Dashboard analytics data
+?   ?   ??? DepartmentsController.cs             # Department management
+?   ?   ??? DiagnosticsController.cs             # System diagnostics endpoints
+?   ?   ??? AssetHistoriesController.cs          # Audit trail queries
+?   ?   ??? LocationsController.cs               # Location management
+?   ?   ??? ReportsController.cs                 # Report generation & AI queries
+?   ?   ??? RoleController.cs                    # Role management
+?   ?   ??? UsersController.cs                   # User management
+?   ?
+?   ??? Services/                                # Business logic & external integrations
+?   ?   ??? AIQueryService.cs                    # Groq AI integration for SQL generation
+?   ?   ??? EmailService.cs                      # SMTP-based email communications
+?   ?   ??? IEmailService.cs                     # Email service interface
+?   ?   ??? IAIQueryService.cs                   # AI service interface
+?   ?   ??? ITokenService.cs                     # Token service interface
+?   ?   ??? TokenService.cs                      # JWT token creation & validation
+?   ?
+?   ??? Models/                                  # Entity models & data classes
+?   ?   ??? ApplicationUser.cs                   # Extended ASP.NET Identity user
+?   ?   ??? Asset.cs                             # Core asset entity
+?   ?   ??? AssetHistory.cs                      # Audit trail entries
+?   ?   ??? Category.cs                          # Asset classification
+?   ?   ??? Department.cs                        # Organizational departments
+?   ?   ??? Invitation.cs                        # User invitation records
+?   ?   ??? Location.cs                          # Physical locations
+?   ?   ??? RefreshTokens.cs                     # Token lifecycle management
+?   ?
+?   ??? Data/                                    # Database configuration & migrations
+?   ?   ??? ApplicationDbContext.cs              # Entity Framework Core context
+?   ?   ??? DesignTimeDbContextFactory.cs        # Design-time context factory
+?   ?   ??? Migrations/                          # EF Core database migrations
+?   ?   ?   ??? [YYYYMMDDHHmmss]_InitialCreate.cs
+?   ?   ?   ??? [YYYYMMDDHHmmss]_AddRefreshTokens.cs
+?   ?   ?   ??? [YYYYMMDDHHmmss]_AddInvitations.cs
+?   ?   ?   ??? [More migrations...]
+?   ?   ??? SeedData.cs                          # Initial database seeding
+?   ?
+?   ??? Filters/                                 # Custom action filters
+?   ?   ??? ActiveUserAttribute.cs               # Validates user is active
+?   ?
+?   ??? Program.cs                               # DI container & middleware configuration
+?   ??? appsettings.json                         # Default configuration
+?   ??? appsettings.Development.json             # Development overrides
+?   ??? appsettings.Production.json              # Production overrides
+?   ??? AssetTag.csproj                          # Project file
 ?
-??? Portal/                (Web Frontend - .NET 9 Razor Pages)
-?   ??? Pages/             (Razor Pages UI components)
-?   ??? Services/          (Frontend business logic & API clients)
-?   ??? Handlers/          (HTTP message handlers & middleware)
-?   ??? wwwroot/           (Static assets: CSS, JS, images, libraries)
-?   ??? Program.cs         (Dependency injection & middleware configuration)
-?   ??? appsettings.json   (Configuration)
+??? Portal/                                      # Web Frontend - .NET 9 Razor Pages
+?   ??? Pages/                                   # Razor Pages UI components
+?   ?   ??? Index.cshtml                         # Dashboard home page
+?   ?   ??? Index.cshtml.cs                      # Dashboard code-behind
+?   ?   ??? LoginRedirect.cshtml                 # Post-login redirect page
+?   ?   ??? LoginRedirect.cshtml.cs              # Login redirect logic
+?   ?   ??? Unauthorized.cshtml                  # Unauthorized access page
+?   ?   ??? Unauthorized.cshtml.cs               # Unauthorized logic
+?   ?   ?
+?   ?   ??? Account/                             # Authentication pages
+?   ?   ?   ??? Login.cshtml                     # Login form
+?   ?   ?   ??? Login.cshtml.cs                  # Login logic
+?   ?   ?   ??? Logout.cshtml.cs                 # Logout handler
+?   ?   ?   ??? Register.cshtml                  # User registration form
+?   ?   ?
+?   ?   ??? Assets/                              # Asset management pages
+?   ?   ?   ??? Index.cshtml                     # Asset listing & search
+?   ?   ?   ??? Index.cshtml.cs                  # Asset list logic
+?   ?   ?   ??? Details.cshtml                   # Asset detail view
+?   ?   ?   ??? Details.cshtml.cs                # Asset details logic
+?   ?   ?
+?   ?   ??? Categories/                          # Category management pages
+?   ?   ?   ??? Index.cshtml                     # Category list
+?   ?   ?   ??? Index.cshtml.cs                  # Category logic
+?   ?   ?
+?   ?   ??? Departments/                         # Department management pages
+?   ?   ?   ??? Index.cshtml                     # Department list
+?   ?   ?   ??? Index.cshtml.cs                  # Department logic
+?   ?   ?
+?   ?   ??? Diagnostics/                         # System diagnostic pages
+?   ?   ?   ??? TokenDiagnostics.cshtml          # JWT token inspector
+?   ?   ?   ??? TokenDiagnostics.cshtml.cs       # Token diagnostics logic
+?   ?   ?   ??? TimeCheck.cshtml                 # Server time synchronization
+?   ?   ?   ??? TimeCheck.cshtml.cs              # Time check logic
+?   ?   ?
+?   ?   ??? Locations/                           # Location management pages
+?   ?   ?   ??? Index.cshtml                     # Location list
+?   ?   ?   ??? Index.cshtml.cs                  # Location logic
+?   ?   ?
+?   ?   ??? Reports/                             # Report generation pages
+?   ?   ?   ??? Index.cshtml                     # Reports interface
+?   ?   ?   ??? Index.cshtml.cs                  # Reports logic
+?   ?   ?
+?   ?   ??? Users/                               # User management pages
+?   ?   ?   ??? Index.cshtml                     # User list
+?   ?   ?   ??? Index.cshtml.cs                  # User logic
+?   ?   ?
+?   ?   ??? Shared/                              # Shared layout & components
+?   ?       ??? _Layout.cshtml                   # Main layout template
+?   ?       ??? _AuthLayout.cshtml               # Authentication pages layout
+?   ?       ??? _ValidationScriptsPartial.cshtml # Validation scripts
+?   ?
+?   ??? Services/                                # Frontend business logic
+?   ?   ??? ApiAuthService.cs                    # API authentication client
+?   ?   ??? IApiAuthService.cs                   # Auth service interface
+?   ?   ??? UserRoleService.cs                   # Role-based access control
+?   ?   ??? IUserRoleService.cs                  # Role service interface
+?   ?   ??? ReportsService.cs                    # Report data retrieval
+?   ?   ??? IReportsService.cs                   # Reports service interface
+?   ?
+?   ??? Handlers/                                # HTTP message handlers & middleware
+?   ?   ??? TokenRefreshHandler.cs               # Automatic JWT token refresh
+?   ?   ??? UnauthorizedRedirectHandler.cs       # 401 to login redirect
+?   ?
+?   ??? wwwroot/                                 # Static assets (client-side)
+?   ?   ??? css/                                 # Stylesheets
+?   ?   ?   ??? admin.css                        # Main admin panel styles
+?   ?   ?   ??? authLayout.css                   # Authentication page styles
+?   ?   ?   ??? dashboard.css                    # Dashboard-specific styles
+?   ?   ?   ??? loginRedirect.css                # Login redirect animation styles
+?   ?   ?
+?   ?   ??? js/                                  # JavaScript files
+?   ?   ?   ??? dashboard.js                     # Dashboard chart initialization
+?   ?   ?   ??? site.js                          # General site utilities
+?   ?   ?
+?   ?   ??? lib/                                 # Third-party libraries
+?   ?   ?   ??? bootstrap/                       # Bootstrap CSS framework
+?   ?   ?   ??? jquery/                          # jQuery library
+?   ?   ?   ??? jquery-validation/               # Form validation library
+?   ?   ?
+?   ?   ??? Resources/                           # Images & branding assets
+?   ?       ??? mlogo.jpeg                       # Methodist University logo
+?   ?       ??? [Other images...]
+?   ?
+?   ??? Program.cs                               # DI container & middleware setup
+?   ??? appsettings.json                         # Default configuration
+?   ??? appsettings.Development.json             # Development overrides
+?   ??? Portal.csproj                            # Project file
+?   ??? _ViewStart.cshtml                        # View engine initialization
 ?
-??? Shared/                (Class Library - Shared DTOs & utilities)
-    ??? DTOs/              (Data Transfer Objects for inter-project communication)
+??? Shared/                                      # Class Library - Shared DTOs & utilities
+?   ??? DTOs/                                    # Data Transfer Objects
+?   ?   ??? AiDTO.cs                             # AI query request/response models
+?   ?   ??? AssetDto.cs                          # Asset data transfer object
+?   ?   ??? AssetHistoryDto.cs                   # Audit history DTO
+?   ?   ??? Auth.cs                              # Authentication/token DTOs
+?   ?   ??? CategoryDto.cs                       # Category DTO
+?   ?   ??? DashboardDTO.cs                      # Dashboard data models
+?   ?   ??? DepartmentDto.cs                     # Department DTO
+?   ?   ??? GroqDTO.cs                           # Groq API request/response models
+?   ?   ??? InvitationDto.cs                     # User invitation DTO
+?   ?   ??? LocationDto.cs                       # Location DTO
+?   ?   ??? RefreshTokenDto.cs                   # Refresh token DTO
+?   ?   ??? UserDto.cs                           # User data transfer object
+?   ?
+?   ??? Shared.csproj                            # Project file
+?   ??? [Other shared utilities]
+?
+??? README.md                                    # Project documentation (this file)
+??? LICENSE                                      # MIT License
+??? .gitignore                                   # Git ignore rules
+??? AssetTag.sln                                 # Solution file
 ```
+
+### Key Directory Structure Overview
+
+**API Backend (AssetTag/)**
+- **Controllers**: REST API endpoints handling HTTP requests and responses
+- **Services**: Business logic, AI integration, email, token management
+- **Models**: Entity Framework Core entities and domain models
+- **Data**: Database context, migrations, seed data, and design-time factories
+- **Filters**: Custom authorization and validation filters
+
+**Web Frontend (Portal/)**
+- **Pages**: Razor Pages organized by feature (Account, Assets, Reports, Users, etc.)
+- **Services**: Frontend logic for authentication, reports, role management
+- **Handlers**: HTTP message handlers for token refresh and error handling
+- **wwwroot**: Static CSS, JavaScript, images, and third-party libraries
+
+**Shared Library (Shared/)**
+- **DTOs**: Data Transfer Objects for inter-project communication
+- **Models**: Common enumerations and utility classes
 
 ### Technology Stack
 
