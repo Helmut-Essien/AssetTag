@@ -1,5 +1,5 @@
 ﻿// Data/SeedData.cs
-using AssetTag.Models;
+using Shared.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 

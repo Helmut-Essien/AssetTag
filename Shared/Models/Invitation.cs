@@ -1,5 +1,6 @@
-﻿using AssetTag.Models;
+﻿
 using NUlid;
+using Shared.Models;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 

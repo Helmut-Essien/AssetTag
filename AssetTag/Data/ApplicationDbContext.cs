@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using AssetTag.Models;
+using Shared.Models;
 
 namespace AssetTag.Data
 {

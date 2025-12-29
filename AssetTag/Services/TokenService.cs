@@ -1,6 +1,6 @@
 ﻿
 
-using AssetTag.Models;
+using Shared.Models;
 using AssetTag.Services;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;

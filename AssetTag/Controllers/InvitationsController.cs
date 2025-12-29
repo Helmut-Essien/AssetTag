@@ -1,5 +1,5 @@
 ﻿using AssetTag.Data;
-using AssetTag.Models;
+using Shared.Models;
 using AssetTag.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;

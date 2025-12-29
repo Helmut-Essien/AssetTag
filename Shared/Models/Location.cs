@@ -1,7 +1,7 @@
 ﻿using NUlid;
 using System.ComponentModel.DataAnnotations;
 
-namespace AssetTag.Models
+namespace Shared.Models
 {
     public class Location
     {
