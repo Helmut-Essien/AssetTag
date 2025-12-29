@@ -1,5 +1,5 @@
 ﻿using AssetTag.Data;
-using AssetTag.Models;
+using Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using System.Data;

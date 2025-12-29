@@ -1,6 +1,6 @@
 using AssetTag.Data;
 using AssetTag.Filters;
-using AssetTag.Models;
+using Shared.Models;
 using AssetTag.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;

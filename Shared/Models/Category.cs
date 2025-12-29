@@ -1,6 +1,6 @@
 ﻿using NUlid;
 
-namespace AssetTag.Models
+namespace Shared.Models
 {
     public class Category
     {

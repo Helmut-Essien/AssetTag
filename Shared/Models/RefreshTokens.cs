@@ -1,4 +1,4 @@
-﻿namespace AssetTag.Models
+﻿namespace Shared.Models
 {
     public class RefreshTokens
     {

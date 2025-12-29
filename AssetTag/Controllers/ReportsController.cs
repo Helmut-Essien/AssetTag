@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using AssetTag.Data;
-using AssetTag.Models;
+using Shared.Models;
 using AssetTag.Services;
 
 namespace AssetTag.Controllers;
