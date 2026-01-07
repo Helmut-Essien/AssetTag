@@ -1,0 +1,701 @@
+﻿@page
+@model Portal.Pages.Assets.AssetHistoriesModel
+@{
+    ViewData["Title"] = "Asset History";
+}
+
+<div class="container-fluid px-3 py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a asp-page="/Index">Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Asset History</li>
+                </ol>
+            </nav>
+            <h1 class="mb-1">Asset History</h1>
+            <p class="text-muted mb-0">Track all asset activities and changes</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#helpModal">
+                <i class="bi bi-question-circle me-1"></i>Help
+            </button>
+            <div class="dropdown">
+                <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-download me-1"></i>Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="@Url.Page("", "Export", new { format = "json" })">Export as JSON</a></li>
+                    <li><a class="dropdown-item" href="@Url.Page("", "Export", new { format = "csv" })">Export as CSV</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Total Records</h6>
+                            <h4 class="mb-0">@Model.Histories.TotalCount.ToString("N0")</h4>
+                        </div>
+                        <div class="avatar-sm">
+                            <span class="avatar-title bg-primary rounded-circle">
+                                <i class="bi bi-clock-history text-white"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Today's Activities</h6>
+                            <h4 class="mb-0">
+                                @{
+                                    var todayCount = Model.Histories.Data.Count(h => h.Timestamp.Date == DateTime.Today);
+                                }
+                                @todayCount
+                            </h4>
+                        </div>
+                        <div class="avatar-sm">
+                            <span class="avatar-title bg-success rounded-circle">
+                                <i class="bi bi-calendar-day text-white"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Unique Assets</h6>
+                            <h4 class="mb-0">
+                                @{
+                                    var uniqueAssets = Model.Histories.Data.Select(h => h.AssetId).Distinct().Count();
+                                }
+                                @uniqueAssets
+                            </h4>
+                        </div>
+                        <div class="avatar-sm">
+                            <span class="avatar-title bg-info rounded-circle">
+                                <i class="bi bi-box text-white"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Active Users</h6>
+                            <h4 class="mb-0">
+                                @{
+                                    var uniqueUsers = Model.Histories.Data.Select(h => h.UserId).Distinct().Count();
+                                }
+                                @uniqueUsers
+                            </h4>
+                        </div>
+                        <div class="avatar-sm">
+                            <span class="avatar-title bg-warning rounded-circle">
+                                <i class="bi bi-people text-white"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="row">
+        <!-- Left Column - Filters -->
+        <div class="col-lg-3 col-xl-2">
+            <div class="card sticky-top" style="top: 20px;">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-funnel me-2"></i>Filters
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" asp-page-handler="Search">
+                        <!-- Search Box -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Quick Search</label>
+                            <div class="input-group input-group-sm">
+                                <input asp-for="SearchQuery" class="form-control" placeholder="Search everything...">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <hr class="my-3">
+
+                        <!-- Action Filter -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Action Type</label>
+                            <select asp-for="ActionFilter" class="form-select form-select-sm">
+                                <option value="">All Actions</option>
+                                @if (Model.AvailableFilters?.Actions != null)
+                                {
+                                    foreach (var action in Model.AvailableFilters.Actions)
+                                    {
+                                        <option value="@action">@action</option>
+                                    }
+                                }
+                                else
+                                {
+                                    <option value="CREATE">Create</option>
+                                    <option value="UPDATE">Update</option>
+                                    <option value="DELETE">Delete</option>
+                                    <option value="TRANSFER">Transfer</option>
+                                    <option value="MAINTENANCE">Maintenance</option>
+                                }
+                            </select>
+                        </div>
+
+                        <!-- Asset Name Filter -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Asset Name</label>
+                            <input asp-for="AssetNameFilter" class="form-control form-control-sm" placeholder="Filter by asset...">
+                            @if (Model.AvailableFilters?.RecentAssets != null)
+                            {
+                                <div class="mt-2">
+                                    <small class="text-muted">Recent:</small>
+                                    <div class="d-flex flex-wrap gap-1 mt-1">
+                                        @foreach (var asset in Model.AvailableFilters.RecentAssets)
+                                        {
+                                            <button type="button" class="btn btn-xs btn-outline-secondary" 
+                                                    onclick="setAssetFilter('@asset.Value')">
+                                                @asset.Value.Truncate(15)
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- User Name Filter -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">User Name</label>
+                            <input asp-for="UserNameFilter" class="form-control form-control-sm" placeholder="Filter by user...">
+                        </div>
+
+                        <!-- Date Range Filter -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Date Range</label>
+                            <div class="row g-2">
+                                <div class="col-12">
+                                    <input asp-for="DateFrom" type="date" class="form-control form-control-sm" placeholder="From">
+                                </div>
+                                <div class="col-12">
+                                    <input asp-for="DateTo" type="date" class="form-control form-control-sm" placeholder="To">
+                                </div>
+                            </div>
+                            @if (Model.AvailableFilters?.DateRange != null)
+                            {
+                                <small class="text-muted mt-1 d-block">
+                                    Available: @Model.AvailableFilters.DateRange.MinDate?.ToString("MMM dd, yyyy") - 
+                                    @Model.AvailableFilters.DateRange.MaxDate?.ToString("MMM dd, yyyy")
+                                </small>
+                            }
+                        </div>
+
+                        <!-- Page Size -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Results per page</label>
+                            <select asp-for="PageSize" class="form-select form-select-sm" onchange="this.form.submit()">
+                                <option value="10">10</option>
+                                <option value="20">20</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-funnel me-1"></i>Apply Filters
+                            </button>
+                            <button type="submit" asp-page-handler="ClearFilters" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-x-circle me-1"></i>Clear All
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - History List -->
+        <div class="col-lg-9 col-xl-10">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-list-ul me-2"></i>Activity Log
+                    </h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <small class="text-muted">
+                            Showing @((Model.CurrentPage - 1) * Model.PageSize + 1)-@Math.Min(Model.CurrentPage * Model.PageSize, Model.Histories.TotalCount) of @Model.Histories.TotalCount
+                        </small>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-gear"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="#"><i class="bi bi-columns-gap me-2"></i>Customize Columns</a></li>
+                                <li><a class="dropdown-item" href="#"><i class="bi bi-clock-history me-2"></i>Auto-refresh (30s)</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="#"><i class="bi bi-printer me-2"></i>Print View</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body p-0">
+                    @if (Model.Histories.Data.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 150px;">Timestamp</th>
+                                        <th style="width: 100px;">Action</th>
+                                        <th>Asset</th>
+                                        <th>User</th>
+                                        <th>Description</th>
+                                        <th style="width: 80px;">Changes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var history in Model.Histories.Data)
+                                    {
+                                        <tr class="clickable-row" data-href="/Assets/Details?id=@history.AssetId">
+                                            <td>
+                                                <div class="d-flex flex-column">
+                                                    <span class="small">@history.Timestamp.ToString("MMM dd, yyyy")</span>
+                                                    <span class="text-muted smaller">@history.Timestamp.ToString("HH:mm:ss")</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="badge @Model.GetActionBadgeClass(history.Action) d-inline-flex align-items-center gap-1">
+                                                    <i class="bi @Model.GetActionIcon(history.Action)"></i>
+                                                    <span>@history.Action</span>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="flex-shrink-0 me-2">
+                                                        <div class="bg-light rounded p-1">
+                                                            <i class="bi bi-box text-muted"></i>
+                                                        </div>
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <div class="fw-medium">@history.AssetName</div>
+                                                        <small class="text-muted">ID: @history.AssetId.Truncate(8)</small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="fw-medium">@history.UserFullName</div>
+                                                <small class="text-muted">@history.UserId.Truncate(8)</small>
+                                            </td>
+                                            <td>
+                                                <div class="text-truncate" style="max-width: 250px;" 
+                                                     data-bs-toggle="tooltip" 
+                                                     title="@history.Description">
+                                                    @history.Description
+                                                </div>
+                                                @if (!string.IsNullOrEmpty(history.OldLocationName) || !string.IsNullOrEmpty(history.NewLocationName))
+                                                {
+                                                    <div class="mt-1">
+                                                        <small class="text-muted">Location: </small>
+                                                        @if (!string.IsNullOrEmpty(history.OldLocationName))
+                                                        {
+                                                            <span class="badge bg-light text-dark me-1">@history.OldLocationName</span>
+                                                        }
+                                                        @if (!string.IsNullOrEmpty(history.OldLocationName) && !string.IsNullOrEmpty(history.NewLocationName))
+                                                        {
+                                                            <i class="bi bi-arrow-right text-muted mx-1"></i>
+                                                        }
+                                                        @if (!string.IsNullOrEmpty(history.NewLocationName))
+                                                        {
+                                                            <span class="badge bg-light text-dark">@history.NewLocationName</span>
+                                                        }
+                                                    </div>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(history.OldStatus) || !string.IsNullOrEmpty(history.NewStatus))
+                                                {
+                                                    <div class="d-flex align-items-center gap-1">
+                                                        @if (!string.IsNullOrEmpty(history.OldStatus))
+                                                        {
+                                                            <span class="badge bg-secondary">@history.OldStatus</span>
+                                                        }
+                                                        @if (!string.IsNullOrEmpty(history.OldStatus) && !string.IsNullOrEmpty(history.NewStatus))
+                                                        {
+                                                            <i class="bi bi-arrow-right text-muted"></i>
+                                                        }
+                                                        @if (!string.IsNullOrEmpty(history.NewStatus))
+                                                        {
+                                                            <span class="badge bg-primary">@history.NewStatus</span>
+                                                        }
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">-</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        @if (Model.Histories.TotalPages > 1)
+                        {
+                            <div class="card-footer">
+                                <nav aria-label="History pagination">
+                                    <ul class="pagination pagination-sm justify-content-center mb-0">
+                                        <li class="page-item @(!Model.Histories.HasPrevious ? "disabled" : "")">
+                                            <a class="page-link" href="@Url.Page("", new { 
+                                                page = 1,
+                                                pageSize = Model.PageSize,
+                                                actionFilter = Model.ActionFilter,
+                                                assetNameFilter = Model.AssetNameFilter,
+                                                userNameFilter = Model.UserNameFilter,
+                                                dateFrom = Model.DateFrom,
+                                                dateTo = Model.DateTo,
+                                                searchQuery = Model.SearchQuery
+                                            })" aria-label="First">
+                                                <i class="bi bi-chevron-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item @(!Model.Histories.HasPrevious ? "disabled" : "")">
+                                            <a class="page-link" href="@Url.Page("", new { 
+                                                page = Model.CurrentPage - 1,
+                                                pageSize = Model.PageSize,
+                                                actionFilter = Model.ActionFilter,
+                                                assetNameFilter = Model.AssetNameFilter,
+                                                userNameFilter = Model.UserNameFilter,
+                                                dateFrom = Model.DateFrom,
+                                                dateTo = Model.DateTo,
+                                                searchQuery = Model.SearchQuery
+                                            })" aria-label="Previous">
+                                                <i class="bi bi-chevron-left"></i>
+                                            </a>
+                                        </li>
+
+                                        @for (int i = Math.Max(1, Model.CurrentPage - 2); i <= Math.Min(Model.Histories.TotalPages, Model.CurrentPage + 2); i++)
+                                        {
+                                            <li class="page-item @(i == Model.CurrentPage ? "active" : "")">
+                                                <a class="page-link" href="@Url.Page("", new { 
+                                                    page = i,
+                                                    pageSize = Model.PageSize,
+                                                    actionFilter = Model.ActionFilter,
+                                                    assetNameFilter = Model.AssetNameFilter,
+                                                    userNameFilter = Model.UserNameFilter,
+                                                    dateFrom = Model.DateFrom,
+                                                    dateTo = Model.DateTo,
+                                                    searchQuery = Model.SearchQuery
+                                                })">@i</a>
+                                            </li>
+                                        }
+
+                                        <li class="page-item @(!Model.Histories.HasNext ? "disabled" : "")">
+                                            <a class="page-link" href="@Url.Page("", new { 
+                                                page = Model.CurrentPage + 1,
+                                                pageSize = Model.PageSize,
+                                                actionFilter = Model.ActionFilter,
+                                                assetNameFilter = Model.AssetNameFilter,
+                                                userNameFilter = Model.UserNameFilter,
+                                                dateFrom = Model.DateFrom,
+                                                dateTo = Model.DateTo,
+                                                searchQuery = Model.SearchQuery
+                                            })" aria-label="Next">
+                                                <i class="bi bi-chevron-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item @(!Model.Histories.HasNext ? "disabled" : "")">
+                                            <a class="page-link" href="@Url.Page("", new { 
+                                                page = Model.Histories.TotalPages,
+                                                pageSize = Model.PageSize,
+                                                actionFilter = Model.ActionFilter,
+                                                assetNameFilter = Model.AssetNameFilter,
+                                                userNameFilter = Model.UserNameFilter,
+                                                dateFrom = Model.DateFrom,
+                                                dateTo = Model.DateTo,
+                                                searchQuery = Model.SearchQuery
+                                            })" aria-label="Last">
+                                                <i class="bi bi-chevron-double-right"></i>
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </nav>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center py-5">
+                            <div class="mb-3">
+                                <i class="bi bi-clock-history text-muted" style="font-size: 3rem;"></i>
+                            </div>
+                            <h5 class="text-muted">No history records found</h5>
+                            @if (!string.IsNullOrEmpty(Model.ActionFilter) || !string.IsNullOrEmpty(Model.AssetNameFilter) || 
+                                 !string.IsNullOrEmpty(Model.UserNameFilter) || !string.IsNullOrEmpty(Model.DateFrom) || 
+                                 !string.IsNullOrEmpty(Model.DateTo))
+                            {
+                                <p class="text-muted mb-3">Try adjusting your filters</p>
+                                <a asp-page-handler="ClearFilters" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-x-circle me-1"></i>Clear Filters
+                                </a>
+                            }
+                            else
+                            {
+                                <p class="text-muted">No activities have been recorded yet.</p>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Activity Summary -->
+            @if (Model.Histories.Data.Any())
+            {
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">
+                                    <i class="bi bi-bar-chart me-2"></i>Activity Summary
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                @{
+                                    var actionGroups = Model.Histories.Data
+                                        .GroupBy(h => h.Action)
+                                        .Select(g => new
+                                        {
+                                            Action = g.Key,
+                                            Count = g.Count(),
+                                            Percentage = (g.Count() * 100.0) / Model.Histories.Data.Count
+                                        })
+                                        .OrderByDescending(x => x.Count);
+                                }
+                                
+                                <div class="row">
+                                    @foreach (var group in actionGroups)
+                                    {
+                                        <div class="col-6 mb-3">
+                                            <div class="d-flex align-items-center">
+                                                <span class="badge @Model.GetActionBadgeClass(group.Action) me-2">
+                                                    @group.Action
+                                                </span>
+                                                <div class="flex-grow-1">
+                                                    <div class="d-flex justify-content-between">
+                                                        <span class="small">@group.Count</span>
+                                                        <span class="small text-muted">@group.Percentage.ToString("F1")%</span>
+                                                    </div>
+                                                    <div class="progress" style="height: 4px;">
+                                                        <div class="progress-bar @Model.GetActionBadgeClass(group.Action).Replace("bg-", "bg-")" 
+                                                             style="width: @group.Percentage%"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">
+                                    <i class="bi bi-calendar-week me-2"></i>Recent Timeline
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="timeline-sm">
+                                    @foreach (var history in Model.Histories.Data.Take(5))
+                                    {
+                                        <div class="timeline-item-sm">
+                                            <div class="timeline-marker-sm @Model.GetActionBadgeClass(history.Action)"></div>
+                                            <div class="timeline-content-sm">
+                                                <div class="d-flex justify-content-between">
+                                                    <span class="fw-medium">@history.AssetName.Truncate(20)</span>
+                                                    <small class="text-muted">@history.Timestamp.ToString("HH:mm")</small>
+                                                </div>
+                                                <small class="text-muted">@history.Action by @history.UserFullName</small>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Help Modal -->
+<div class="modal fade" id="helpModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-question-circle me-2"></i>Asset History Help
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6>Understanding the History Log</h6>
+                <p>The asset history log tracks all activities related to your assets including:</p>
+                <ul>
+                    <li><strong>CREATE</strong> - When a new asset is added</li>
+                    <li><strong>UPDATE</strong> - When asset details are modified</li>
+                    <li><strong>DELETE</strong> - When an asset is removed</li>
+                    <li><strong>TRANSFER</strong> - When an asset moves between locations</li>
+                    <li><strong>MAINTENANCE</strong> - Maintenance activities</li>
+                    <li><strong>CHECKOUT/CHECKIN</strong> - Asset assignment and returns</li>
+                </ul>
+                
+                <h6 class="mt-4">Tips for Using Filters</h6>
+                <ul>
+                    <li>Use the <strong>Quick Search</strong> to find any text across all fields</li>
+                    <li>Filter by specific <strong>Action Type</strong> to narrow down activities</li>
+                    <li>Use <strong>Date Range</strong> to view activities from specific periods</li>
+                    <li>Click on any row to view the asset's details page</li>
+                    <li>Export data for reporting or analysis</li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .clickable-row {
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+    }
+    
+    .clickable-row:hover {
+        background-color: rgba(0, 123, 255, 0.05);
+    }
+    
+    .avatar-sm {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .avatar-title {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+    }
+    
+    .timeline-sm {
+        position: relative;
+        padding-left: 20px;
+    }
+    
+    .timeline-item-sm {
+        position: relative;
+        padding-bottom: 10px;
+    }
+    
+    .timeline-marker-sm {
+        position: absolute;
+        left: -20px;
+        top: 5px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+    }
+    
+    .timeline-content-sm {
+        padding-left: 10px;
+    }
+    
+    .badge.bg-purple {
+        background-color: #6f42c1 !important;
+    }
+    
+    .badge.bg-teal {
+        background-color: #20c997 !important;
+    }
+    
+    .progress-bar.bg-purple {
+        background-color: #6f42c1 !important;
+    }
+    
+    .progress-bar.bg-teal {
+        background-color: #20c997 !important;
+    }
+    
+    .smaller {
+        font-size: 0.75rem;
+    }
+</style>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+            
+            // Make rows clickable
+            document.querySelectorAll('.clickable-row').forEach(row => {
+                row.addEventListener('click', function() {
+                    window.location.href = this.dataset.href;
+                });
+            });
+            
+            // Set selected values for dropdowns
+            document.getElementById('PageSize').value = '@Model.PageSize';
+            document.getElementById('ActionFilter').value = '@Model.ActionFilter';
+            
+            // Auto-refresh every 30 seconds (optional)
+            // setInterval(() => {
+            //     if (document.visibilityState === 'visible') {
+            //         location.reload();
+            //     }
+            // }, 30000);
+        });
+        
+        function setAssetFilter(assetName) {
+            document.getElementById('AssetNameFilter').value = assetName;
+        }
+    </script>
+}
