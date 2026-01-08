@@ -41,6 +41,10 @@ namespace Portal.Pages.Assets
         [BindProperty(SupportsGet = true)]
         public string? DepartmentFilter { get; set; } = string.Empty;
 
+        // Add to IndexModel class
+        [BindProperty(SupportsGet = true)]
+        public string? EditAssetId { get; set; }
+
         public AssetCreateDTO CreateDto { get; set; } = new AssetCreateDTO();
         public AssetUpdateDTO UpdateDto { get; set; } = new AssetUpdateDTO();
         public string? ActiveModal { get; set; }
@@ -58,6 +62,14 @@ namespace Portal.Pages.Assets
         {
             try
             {
+                // Check for modal trigger in query parameters
+                if (!string.IsNullOrEmpty(Request.Query["openCreateModal"]) ||
+                    Request.Query["ActiveModal"] == "create")
+                {
+                    ActiveModal = "create";
+                }
+
+
                 // Build query parameters for API call
                 var queryParams = new List<string>();
 

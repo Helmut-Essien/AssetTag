@@ -422,7 +422,7 @@
                         </div>
                     </a>
 
-                    <a href="/Assets/Create" class="quick-action-card">
+                    <a href="/Assets/Index?openCreateModal=true" class="quick-action-card">
                         <div class="quick-action-icon add-asset">
                             <i class="bi bi-plus-circle"></i>
                         </div>
@@ -573,6 +573,13 @@
                 count: '#28a745',
                 depreciation: '#6c757d'
             }
+
+                // Check if we should open the create modal
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('openCreateModal') === 'true') {
+            // Navigate to assets page with modal open
+            window.location.href = '/Assets/Index?ActiveModal=create';
+        }
         };
     </script>
 }
@@ -630,4 +637,7 @@
             _ => "#6c757d"                   // Default gray
         };
     }
+
+
+    
 }
