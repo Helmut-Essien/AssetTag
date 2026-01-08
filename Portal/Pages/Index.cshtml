@@ -365,7 +365,7 @@
                 <div class="chart-header">
                     <h5 class="mb-0">Recent Activities</h5>
                     <div class="chart-actions">
-                        <a href="/assethistories" class="btn btn-sm btn-outline-primary">View All</a>
+                        <a href="/Assets/AssetHistories" class="btn btn-sm btn-outline-primary">View All</a>
                     </div>
                 </div>
                 <div class="activity-list" id="activityList">
@@ -400,7 +400,7 @@
                     }
                 </div>
                 <div class="chart-footer text-center">
-                    <a href="/assethistories" class="btn btn-sm btn-outline-primary w-100">
+                    <a href="/Assets/AssetHistories" class="btn btn-sm btn-outline-primary w-100">
                         <i class="bi bi-clock-history me-1"></i>View Full History
                     </a>
                 </div>
@@ -422,7 +422,7 @@
                         </div>
                     </a>
 
-                    <a href="/Assets/Create" class="quick-action-card">
+                    <a href="/Assets/Index?openCreateModal=true" class="quick-action-card">
                         <div class="quick-action-icon add-asset">
                             <i class="bi bi-plus-circle"></i>
                         </div>
@@ -573,6 +573,13 @@
                 count: '#28a745',
                 depreciation: '#6c757d'
             }
+
+                // Check if we should open the create modal
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('openCreateModal') === 'true') {
+            // Navigate to assets page with modal open
+            window.location.href = '/Assets/Index?ActiveModal=create';
+        }
         };
     </script>
 }
@@ -630,4 +637,7 @@
             _ => "#6c757d"                   // Default gray
         };
     }
+
+
+    
 }

@@ -985,45 +985,179 @@
         }
 
         function initializeModals() {
-            // Edit Modal - Populate form with asset data
-            var editModal = document.getElementById('editModal');
-            if (editModal) {
-                editModal.addEventListener('show.bs.modal', function (event) {
-                    var button = event.relatedTarget;
-
-                    // Set basic fields
-                    document.getElementById('UpdateDto_AssetId').value = button.getAttribute('data-id');
-                    document.getElementById('UpdateDto_AssetTag').value = button.getAttribute('data-assettag') || '';
-                    document.getElementById('UpdateDto_Name').value = button.getAttribute('data-name') || '';
-                    document.getElementById('UpdateDto_Description').value = button.getAttribute('data-desc') || '';
-                    document.getElementById('UpdateDto_CategoryId').value = button.getAttribute('data-categoryid') || '';
-                    document.getElementById('UpdateDto_LocationId').value = button.getAttribute('data-locationid') || '';
-                    document.getElementById('UpdateDto_DepartmentId').value = button.getAttribute('data-departmentid') || '';
-                    document.getElementById('UpdateDto_PurchaseDate').value = button.getAttribute('data-purchasedate') || '';
-                    document.getElementById('UpdateDto_PurchasePrice').value = button.getAttribute('data-purchaseprice') || '';
-                    document.getElementById('UpdateDto_CurrentValue').value = button.getAttribute('data-currentvalue') || '';
-                    document.getElementById('UpdateDto_Status').value = button.getAttribute('data-status') || '';
-                    document.getElementById('UpdateDto_SerialNumber').value = button.getAttribute('data-serialnumber') || '';
-                    document.getElementById('UpdateDto_Condition').value = button.getAttribute('data-condition') || '';
-                    document.getElementById('UpdateDto_Quantity').value = button.getAttribute('data-quantity') || '1';
-
-                    // Set financial fields
-                    document.getElementById('UpdateDto_CostPerUnit').value = button.getAttribute('data-costperunit') || '';
-                    document.getElementById('UpdateDto_TotalCost').value = button.getAttribute('data-totalcost') || '';
-                    document.getElementById('UpdateDto_DepreciationRate').value = button.getAttribute('data-depreciationrate') || '';
-                    document.getElementById('UpdateDto_AccumulatedDepreciation').value = button.getAttribute('data-accumulateddepreciation') || '';
-                    document.getElementById('UpdateDto_NetBookValue').value = button.getAttribute('data-netbookvalue') || '';
-                    document.getElementById('UpdateDto_UsefulLifeYears').value = button.getAttribute('data-usefullifeyears') || '';
-
-                    // Set additional fields
-                    document.getElementById('UpdateDto_VendorName').value = button.getAttribute('data-vendorname') || '';
-                    document.getElementById('UpdateDto_InvoiceNumber').value = button.getAttribute('data-invoicenumber') || '';
-                    document.getElementById('UpdateDto_WarrantyExpiry').value = button.getAttribute('data-warrantyexpiry') || '';
-                    document.getElementById('UpdateDto_DisposalDate').value = button.getAttribute('data-disposaldate') || '';
-                    document.getElementById('UpdateDto_DisposalValue').value = button.getAttribute('data-disposalvalue') || '';
-                    document.getElementById('UpdateDto_Remarks').value = button.getAttribute('data-remarks') || '';
-                });
+            // Check URL for modal trigger
+    const urlParams = new URLSearchParams(window.location.search);
+    const openCreateModal = urlParams.get('openCreateModal');
+    const activeModal = urlParams.get('ActiveModal');
+    const editAssetId = urlParams.get('editAssetId');
+    
+    // Handle Create Modal linked from other pages
+    if (openCreateModal === 'true') {
+        // Clean the URL first
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+        
+        // Use Bootstrap's built-in method - simulate clicking the Add Asset button
+        setTimeout(() => {
+            const addAssetButton = document.querySelector('button[data-bs-target="#createModal"]');
+            if (addAssetButton) {
+                addAssetButton.click();
             }
+        }, 100);
+    }
+
+
+    // Handle Edit Modal linked from other pages
+    if (editAssetId) {
+        // Clean the URL first
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+        
+        // Fetch asset data and open edit modal
+        setTimeout(() => {
+            fetchAssetAndOpenEditModal(editAssetId);
+        }, 100);
+    }
+
+    // Rest of your existing modal initialization code...
+}
+
+function fetchAssetAndOpenEditModal(assetId) {
+    // You have two options here:
+    
+    // Option 1: If the asset is already in the table, find and click its edit button
+    const editButton = document.querySelector(`button[data-id="${assetId}"][data-bs-target="#editModal"]`);
+    if (editButton) {
+        editButton.click();
+    } else {
+        // Option 2: Fetch the asset from API and populate the modal
+        // This is necessary if the asset isn't on the current page due to filtering/pagination
+        fetch(`/api/assets/${assetId}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Asset not found');
+                }
+                return response.json();
+            })
+            .then(asset => {
+                populateEditModal(asset);
+                const editModal = new bootstrap.Modal(document.getElementById('editModal'), {
+                    backdrop: true,
+                    keyboard: true
+                });
+                editModal.show();
+            })
+            .catch(error => {
+                console.error('Error fetching asset:', error);
+                alert('Could not load asset for editing. Please make sure it exists and you have permission.');
+            });
+    }
+}
+
+function populateEditModal(asset) {
+    // Populate all form fields from the asset object
+    document.getElementById('UpdateDto_AssetId').value = asset.assetId || '';
+    document.getElementById('UpdateDto_AssetTag').value = asset.assetTag || '';
+    document.getElementById('UpdateDto_Name').value = asset.name || '';
+    document.getElementById('UpdateDto_Description').value = asset.description || '';
+    document.getElementById('UpdateDto_CategoryId').value = asset.categoryId || '';
+    document.getElementById('UpdateDto_LocationId').value = asset.locationId || '';
+    document.getElementById('UpdateDto_DepartmentId').value = asset.departmentId || '';
+    document.getElementById('UpdateDto_PurchaseDate').value = asset.purchaseDate ? asset.purchaseDate.split('T')[0] : '';
+    document.getElementById('UpdateDto_PurchasePrice').value = asset.purchasePrice || '';
+    document.getElementById('UpdateDto_CurrentValue').value = asset.currentValue || '';
+    document.getElementById('UpdateDto_Status').value = asset.status || '';
+    document.getElementById('UpdateDto_SerialNumber').value = asset.serialNumber || '';
+    document.getElementById('UpdateDto_Condition').value = asset.condition || '';
+    document.getElementById('UpdateDto_Quantity').value = asset.quantity || '1';
+    document.getElementById('UpdateDto_CostPerUnit').value = asset.costPerUnit || '';
+    document.getElementById('UpdateDto_TotalCost').value = asset.totalCost || '';
+    document.getElementById('UpdateDto_DepreciationRate').value = asset.depreciationRate || '';
+    document.getElementById('UpdateDto_AccumulatedDepreciation').value = asset.accumulatedDepreciation || '';
+    document.getElementById('UpdateDto_NetBookValue').value = asset.netBookValue || '';
+    document.getElementById('UpdateDto_UsefulLifeYears').value = asset.usefulLifeYears || '';
+    document.getElementById('UpdateDto_VendorName').value = asset.vendorName || '';
+    document.getElementById('UpdateDto_InvoiceNumber').value = asset.invoiceNumber || '';
+    document.getElementById('UpdateDto_WarrantyExpiry').value = asset.warrantyExpiry ? asset.warrantyExpiry.split('T')[0] : '';
+    document.getElementById('UpdateDto_DisposalDate').value = asset.disposalDate ? asset.disposalDate.split('T')[0] : '';
+    document.getElementById('UpdateDto_DisposalValue').value = asset.disposalValue || '';
+    document.getElementById('UpdateDto_Remarks').value = asset.remarks || '';
+}
+
+// Also update your existing edit modal event listener to use the same function
+var editModal = document.getElementById('editModal');
+if (editModal) {
+    editModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        var asset = {
+            assetId: button.getAttribute('data-id'),
+            assetTag: button.getAttribute('data-assettag'),
+            name: button.getAttribute('data-name'),
+            description: button.getAttribute('data-desc'),
+            categoryId: button.getAttribute('data-categoryid'),
+            locationId: button.getAttribute('data-locationid'),
+            departmentId: button.getAttribute('data-departmentid'),
+            purchaseDate: button.getAttribute('data-purchasedate'),
+            purchasePrice: button.getAttribute('data-purchaseprice'),
+            currentValue: button.getAttribute('data-currentvalue'),
+            status: button.getAttribute('data-status'),
+            serialNumber: button.getAttribute('data-serialnumber'),
+            condition: button.getAttribute('data-condition'),
+            quantity: button.getAttribute('data-quantity'),
+            costPerUnit: button.getAttribute('data-costperunit'),
+            totalCost: button.getAttribute('data-totalcost'),
+            depreciationRate: button.getAttribute('data-depreciationrate'),
+            accumulatedDepreciation: button.getAttribute('data-accumulateddepreciation'),
+            netBookValue: button.getAttribute('data-netbookvalue'),
+            usefulLifeYears: button.getAttribute('data-usefullifeyears'),
+            vendorName: button.getAttribute('data-vendorname'),
+            invoiceNumber: button.getAttribute('data-invoicenumber'),
+            warrantyExpiry: button.getAttribute('data-warrantyexpiry'),
+            disposalDate: button.getAttribute('data-disposaldate'),
+            disposalValue: button.getAttribute('data-disposalvalue'),
+            remarks: button.getAttribute('data-remarks')
+        };
+        populateEditModal(asset);
+    });
+            // // Edit Modal - Populate form with asset data
+            // var editModal = document.getElementById('editModal');
+            // if (editModal) {
+            //     editModal.addEventListener('show.bs.modal', function (event) {
+            //         var button = event.relatedTarget;
+
+            //         // Set basic fields
+            //         document.getElementById('UpdateDto_AssetId').value = button.getAttribute('data-id');
+            //         document.getElementById('UpdateDto_AssetTag').value = button.getAttribute('data-assettag') || '';
+            //         document.getElementById('UpdateDto_Name').value = button.getAttribute('data-name') || '';
+            //         document.getElementById('UpdateDto_Description').value = button.getAttribute('data-desc') || '';
+            //         document.getElementById('UpdateDto_CategoryId').value = button.getAttribute('data-categoryid') || '';
+            //         document.getElementById('UpdateDto_LocationId').value = button.getAttribute('data-locationid') || '';
+            //         document.getElementById('UpdateDto_DepartmentId').value = button.getAttribute('data-departmentid') || '';
+            //         document.getElementById('UpdateDto_PurchaseDate').value = button.getAttribute('data-purchasedate') || '';
+            //         document.getElementById('UpdateDto_PurchasePrice').value = button.getAttribute('data-purchaseprice') || '';
+            //         document.getElementById('UpdateDto_CurrentValue').value = button.getAttribute('data-currentvalue') || '';
+            //         document.getElementById('UpdateDto_Status').value = button.getAttribute('data-status') || '';
+            //         document.getElementById('UpdateDto_SerialNumber').value = button.getAttribute('data-serialnumber') || '';
+            //         document.getElementById('UpdateDto_Condition').value = button.getAttribute('data-condition') || '';
+            //         document.getElementById('UpdateDto_Quantity').value = button.getAttribute('data-quantity') || '1';
+
+            //         // Set financial fields
+            //         document.getElementById('UpdateDto_CostPerUnit').value = button.getAttribute('data-costperunit') || '';
+            //         document.getElementById('UpdateDto_TotalCost').value = button.getAttribute('data-totalcost') || '';
+            //         document.getElementById('UpdateDto_DepreciationRate').value = button.getAttribute('data-depreciationrate') || '';
+            //         document.getElementById('UpdateDto_AccumulatedDepreciation').value = button.getAttribute('data-accumulateddepreciation') || '';
+            //         document.getElementById('UpdateDto_NetBookValue').value = button.getAttribute('data-netbookvalue') || '';
+            //         document.getElementById('UpdateDto_UsefulLifeYears').value = button.getAttribute('data-usefullifeyears') || '';
+
+            //         // Set additional fields
+            //         document.getElementById('UpdateDto_VendorName').value = button.getAttribute('data-vendorname') || '';
+            //         document.getElementById('UpdateDto_InvoiceNumber').value = button.getAttribute('data-invoicenumber') || '';
+            //         document.getElementById('UpdateDto_WarrantyExpiry').value = button.getAttribute('data-warrantyexpiry') || '';
+            //         document.getElementById('UpdateDto_DisposalDate').value = button.getAttribute('data-disposaldate') || '';
+            //         document.getElementById('UpdateDto_DisposalValue').value = button.getAttribute('data-disposalvalue') || '';
+            //         document.getElementById('UpdateDto_Remarks').value = button.getAttribute('data-remarks') || '';
+            //     });
+            // }
 
             // Delete Modal - Set asset ID for deletion
             var deleteModal = document.getElementById('deleteModal');
