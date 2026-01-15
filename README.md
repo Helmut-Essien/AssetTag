@@ -28,170 +28,161 @@ A comprehensive, enterprise-grade asset management platform for Methodist Univer
 The solution is organized into **three main projects** following a layered architecture pattern:
 
 ```
-AssetTag/
-├── AssetTag/                                   # API Backend - .NET 9 Web API
-│   ├── Controllers/                            # REST API endpoint handlers
-│   │   ├── AssetsController.cs                 # Asset CRUD operations
-│   │   ├── AuthController.cs                   # Authentication & login/logout
-│   │   ├── CategoriesController.cs             # Asset category management
-│   │   ├── DashboardController.cs              # Dashboard analytics data
-│   │   ├── DepartmentsController.cs            # Department management
-│   │   ├── DiagnosticsController.cs            # System diagnostics endpoints
-│   │   ├── AssetHistoriesController.cs         # Audit trail queries
-│   │   ├── LocationsController.cs              # Location management
-│   │   ├── ReportsController.cs                # Report generation & AI queries
-│   │   ├── RoleController.cs                   # Role management
-│   │   └── UsersController.cs                  # User management
-│   │
-│   ├── Services/                               # Business logic & external integrations
-│   │   ├── AIQueryService.cs                   # Groq AI integration for SQL generation
-│   │   ├── EmailService.cs                     # SMTP-based email communications
-│   │   ├── IEmailService.cs                    # Email service interface
-│   │   ├── IAIQueryService.cs                  # AI service interface
-│   │   ├── ITokenService.cs                    # Token service interface
-│   │   └── TokenService.cs                     # JWT token creation & validation
-│   │
-│   ├── Models/                                 # Entity models & data classes
-│   │   ├── ApplicationUser.cs                  # Extended ASP.NET Identity user
-│   │   ├── Asset.cs                            # Core asset entity
-│   │   ├── AssetHistory.cs                     # Audit trail entries
-│   │   ├── Category.cs                         # Asset classification
-│   │   ├── Department.cs                       # Organizational departments
-│   │   ├── Invitation.cs                       # User invitation records
-│   │   ├── Location.cs                         # Physical locations
-│   │   └── RefreshTokens.cs                    # Token lifecycle management
-│   │
-│   ├── Data/                                   # Database configuration & migrations
-│   │   ├── ApplicationDbContext.cs             # Entity Framework Core context
-│   │   ├── DesignTimeDbContextFactory.cs       # Design-time context factory
-│   │   ├── Migrations/                         # EF Core database migrations
-│   │   │   ├── [YYYYMMDDHHmmss]_InitialCreate.cs
-│   │   │   ├── [YYYYMMDDHHmmss]_AddRefreshTokens.cs
-│   │   │   ├── [YYYYMMDDHHmmss]_AddInvitations.cs
-│   │   │   └── [More migrations...]
-│   │   └── SeedData.cs                         # Initial database seeding
-│   │
-│   ├── Filters/                                # Custom action filters
-│   │   └── ActiveUserAttribute.cs              # Validates user is active
-│   │
-│   ├── Program.cs                              # DI container & middleware configuration
-│   ├── appsettings.json                        # Default configuration
-│   ├── appsettings.Development.json            # Development overrides
-│   ├── appsettings.Production.json             # Production overrides
-│   └── AssetTag.csproj                         # Project file
+AssetTag.sln
+├─ AssetTag/                                    # API Backend (.NET 9 Web API)
+│  ├─ Controllers/                              # REST API endpoint handlers
+│  │  ├─ AssetsController.cs                    # Asset CRUD operations
+│  │  ├─ AuthController.cs                      # Authentication & token endpoints
+│  │  ├─ CategoriesController.cs                # Asset category management
+│  │  ├─ DashboardController.cs                 # Dashboard analytics data
+│  │  ├─ DepartmentsController.cs               # Department management
+│  │  ├─ DiagnosticsController.cs               # System diagnostics
+│  │  ├─ AssetHistoriesController.cs            # Audit trail queries
+│  │  ├─ LocationsController.cs                 # Location management
+│  │  ├─ ReportsController.cs                   # Report generation & AI queries
+│  │  ├─ RoleController.cs                      # Role management
+│  │  ├─ TestController.cs                      # Test endpoints
+│  │  └─ UsersController.cs                     # User management
+│  │
+│  ├─ Services/                                 # Business logic & external integrations
+│  │  ├─ TokenService.cs                        # JWT token creation & validation
+│  │  ├─ ITokenService.cs                       # Token service interface
+│  │  ├─ EmailService.cs                        # SMTP-based email communications
+│  │  ├─ IEmailService.cs                       # Email service interface
+│  │  └─ AIQueryService.cs                      # Groq AI integration for SQL generation
+│  │
+│  ├─ Data/                                     # Database configuration & migrations
+│  │  ├─ ApplicationDbContext.cs                # Entity Framework Core context
+│  │  ├─ DesignTimeDbContextFactory.cs          # Design-time context factory
+│  │  ├─ SeedData.cs                            # Initial database seeding
+│  │  └─ Migrations/                            # EF Core database migrations
+│  │     ├─ 20251014093448_initialDb.cs
+│  │     ├─ 20251031105441_AddAssetFinancialFields.cs
+│  │     └─ 20251111191210_AddedInvitationTable.cs
+│  │
+│  ├─ Filters/                                  # Custom action filters
+│  │  └─ ActiveUserAttribute.cs                 # Validates user is active
+│  │
+│  ├─ Program.cs                                # DI container & middleware configuration
+│  ├─ appsettings.json                          # Default configuration
+│  ├─ appsettings.Development.json              # Development overrides
+│  └─ AssetTag.csproj                           # Project file
 │
-├── Portal/                                     # Web Frontend - .NET 9 Razor Pages
-│   ├── Pages/                                  # Razor Pages UI components
-│   │   ├── Index.cshtml                        # Dashboard home page
-│   │   ├── Index.cshtml.cs                     # Dashboard code-behind
-│   │   ├── LoginRedirect.cshtml                # Post-login redirect page
-│   │   ├── LoginRedirect.cshtml.cs             # Login redirect logic
-│   │   ├── Unauthorized.cshtml                 # Unauthorized access page
-│   │   ├── Unauthorized.cshtml.cs              # Unauthorized logic
-│   │   │
-│   │   ├── Account/                            # Authentication pages
-│   │   │   ├── Login.cshtml                    # Login form
-│   │   │   ├── Login.cshtml.cs                 # Login logic
-│   │   │   ├── Logout.cshtml.cs                # Logout handler
-│   │   │   └── Register.cshtml                 # User registration form
-│   │   │
-│   │   ├── Assets/                             # Asset management pages
-│   │   │   ├── Index.cshtml                    # Asset listing & search
-│   │   │   ├── Index.cshtml.cs                 # Asset list logic
-│   │   │   ├── Details.cshtml                  # Asset detail view
-│   │   │   └── Details.cshtml.cs               # Asset details logic
-│   │   │
-│   │   ├── Categories/                         # Category management pages
-│   │   │   ├── Index.cshtml                    # Category list
-│   │   │   └── Index.cshtml.cs                 # Category logic
-│   │   │
-│   │   ├── Departments/                        # Department management pages
-│   │   │   ├── Index.cshtml                    # Department list
-│   │   │   └── Index.cshtml.cs                 # Department logic
-│   │   │
-│   │   ├── Diagnostics/                        # System diagnostic pages
-│   │   │   ├── TokenDiagnostics.cshtml         # JWT token inspector
-│   │   │   ├── TokenDiagnostics.cshtml.cs      # Token diagnostics logic
-│   │   │   ├── TimeCheck.cshtml                # Server time synchronization
-│   │   │   └── TimeCheck.cshtml.cs             # Time check logic
-│   │   │
-│   │   ├── Locations/                          # Location management pages
-│   │   │   ├── Index.cshtml                    # Location list
-│   │   │   └── Index.cshtml.cs                 # Location logic
-│   │   │
-│   │   ├── Reports/                            # Report generation pages
-│   │   │   ├── Index.cshtml                    # Reports interface
-│   │   │   └── Index.cshtml.cs                 # Reports logic
-│   │   │
-│   │   ├── Users/                              # User management pages
-│   │   │   ├── Index.cshtml                    # User list
-│   │   │   └── Index.cshtml.cs                 # User logic
-│   │   │
-│   │   └── Shared/                             # Shared layout & components
-│   │       ├── _Layout.cshtml                  # Main layout template
-│   │       ├── _AuthLayout.cshtml              # Authentication pages layout
-│   │       └── _ValidationScriptsPartial.cshtml # Validation scripts
-│   │
-│   ├── Services/                               # Frontend business logic
-│   │   ├── ApiAuthService.cs                   # API authentication client
-│   │   ├── IApiAuthService.cs                  # Auth service interface
-│   │   ├── UserRoleService.cs                  # Role-based access control
-│   │   ├── IUserRoleService.cs                 # Role service interface
-│   │   ├── ReportsService.cs                   # Report data retrieval
-│   │   └── IReportsService.cs                  # Reports service interface
-│   │
-│   ├── Handlers/                               # HTTP message handlers & middleware
-│   │   ├── TokenRefreshHandler.cs              # Automatic JWT token refresh
-│   │   └── UnauthorizedRedirectHandler.cs      # 401 to login redirect
-│   │
-│   ├── wwwroot/                                # Static assets (client-side)
-│   │   ├── css/                                # Stylesheets
-│   │   │   ├── admin.css                       # Main admin panel styles
-│   │   │   ├── authLayout.css                  # Authentication page styles
-│   │   │   ├── dashboard.css                   # Dashboard-specific styles
-│   │   │   └── loginRedirect.css               # Login redirect animation styles
-│   │   │
-│   │   ├── js/                                 # JavaScript files
-│   │   │   ├── dashboard.js                    # Dashboard chart initialization
-│   │   │   └── site.js                         # General site utilities
-│   │   │
-│   │   ├── lib/                                # Third-party libraries
-│   │   │   ├── bootstrap/                      # Bootstrap CSS framework
-│   │   │   ├── jquery/                         # jQuery library
-│   │   │   └── jquery-validation/              # Form validation library
-│   │   │
-│   │   └── Resources/                          # Images & branding assets
-│   │       ├── mlogo.jpeg                      # Methodist University logo
-│   │       └── [Other images...]
-│   │
-│   ├── Program.cs                              # DI container & middleware setup
-│   ├── appsettings.json                        # Default configuration
-│   ├── appsettings.Development.json            # Development overrides
-│   ├── Portal.csproj                           # Project file
-│   └── _ViewStart.cshtml                       # View engine initialization
+├─ Portal/                                      # Web Frontend (.NET 9 Razor Pages)
+│  ├─ Pages/                                    # Razor Pages UI components
+│  │  ├─ Index.cshtml                           # Dashboard home page
+│  │  ├─ Index.cshtml.cs                        # Dashboard code-behind
+│  │  ├─ LoginRedirect.cshtml.cs                # Post-login redirect
+│  │  ├─ Unauthorized.cshtml                    # Unauthorized access page
+│  │  ├─ Unauthorized.cshtml.cs                 # Unauthorized logic
+│  │  ├─ Privacy.cshtml.cs                      # Privacy page
+│  │  ├─ Error.cshtml.cs                        # Error page
+│  │  ├─ Forbidden.cshtml.cs                    # Forbidden page
+│  │  │
+│  │  ├─ Account/                               # Authentication pages
+│  │  │  ├─ Login.cshtml                        # Login form
+│  │  │  ├─ Login.cshtml.cs                     # Login logic
+│  │  │  ├─ Logout.cshtml.cs                    # Logout handler
+│  │  │  ├─ Register.cshtml                     # Registration form
+│  │  │  ├─ Register.cshtml.cs                  # Registration logic
+│  │  │  ├─ ForgotPassword.cshtml.cs            # Forgot password handler
+│  │  │  └─ ResetPassword.cshtml.cs             # Reset password handler
+│  │  │
+│  │  ├─ Assets/                                # Asset management pages
+│  │  │  ├─ Index.cshtml                        # Asset listing & search
+│  │  │  ├─ Index.cshtml.cs                     # Asset list logic
+│  │  │  ├─ Details.cshtml                      # Asset detail view
+│  │  │  ├─ Details.cshtml.cs                   # Asset details logic
+│  │  │  └─ AssetHistories.cshtml.cs            # Asset history page
+│  │  │
+│  │  ├─ Categories/                            # Category management pages
+│  │  │  ├─ Index.cshtml                        # Category list
+│  │  │  └─ Index.cshtml.cs                     # Category logic
+│  │  │
+│  │  ├─ Departments/                           # Department management pages
+│  │  │  ├─ Index.cshtml                        # Department list
+│  │  │  └─ Index.cshtml.cs                     # Department logic
+│  │  │
+│  │  ├─ Diagnostics/                           # System diagnostic pages
+│  │  │  ├─ TokenDiagnostics.cshtml.cs          # JWT token inspector
+│  │  │  └─ TimeCheck.cshtml.cs                 # Server time synchronization
+│  │  │
+│  │  ├─ Locations/                             # Location management pages
+│  │  │  ├─ Index.cshtml                        # Location list
+│  │  │  └─ Index.cshtml.cs                     # Location logic
+│  │  │
+│  │  ├─ Reports/                               # Report generation pages
+│  │  │  ├─ Index.cshtml                        # Reports interface
+│  │  │  └─ Index.cshtml.cs                     # Reports logic
+│  │  │
+│  │  ├─ Users/                                 # User management pages
+│  │  │  ├─ Index.cshtml                        # User list
+│  │  │  └─ Index.cshtml.cs                     # User logic
+│  │  │
+│  │  └─ Shared/                                # Shared layout & components
+│  │     ├─ _Layout.cshtml                      # Main layout template
+│  │     ├─ _AuthLayout.cshtml                  # Authentication pages layout
+│  │     ├─ _ValidationScriptsPartial.cshtml    # Validation scripts
+│  │     ├─ _ViewStart.cshtml                   # View engine initialization
+│  │     └─ _ViewImports.cshtml                 # View imports
+│  │
+│  ├─ Services/                                 # Frontend business logic
+│  │  ├─ ApiAuthService.cs                      # API authentication client
+│  │  ├─ IApiAuthService.cs                     # Auth service interface
+│  │  ├─ UserRoleService.cs                     # Role-based access control
+│  │  ├─ IUserRoleService.cs                    # Role service interface
+│  │  ├─ ReportsService.cs                      # Report data retrieval
+│  │  └─ IReportsService.cs                     # Reports service interface
+│  │
+│  ├─ Handlers/                                 # HTTP message handlers
+│  │  ├─ TokenRefreshHandler.cs                 # Automatic JWT token refresh
+│  │  └─ UnauthorizedRedirectHandler.cs         # 401 to login redirect
+│  │
+│  ├─ wwwroot/                                  # Static assets (client-side)
+│  │  ├─ css/                                   # Stylesheets
+│  │  │  ├─ authLayout.css                      # Auth pages styles
+│  │  │  └─ dashboard.css                       # Dashboard styles
+│  │  └─ js/                                    # JavaScript files
+│  │     └─ dashboard.js                        # Dashboard initialization
+│  │
+│  ├─ Program.cs                                # DI container & middleware setup
+│  ├─ appsettings.json                          # Default configuration
+│  ├─ appsettings.Development.json              # Development overrides
+│  └─ Portal.csproj                             # Project file
 │
-├── Shared/                                     # Class Library - Shared DTOs & utilities
-│   ├── DTOs/                                   # Data Transfer Objects
-│   │   ├── AiDTO.cs                            # AI query request/response models
-│   │   ├── AssetDto.cs                         # Asset data transfer object
-│   │   ├── AssetHistoryDto.cs                  # Audit history DTO
-│   │   ├── Auth.cs                             # Authentication/token DTOs
-│   │   ├── CategoryDto.cs                      # Category DTO
-│   │   ├── DashboardDTO.cs                     # Dashboard data models
-│   │   ├── DepartmentDto.cs                    # Department DTO
-│   │   ├── GroqDTO.cs                          # Groq API request/response models
-│   │   ├── InvitationDto.cs                    # User invitation DTO
-│   │   ├── LocationDto.cs                      # Location DTO
-│   │   ├── RefreshTokenDto.cs                  # Refresh token DTO
-│   │   └── UserDto.cs                          # User data transfer object
-│   │
-│   ├── Shared.csproj                           # Project file
-│   └── [Other shared utilities]
+├─ Shared/                                      # Class Library - Shared DTOs & Models
+│  ├─ DTOs/                                     # Data Transfer Objects
+│  │  ├─ AssetDto.cs                            # Asset DTO
+│  │  ├─ AssetHistoryDto.cs                     # Audit history DTO
+│  │  ├─ Auth.cs                                # Authentication DTOs
+│  │  ├─ RefreshTokenDto.cs                     # Refresh token DTO
+│  │  ├─ UserDto.cs                             # User DTO
+│  │  ├─ CategoryDto.cs                         # Category DTO
+│  │  ├─ DepartmentDto.cs                       # Department DTO
+│  │  ├─ LocationDto.cs                         # Location DTO
+│  │  ├─ DashboardDTO.cs                        # Dashboard data DTO
+│  │  ├─ InvitationDto.cs                       # Invitation DTO
+│  │  ├─ AiDTO.cs                               # AI query DTO
+│  │  └─ GroqDTO.cs                             # Groq API DTO
+│  │
+│  ├─ Models/                                   # Entity models (shared definitions)
+│  │  ├─ ApplicationUser.cs                     # User model
+│  │  ├─ Asset.cs                               # Asset model
+│  │  ├─ AssetHistory.cs                        # Audit trail model
+│  │  ├─ Category.cs                            # Category model
+│  │  ├─ Department.cs                          # Department model
+│  │  ├─ Location.cs                            # Location model
+│  │  ├─ RefreshTokens.cs                       # Token model
+│  │  └─ Invitation.cs                          # Invitation model
+│  │
+│  └─ Shared.csproj                             # Project file
 │
-├── README.md                                   # Project documentation (this file)
-├── LICENSE                                     # MIT License
-├── .gitignore                                  # Git ignore rules
-└── AssetTag.sln                                # Solution file
+├─ README.md                                    # Project documentation
+├─ LICENSE                                      # MIT License
+├─ .gitignore                                   # Git ignore rules
+├─ DIAGRAM_FIXES_SUMMARY.md                     # Architecture fixes log
+├─ GITHUB_RENDERING_FIXES.md                    # GitHub rendering fixes log
+└─ AssetTag.sln                                 # Solution file
 ```
 
 ### Key Directory Structure Overview
