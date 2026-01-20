@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using CommunityToolkit.Maui;
+using Syncfusion.Maui.Toolkit.Hosting;
 
 namespace MobileApp
 {
@@ -8,7 +9,9 @@ namespace MobileApp
         public static MauiApp CreateMauiApp()
         {
             var builder = MauiApp.CreateBuilder();
-            builder.UseMauiApp<App>().ConfigureFonts(fonts =>
+            builder.UseMauiApp<App>()
+                .ConfigureSyncfusionToolkit()
+                .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                 fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
