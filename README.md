@@ -186,11 +186,15 @@ AssetTag.sln
 │  │  ├─ MacCatalyst/                           # macOS Catalyst implementations
 │  │  └─ Windows/                               # Windows platform implementations
 │  │
+│  ├─ Data/                                     # Local data access layer
+│  │  └─ LocalDbContext.cs                      # SQLite EF Core context for offline storage
+│  │
 │  ├─ Resources/                                # Application resources
-│  │  ├─ Styles/                                # App-wide styles
-│  │  ├─ Images/                                # App images and icons
-│  │  ├─ Fonts/                                 # Custom fonts
-│  │  └─ Strings/                               # Localized strings
+│  │  ├─ Raw/                                   # Raw resource files
+│  │  │  └─ AboutAssets.txt                     # Asset documentation
+│  │  └─ Styles/                                # App-wide styles
+│  │     ├─ Colors.xaml                         # Color definitions
+│  │     └─ Styles.xaml                         # Style definitions
 │  │
 │  ├─ App.xaml                                  # Main app resource dictionary
 │  ├─ App.xaml.cs                               # App code-behind
@@ -226,9 +230,11 @@ AssetTag.sln
 
 **Mobile Frontend (MobileApp/)**
 - **Platforms**: Platform-specific code for Android, iOS, macOS Catalyst, and Windows
-- **Resources**: App resources including styles, images, fonts, and strings
-- **Pages/Views**: XAML-based UI components for different screens
-- **Services**: Mobile-specific business logic and API clients
+- **Data**: SQLite local database for offline asset data storage
+- **Resources**: App resources including styles and raw files
+  - Styles: Color and style definitions in XAML
+  - Raw: Static asset files
+- **App Shell & Pages**: XAML-based UI components for navigation and screens
 
 **Shared Library (Shared/)**
 - **DTOs**: Data Transfer Objects for inter-project communication
@@ -333,7 +339,7 @@ AssetTag.sln
 
 #### **4. Mobile Frontend (MobileApp Project)**
 
-**Purpose**: Provides a cross-platform mobile application for iOS, Android, Windows, and macOS.
+**Purpose**: Provides a cross-platform mobile application for iOS, Android, Windows, and macOS with offline capabilities.
 
 **Key Components**:
 - **Platforms** (`/Platforms`): Platform-specific implementations
@@ -342,24 +348,24 @@ AssetTag.sln
   - `Windows/` - Windows-specific code and configurations
   - `MacCatalyst/` - macOS Catalyst-specific code and configurations
 
+- **Data** (`/Data`): Local data persistence layer
+  - `LocalDbContext` - SQLite Entity Framework Core context for offline storage
+  - Enables offline-first functionality with syncing when connectivity resumes
+
 - **Resources** (`/Resources`): Application resources
-  - Styles: App-wide styling definitions
-  - Images: App icons and image assets
-  - Fonts: Custom font definitions
-  - Strings: Localized text strings
+  - `Styles/`: XAML style and color definitions
+    - `Colors.xaml` - Centralized color palette
+    - `Styles.xaml` - Reusable component styles
+  - `Raw/`: Static resource files and documentation
 
-- **Pages/Views**: XAML-based UI components
-  - Main app shell and navigation structure
-  - Asset listing and details screens
-  - Login and authentication screens
-  - Dashboard and reporting screens
-  - Settings and user management screens
+- **App Shell & Navigation**:
+  - `App.xaml/cs` - Application-level configuration and resources
+  - `AppShell.xaml/cs` - Navigation structure and routing
+  - `MainPage.xaml/cs` - Landing page UI and logic
+  - `GlobalXmlns.cs` - Global XML namespace definitions for XAML
 
-- **Services**: Mobile-specific business logic
-  - API client services for backend communication
-  - Authentication and token management
-  - Local storage and caching
-  - Navigation services
+- **Core Configuration**:
+  - `MauiProgram.cs` - Dependency injection and MAUI platform configuration
 
 ### Data Flow
 
