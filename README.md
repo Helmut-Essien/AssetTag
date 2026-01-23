@@ -25,7 +25,7 @@ A comprehensive, enterprise-grade asset management platform for Methodist Univer
 
 ### Project Structure
 
-The solution is organized into **three main projects** following a layered architecture pattern:
+The solution is organized into **four main projects** following a layered architecture pattern:
 
 ```
 AssetTag.sln
@@ -177,6 +177,31 @@ AssetTag.sln
 │  │
 │  └─ Shared.csproj                             # Project file
 │
+├─ MobileApp/                                   # Mobile Frontend (.NET 9 MAUI)
+│  ├─ Platforms/                                # Platform-specific code
+│  │  ├─ Android/                               # Android platform implementations
+│  │  │  ├─ MainActivity.cs                     # Android main activity
+│  │  │  └─ MainApplication.cs                  # Android application class
+│  │  ├─ iOS/                                   # iOS platform implementations
+│  │  ├─ MacCatalyst/                           # macOS Catalyst implementations
+│  │  └─ Windows/                               # Windows platform implementations
+│  │
+│  ├─ Resources/                                # Application resources
+│  │  ├─ Styles/                                # App-wide styles
+│  │  ├─ Images/                                # App images and icons
+│  │  ├─ Fonts/                                 # Custom fonts
+│  │  └─ Strings/                               # Localized strings
+│  │
+│  ├─ App.xaml                                  # Main app resource dictionary
+│  ├─ App.xaml.cs                               # App code-behind
+│  ├─ AppShell.xaml                             # Navigation shell structure
+│  ├─ AppShell.xaml.cs                          # Navigation shell code-behind
+│  ├─ MainPage.xaml                             # Main page UI
+│  ├─ MainPage.xaml.cs                          # Main page code-behind
+│  ├─ GlobalXmlns.cs                            # Global XML namespace definitions
+│  ├─ MauiProgram.cs                            # MAUI DI & configuration
+│  └─ MobileApp.csproj                          # Project file
+│
 ├─ README.md                                    # Project documentation
 ├─ LICENSE                                      # MIT License
 ├─ .gitignore                                   # Git ignore rules
@@ -190,7 +215,6 @@ AssetTag.sln
 **API Backend (AssetTag/)**
 - **Controllers**: REST API endpoints handling HTTP requests and responses
 - **Services**: Business logic, AI integration, email, token management
-- **Models**: Entity Framework Core entities and domain models
 - **Data**: Database context, migrations, seed data, and design-time factories
 - **Filters**: Custom authorization and validation filters
 
@@ -200,15 +224,22 @@ AssetTag.sln
 - **Handlers**: HTTP message handlers for token refresh and error handling
 - **wwwroot**: Static CSS, JavaScript, images, and third-party libraries
 
+**Mobile Frontend (MobileApp/)**
+- **Platforms**: Platform-specific code for Android, iOS, macOS Catalyst, and Windows
+- **Resources**: App resources including styles, images, fonts, and strings
+- **Pages/Views**: XAML-based UI components for different screens
+- **Services**: Mobile-specific business logic and API clients
+
 **Shared Library (Shared/)**
 - **DTOs**: Data Transfer Objects for inter-project communication
-- **Models**: Common enumerations and utility classes
+- **Models**: Common entity models used across all projects
 
 ### Technology Stack
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| **Frontend** | Razor Pages, Bootstrap 5, Chart.js | Server-rendered web UI with responsive design |
+| **Frontend (Web)** | Razor Pages, Bootstrap 5, Chart.js | Server-rendered web UI with responsive design |
+| **Frontend (Mobile)** | .NET MAUI, XAML | Cross-platform mobile app (Android, iOS, Windows, macOS) |
 | **Backend** | ASP.NET Core 9, C# 13 | RESTful API development |
 | **Database** | SQL Server, Entity Framework Core 9 | Data persistence with ORM |
 | **Authentication** | JWT (JSON Web Tokens), ASP.NET Identity | Stateless token-based authentication |
@@ -299,6 +330,36 @@ AssetTag.sln
   - `RefreshTokenDto` - Token refresh models
   - `InvitationDto` - User invitation models
   - `DashboardDTO` - Dashboard data models
+
+#### **4. Mobile Frontend (MobileApp Project)**
+
+**Purpose**: Provides a cross-platform mobile application for iOS, Android, Windows, and macOS.
+
+**Key Components**:
+- **Platforms** (`/Platforms`): Platform-specific implementations
+  - `Android/` - Android-specific code and configurations
+  - `iOS/` - iOS-specific code and configurations
+  - `Windows/` - Windows-specific code and configurations
+  - `MacCatalyst/` - macOS Catalyst-specific code and configurations
+
+- **Resources** (`/Resources`): Application resources
+  - Styles: App-wide styling definitions
+  - Images: App icons and image assets
+  - Fonts: Custom font definitions
+  - Strings: Localized text strings
+
+- **Pages/Views**: XAML-based UI components
+  - Main app shell and navigation structure
+  - Asset listing and details screens
+  - Login and authentication screens
+  - Dashboard and reporting screens
+  - Settings and user management screens
+
+- **Services**: Mobile-specific business logic
+  - API client services for backend communication
+  - Authentication and token management
+  - Local storage and caching
+  - Navigation services
 
 ### Data Flow
 
@@ -2337,11 +2398,13 @@ The following features are identified for future implementation:
 |-----------|-----------|---------|
 | **Backend** | ASP.NET Core | 9.0 |
 | **Language** | C# | 13.0 |
-| **Frontend** | Razor Pages | .NET 9 |
+| **Frontend (Web)** | Razor Pages | .NET 9 |
+| **Frontend (Mobile)** | .NET MAUI | .NET 9 |
+| **Mobile Platforms** | iOS, Android, Windows, macOS Catalyst | .NET 9 |
 | **Database** | SQL Server | 2019+ |
 | **ORM** | Entity Framework Core | 9.0 |
 | **Authentication** | JWT + ASP.NET Identity | Built-in |
-| **UI Framework** | Bootstrap | 5.x |
+| **UI Framework (Web)** | Bootstrap | 5.x |
 | **Charts** | Chart.js | 4.x |
 | **AI Integration** | Groq API | mixtral-8x7b |
 | **ID Generation** | ULID | 1.7.x |
