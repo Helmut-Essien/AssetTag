@@ -4,14 +4,17 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
+using Microsoft.VisualBasic;
 using Shared.Models;
 using System.IO;
 using Location = Shared.Models.Location;
 
-namespace MobileApp.Data
+namespace MobileData.Data
 {
     public sealed class LocalDbContext : DbContext
     {
+        private readonly string _dbPath;
+
         /* ---------------  Core Tables --------------- */
         public DbSet<Asset> Assets => Set<Asset>();
         public DbSet<AssetHistory> AssetHistories => Set<AssetHistory>();
@@ -24,19 +27,28 @@ namespace MobileApp.Data
         public DbSet<DeviceInfo> DeviceInfo => Set<DeviceInfo>();
 
         /* ---------------  Path --------------- */
-        private static string DbPath =>
-            Path.Combine(FileSystem.AppDataDirectory, "AssetTagOffline.db3");
-
-        /* ---------------  Configuration --------------- */
-        protected override void OnConfiguring(DbContextOptionsBuilder b)
+        public LocalDbContext(DbContextOptions<LocalDbContext> options, string dbPath)
+            : base(options)
         {
-            b.UseSqlite($"Data Source={DbPath}");
+            _dbPath = dbPath ?? throw new ArgumentNullException(nameof(dbPath));
+        }
+
+        /* --------------- Configuration --------------- */
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            if (!optionsBuilder.IsConfigured)
+            {
+                // Fallback only (should not hit in production)
+                optionsBuilder.UseSqlite($"Data Source={Path.Combine(Path.GetTempPath(), "AssetTagFallback.db3")}");
+            }
 
 #if DEBUG
-            // Enable for debugging
-            b.EnableSensitiveDataLogging();
-            b.LogTo(Console.WriteLine, LogLevel.Information);
+            optionsBuilder.EnableSensitiveDataLogging();
+            optionsBuilder.LogTo(Console.WriteLine, LogLevel.Information);
 #endif
+
+            // Optional: Enable WAL mode for better concurrency on mobile
+            // (Add via connection string in MAUI registration if needed)
         }
 
         /* ---------------  Optimized Model --------------- */

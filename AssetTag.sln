@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shared", "Shared\Shared.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MobileApp", "MobileApp\MobileApp.csproj", "{45F054C3-DF3A-46B1-A009-9BE4BC50AEFD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MobileData", "MobileData\MobileData.csproj", "{F81383B5-069F-41A7-9BA6-0B461D0026C4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -34,6 +36,10 @@ Global
 		{45F054C3-DF3A-46B1-A009-9BE4BC50AEFD}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
 		{45F054C3-DF3A-46B1-A009-9BE4BC50AEFD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{45F054C3-DF3A-46B1-A009-9BE4BC50AEFD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F81383B5-069F-41A7-9BA6-0B461D0026C4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F81383B5-069F-41A7-9BA6-0B461D0026C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F81383B5-069F-41A7-9BA6-0B461D0026C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F81383B5-069F-41A7-9BA6-0B461D0026C4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
