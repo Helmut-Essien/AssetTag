@@ -103,22 +103,75 @@ namespace Portal.Pages.Categories
             return Page();
         }
 
+        //public async Task<IActionResult> OnPostDeleteAsync(string id)
+        //{
+        //    if (string.IsNullOrEmpty(id))
+        //    {
+        //        return RedirectToPage();
+        //    }
+
+        //    var response = await _httpClient.DeleteAsync($"api/categories/{id}");
+        //    if (response.IsSuccessStatusCode)
+        //    {
+        //        return RedirectToPage();
+        //    }
+
+        //    // Handle error, e.g., not found or conflict if dependencies exist (API doesn't check dependencies)
+        //    await OnGetAsync();
+        //    return Page();
+        //}
+
         public async Task<IActionResult> OnPostDeleteAsync(string id)
         {
             if (string.IsNullOrEmpty(id))
             {
+                TempData["ErrorMessage"] = "Invalid category ID.";
                 return RedirectToPage();
             }
 
             var response = await _httpClient.DeleteAsync($"api/categories/{id}");
+
             if (response.IsSuccessStatusCode)
             {
+                TempData["SuccessMessage"] = "Category deleted successfully.";  // optional
                 return RedirectToPage();
             }
 
-            // Handle error, e.g., not found or conflict if dependencies exist (API doesn't check dependencies)
+            // Handle specific errors
+            string errorMsg = "Failed to delete category.";
+
+            if (response.StatusCode == HttpStatusCode.BadRequest ||
+                response.StatusCode == HttpStatusCode.Conflict)  // or whatever your API returns on constraint violation
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+
+                // Customize based on what your API returns in the body
+                if (errorContent.Contains("REFERENCE constraint") ||
+                    errorContent.Contains("FK_Assets_Categories") ||
+                    errorContent.Contains("in use") ||
+                    errorContent.Contains("assigned to"))
+                {
+                    errorMsg = "Cannot delete this category because it is still assigned to one or more assets. Reassign or remove the assets first.";
+                }
+                else
+                {
+                    errorMsg += $" ({response.StatusCode}) - {errorContent}";
+                }
+            }
+            else if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                errorMsg = "Category not found.";
+            }
+            else
+            {
+                errorMsg += $" Unexpected error ({response.StatusCode}).";
+            }
+
+            TempData["ErrorMessage"] = errorMsg;
+
+            // Reload data and return to page (no ActiveModal needed for delete)
             await OnGetAsync();
-            return Page();
+            return Page();  // or RedirectToPage() if you prefer full redirect
         }
     }
 }

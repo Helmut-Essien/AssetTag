@@ -38,9 +38,9 @@ namespace Shared.Models
         public string? Remarks { get; set; }
 
         // Navigation properties
-        public Category Category { get; set; }
-        public Location Location { get; set; }
-        public  Department Department { get; set; }
+        public Category? Category { get; set; }
+        public Location? Location { get; set; }
+        public  Department? Department { get; set; }
         public ApplicationUser? AssignedToUser { get; set; }
         public ICollection<AssetHistory> AssetHistories { get; set; } = new List<AssetHistory>();
     }

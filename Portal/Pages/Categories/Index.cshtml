@@ -7,6 +7,21 @@
 }
 
 <div class="container my-4">
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="mb-0">Asset Categories (@Model.Categories.Count Total)</h1>
         <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createModal">
@@ -20,6 +35,7 @@
                 <tr>
                     <th>Name</th>
                     <th>Description</th>
+                    <th>Depreciation rate</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -29,6 +45,7 @@
                     <tr>
                         <td>@category.Name</td>
                         <td>@category.Description</td>
+                        <td>@category.DepreciationRate</td>
                         <td>
                             <button class="btn btn-primary btn-sm me-2"
                                     data-bs-toggle="modal"
@@ -74,6 +91,11 @@
                         <input asp-for="CreateDto.Description" class="form-control" />
                         <span asp-validation-for="CreateDto.Description" class="text-danger"></span>
                     </div>
+                    <div class="mb-3">
+                        <label asp-for="CreateDto.DepreciationRate" class="form-label"></label>
+                        <input asp-for="CreateDto.DepreciationRate" class="form-control" />
+                        <span asp-validation-for="CreateDto.DepreciationRate" class="text-danger"></span>
+                    </div>
                     <button type="submit" class="btn btn-success">Create</button>
                 </form>
             </div>
@@ -102,6 +124,11 @@
                         <label asp-for="UpdateDto.Description" class="form-label"></label>
                         <input asp-for="UpdateDto.Description" class="form-control" />
                         <span asp-validation-for="UpdateDto.Description" class="text-danger"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="UpdateDto.DepreciationRate" class="form-label"></label>
+                        <input asp-for="UpdateDto.DepreciationRate" class="form-control" />
+                        <span asp-validation-for="UpdateDto.DepreciationRate" class="text-danger"></span>
                     </div>
                     <button type="submit" class="btn btn-success">Update</button>
                 </form>
