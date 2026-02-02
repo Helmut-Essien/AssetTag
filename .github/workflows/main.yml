@@ -52,7 +52,10 @@ jobs:
           workloads: maui-android
 
       - name: Restore dependencies
-        run: dotnet restore ${{ env.SOLUTION_PATH }}
+        #run: dotnet restore ${{ env.SOLUTION_PATH }}
+        run: |
+          dotnet restore AssetTag/AssetTag.csproj
+          dotnet restore Portal/Portal.csproj
 
       - name: Create publish directories
         run: |
