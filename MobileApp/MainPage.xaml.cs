@@ -1,24 +1,28 @@
-﻿namespace MobileApp
+﻿using MobileApp.ViewModels;
+
+namespace MobileApp
 {
+    /// <summary>
+    /// Main dashboard page - now using MVVM pattern
+    /// </summary>
     public partial class MainPage : ContentPage
     {
-        int count = 0;
+        private readonly MainPageViewModel _viewModel;
 
-        public MainPage()
+        public MainPage(MainPageViewModel viewModel)
         {
             InitializeComponent();
+            
+            _viewModel = viewModel;
+            BindingContext = _viewModel;
         }
 
-        private void OnCounterClicked(object? sender, EventArgs e)
+        protected override async void OnAppearing()
         {
-            count++;
-
-            if (count == 1)
-                CounterBtn.Text = $"Clicked {count} time";
-            else
-                CounterBtn.Text = $"Clicked {count} times";
-
-            SemanticScreenReader.Announce(CounterBtn.Text);
+            base.OnAppearing();
+            
+            // Load dashboard data when page appears
+            await _viewModel.LoadDashboardDataCommand.ExecuteAsync(null);
         }
     }
 }

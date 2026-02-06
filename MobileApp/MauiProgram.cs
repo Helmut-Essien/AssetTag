@@ -4,7 +4,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using CommunityToolkit.Maui;
 using Syncfusion.Maui.Toolkit.Hosting;
-using MobileData.Data;           // ← Add this using for LocalDbContext
+using MobileData.Data;
+using MobileApp.ViewModels;
 
 namespace MobileApp
 {
@@ -29,7 +30,7 @@ namespace MobileApp
             // ────────────────────────────────────────────────────────────────
             string dbPath = Path.Combine(FileSystem.AppDataDirectory, "AssetTagOffline.db3");
 
-            builder.Services.AddDbContext<LocalDbContext>(options =>
+            builder.Services.AddDbContext<LocalDbContext>((serviceProvider, options) =>
             {
                 options.UseSqlite(
                     $"Data Source={dbPath};" +
@@ -44,10 +45,23 @@ namespace MobileApp
 #endif
             });
 
+            // Register the dbPath as a singleton so LocalDbContext can resolve it
+            builder.Services.AddSingleton(dbPath);
+
             // ────────────────────────────────────────────────────────────────
             // Register hosted service to apply migrations at startup
             // ────────────────────────────────────────────────────────────────
             builder.Services.AddHostedService<MigrationHostedService>();
+
+            // ────────────────────────────────────────────────────────────────
+            // Register ViewModels for dependency injection
+            // ────────────────────────────────────────────────────────────────
+            builder.Services.AddTransient<MainPageViewModel>();
+
+            // ────────────────────────────────────────────────────────────────
+            // Register Pages for dependency injection
+            // ────────────────────────────────────────────────────────────────
+            builder.Services.AddTransient<MainPage>();
 
             // ────────────────────────────────────────────────────────────────
             // Logging – keep your debug logging and add file/app logging if desired
