@@ -30,7 +30,7 @@ namespace MobileApp
             // ────────────────────────────────────────────────────────────────
             string dbPath = Path.Combine(FileSystem.AppDataDirectory, "AssetTagOffline.db3");
 
-            builder.Services.AddDbContext<LocalDbContext>(options =>
+            builder.Services.AddDbContext<LocalDbContext>((serviceProvider, options) =>
             {
                 options.UseSqlite(
                     $"Data Source={dbPath};" +
@@ -44,6 +44,9 @@ namespace MobileApp
                 options.EnableDetailedErrors();
 #endif
             });
+
+            // Register the dbPath as a singleton so LocalDbContext can resolve it
+            builder.Services.AddSingleton(dbPath);
 
             // ────────────────────────────────────────────────────────────────
             // Register hosted service to apply migrations at startup
