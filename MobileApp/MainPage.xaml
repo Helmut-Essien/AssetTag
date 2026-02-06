@@ -4,7 +4,9 @@
              xmlns:syncfusion="clr-namespace:Syncfusion.Maui.Toolkit;assembly=Syncfusion.Maui.Toolkit"
              xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
              xmlns:cards="clr-namespace:Syncfusion.Maui.Toolkit.Cards;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:vm="clr-namespace:MobileApp.ViewModels"
              x:Class="MobileApp.MainPage"
+             x:DataType="vm:MainPageViewModel"
              BackgroundColor="{StaticResource Gray100}">
 
     <Grid RowDefinitions="Auto,*,Auto">
@@ -66,8 +68,7 @@
                                    HorizontalOptions="Center"/>
                             
                             <Label Grid.Row="1"
-                                   x:Name="TotalAssetsLabel"
-                                   Text="0"
+                                   Text="{Binding TotalAssets}"
                                    FontSize="24"
                                    FontAttributes="Bold"
                                    HorizontalOptions="Center"
@@ -99,8 +100,7 @@
                                    HorizontalOptions="Center"/>
                             
                             <Label Grid.Row="1"
-                                   x:Name="ScannedTodayLabel"
-                                   Text="0"
+                                   Text="{Binding ScannedToday}"
                                    FontSize="24"
                                    FontAttributes="Bold"
                                    HorizontalOptions="Center"
@@ -132,8 +132,7 @@
                                    HorizontalOptions="Center"/>
                             
                             <Label Grid.Row="1"
-                                   x:Name="PendingSyncLabel"
-                                   Text="0"
+                                   Text="{Binding PendingSync}"
                                    FontSize="24"
                                    FontAttributes="Bold"
                                    HorizontalOptions="Center"
@@ -165,8 +164,7 @@
                                    HorizontalOptions="Center"/>
                             
                             <Label Grid.Row="1"
-                                   x:Name="CategoriesLabel"
-                                   Text="0"
+                                   Text="{Binding Categories}"
                                    FontSize="24"
                                    FontAttributes="Bold"
                                    HorizontalOptions="Center"
@@ -231,7 +229,7 @@
                                    VerticalOptions="Center"/>
                             
                             <Grid.GestureRecognizers>
-                                <TapGestureRecognizer Tapped="OnScanAssetTapped"/>
+                                <TapGestureRecognizer Command="{Binding ScanAssetCommand}"/>
                             </Grid.GestureRecognizers>
                         </Grid>
                     </cards:SfCardView>
@@ -278,7 +276,7 @@
                                    VerticalOptions="Center"/>
                             
                             <Grid.GestureRecognizers>
-                                <TapGestureRecognizer Tapped="OnAddAssetTapped"/>
+                                <TapGestureRecognizer Command="{Binding AddAssetCommand}"/>
                             </Grid.GestureRecognizers>
                         </Grid>
                     </cards:SfCardView>
@@ -325,7 +323,7 @@
                                    VerticalOptions="Center"/>
                             
                             <Grid.GestureRecognizers>
-                                <TapGestureRecognizer Tapped="OnViewAssetsTapped"/>
+                                <TapGestureRecognizer Command="{Binding ViewAssetsCommand}"/>
                             </Grid.GestureRecognizers>
                         </Grid>
                     </cards:SfCardView>
@@ -372,7 +370,7 @@
                                    VerticalOptions="Center"/>
                             
                             <Grid.GestureRecognizers>
-                                <TapGestureRecognizer Tapped="OnSyncDataTapped"/>
+                                <TapGestureRecognizer Command="{Binding SyncDataCommand}"/>
                             </Grid.GestureRecognizers>
                         </Grid>
                     </cards:SfCardView>
@@ -400,8 +398,7 @@
                                    FontSize="12"
                                    FontAttributes="Bold"
                                    TextColor="#1E40AF"/>
-                            <Label x:Name="LastSyncLabel"
-                                   Text="Never synced"
+                            <Label Text="{Binding LastSync}"
                                    FontSize="11"
                                    TextColor="#3B82F6"/>
                         </VerticalStackLayout>
@@ -427,7 +424,7 @@
                        TextColor="{StaticResource Primary}"
                        FontAttributes="Bold"/>
                 <VerticalStackLayout.GestureRecognizers>
-                    <TapGestureRecognizer Tapped="OnHomeTapped"/>
+                    <TapGestureRecognizer Command="{Binding RefreshCommand}"/>
                 </VerticalStackLayout.GestureRecognizers>
             </VerticalStackLayout>
             
@@ -440,7 +437,7 @@
                        HorizontalOptions="Center"
                        TextColor="{StaticResource Gray600}"/>
                 <VerticalStackLayout.GestureRecognizers>
-                    <TapGestureRecognizer Tapped="OnAssetsTapped"/>
+                    <TapGestureRecognizer Command="{Binding NavigateToAssetsCommand}"/>
                 </VerticalStackLayout.GestureRecognizers>
             </VerticalStackLayout>
             
@@ -453,7 +450,7 @@
                        HorizontalOptions="Center"
                        TextColor="{StaticResource Gray600}"/>
                 <VerticalStackLayout.GestureRecognizers>
-                    <TapGestureRecognizer Tapped="OnReportsTapped"/>
+                    <TapGestureRecognizer Command="{Binding NavigateToReportsCommand}"/>
                 </VerticalStackLayout.GestureRecognizers>
             </VerticalStackLayout>
             
@@ -466,7 +463,7 @@
                        HorizontalOptions="Center"
                        TextColor="{StaticResource Gray600}"/>
                 <VerticalStackLayout.GestureRecognizers>
-                    <TapGestureRecognizer Tapped="OnSettingsTapped"/>
+                    <TapGestureRecognizer Command="{Binding NavigateToSettingsCommand}"/>
                 </VerticalStackLayout.GestureRecognizers>
             </VerticalStackLayout>
             

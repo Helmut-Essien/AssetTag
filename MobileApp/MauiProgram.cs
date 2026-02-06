@@ -4,7 +4,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using CommunityToolkit.Maui;
 using Syncfusion.Maui.Toolkit.Hosting;
-using MobileData.Data;           // ← Add this using for LocalDbContext
+using MobileData.Data;
+using MobileApp.ViewModels;
 
 namespace MobileApp
 {
@@ -48,6 +49,16 @@ namespace MobileApp
             // Register hosted service to apply migrations at startup
             // ────────────────────────────────────────────────────────────────
             builder.Services.AddHostedService<MigrationHostedService>();
+
+            // ────────────────────────────────────────────────────────────────
+            // Register ViewModels for dependency injection
+            // ────────────────────────────────────────────────────────────────
+            builder.Services.AddTransient<MainPageViewModel>();
+
+            // ────────────────────────────────────────────────────────────────
+            // Register Pages for dependency injection
+            // ────────────────────────────────────────────────────────────────
+            builder.Services.AddTransient<MainPage>();
 
             // ────────────────────────────────────────────────────────────────
             // Logging – keep your debug logging and add file/app logging if desired
