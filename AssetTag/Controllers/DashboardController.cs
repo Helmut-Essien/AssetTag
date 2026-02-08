@@ -34,13 +34,14 @@ public class DashboardController : ControllerBase
             // Load all assets with required data in a single query
             var assets = await _context.Assets
                 .AsNoTracking()
+                .Include(a => a.Category)
                 .Select(a => new AssetSummaryDTO
                 {
                     AssetId = a.AssetId,
                     Status = a.Status,
                     Condition = a.Condition,
                     CurrentValue = a.CurrentValue,
-                    DepreciationRate = a.DepreciationRate,
+                    DepreciationRate = a.Category != null ? a.Category.DepreciationRate : null,
                     WarrantyExpiry = a.WarrantyExpiry,
                     CategoryId = a.CategoryId
                 })

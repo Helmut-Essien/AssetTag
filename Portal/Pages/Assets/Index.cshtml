@@ -541,39 +541,15 @@
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label asp-for="CreateDto.CostPerUnit" class="form-label"></label>
-                                <input asp-for="CreateDto.CostPerUnit" type="number" step="0.01" class="form-control" />
+                                <input asp-for="CreateDto.CostPerUnit" type="number" step="0.01" class="form-control" id="createCostPerUnit" />
                                 <span asp-validation-for="CreateDto.CostPerUnit" class="text-danger"></span>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label asp-for="CreateDto.TotalCost" class="form-label"></label>
-                                <input asp-for="CreateDto.TotalCost" type="number" step="0.01" class="form-control" />
-                                <span asp-validation-for="CreateDto.TotalCost" class="text-danger"></span>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label asp-for="CreateDto.DepreciationRate" class="form-label"></label>
-                                <input asp-for="CreateDto.DepreciationRate" type="number" step="0.01" class="form-control" />
-                                <span asp-validation-for="CreateDto.DepreciationRate" class="text-danger"></span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label asp-for="CreateDto.AccumulatedDepreciation" class="form-label"></label>
-                                <input asp-for="CreateDto.AccumulatedDepreciation" type="number" step="0.01" class="form-control" />
-                                <span asp-validation-for="CreateDto.AccumulatedDepreciation" class="text-danger"></span>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label asp-for="CreateDto.NetBookValue" class="form-label"></label>
-                                <input asp-for="CreateDto.NetBookValue" type="number" step="0.01" class="form-control" />
-                                <span asp-validation-for="CreateDto.NetBookValue" class="text-danger"></span>
+                                <label class="form-label">Total Cost (Calculated)</label>
+                                <input type="text" class="form-control" id="createTotalCostDisplay" readonly disabled style="background-color: #e9ecef;" />
+                                <small class="text-muted">Auto-calculated: Cost Per Unit × Quantity</small>
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -583,6 +559,12 @@
                                 <span asp-validation-for="CreateDto.UsefulLifeYears" class="text-danger"></span>
                             </div>
                         </div>
+                    </div>
+
+                    <div class="alert alert-info" role="alert">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Note:</strong> Depreciation rate is automatically set based on the selected category.
+                        Accumulated Depreciation and Net Book Value are calculated automatically.
                     </div>
 
                     <!-- Additional Information Section -->
@@ -819,37 +801,6 @@
                                 <label asp-for="UpdateDto.CostPerUnit" class="form-label"></label>
                                 <input asp-for="UpdateDto.CostPerUnit" type="number" step="0.01" class="form-control" />
                                 <span asp-validation-for="UpdateDto.CostPerUnit" class="text-danger"></span>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label asp-for="UpdateDto.TotalCost" class="form-label"></label>
-                                <input asp-for="UpdateDto.TotalCost" type="number" step="0.01" class="form-control" />
-                                <span asp-validation-for="UpdateDto.TotalCost" class="text-danger"></span>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label asp-for="UpdateDto.DepreciationRate" class="form-label"></label>
-                                <input asp-for="UpdateDto.DepreciationRate" type="number" step="0.01" class="form-control" />
-                                <span asp-validation-for="UpdateDto.DepreciationRate" class="text-danger"></span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label asp-for="UpdateDto.AccumulatedDepreciation" class="form-label"></label>
-                                <input asp-for="UpdateDto.AccumulatedDepreciation" type="number" step="0.01" class="form-control" />
-                                <span asp-validation-for="UpdateDto.AccumulatedDepreciation" class="text-danger"></span>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label asp-for="UpdateDto.NetBookValue" class="form-label"></label>
-                                <input asp-for="UpdateDto.NetBookValue" type="number" step="0.01" class="form-control" />
-                                <span asp-validation-for="UpdateDto.NetBookValue" class="text-danger"></span>
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -1240,5 +1191,35 @@ if (editModal) {
             currentParams.set('handler', 'export');
             window.location.href = `?${currentParams.toString()}`;
         }
+
+        // Auto-calculate Total Cost in Create Modal
+        function calculateTotalCost() {
+            const costPerUnit = parseFloat(document.getElementById('createCostPerUnit')?.value || 0);
+            const quantity = parseInt(document.getElementById('CreateDto_Quantity')?.value || 1);
+            const totalCostDisplay = document.getElementById('createTotalCostDisplay');
+            
+            if (totalCostDisplay && costPerUnit > 0) {
+                const totalCost = costPerUnit * quantity;
+                totalCostDisplay.value = '₵ ' + totalCost.toLocaleString('en-GH', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            } else if (totalCostDisplay) {
+                totalCostDisplay.value = '';
+            }
+        }
+
+        // Attach event listeners for auto-calculation
+        document.addEventListener('DOMContentLoaded', function() {
+            const costPerUnitInput = document.getElementById('createCostPerUnit');
+            const quantityInput = document.getElementById('CreateDto_Quantity');
+            
+            if (costPerUnitInput) {
+                costPerUnitInput.addEventListener('input', calculateTotalCost);
+            }
+            if (quantityInput) {
+                quantityInput.addEventListener('input', calculateTotalCost);
+            }
+        });
     </script>
 }

@@ -79,6 +79,7 @@ public class AssetsController : ControllerBase
             query = query.Where(a => a.DepartmentId == departmentId);
 
         var assets = await query
+                .Include(a => a.Category)  // Include Category to access DepreciationRate
                 .Select(a => new AssetReadDTO
                 {
                     AssetId = a.AssetId,
@@ -101,15 +102,17 @@ public class AssetsController : ControllerBase
                     InvoiceNumber = a.InvoiceNumber,
                     Quantity = a.Quantity,
                     CostPerUnit = a.CostPerUnit,
-                    TotalCost = a.TotalCost,
-                    DepreciationRate = a.DepreciationRate,
-                    AccumulatedDepreciation = a.AccumulatedDepreciation,
-                    NetBookValue = a.NetBookValue,
                     UsefulLifeYears = a.UsefulLifeYears,
                     WarrantyExpiry = a.WarrantyExpiry,
                     DisposalDate = a.DisposalDate,
                     DisposalValue = a.DisposalValue,
-                    Remarks = a.Remarks
+                    Remarks = a.Remarks,
+                    // Calculated fields from Category
+                    DepreciationRate = a.Category != null ? a.Category.DepreciationRate : null,
+                    // Note: TotalCost, AccumulatedDepreciation, NetBookValue are computed on the client side
+                    TotalCost = a.CostPerUnit.HasValue ? a.CostPerUnit.Value * a.Quantity : null,
+                    AccumulatedDepreciation = null,  // Computed property - calculate client-side if needed
+                    NetBookValue = null  // Computed property - calculate client-side if needed
                 })
             .ToListAsync();
         return Ok(assets);
@@ -120,7 +123,10 @@ public class AssetsController : ControllerBase
     [HttpGet("{id}")]
         public async Task<ActionResult<AssetReadDTO>> Get(string id)
         {
-            var asset = await _context.Assets.FindAsync(id);
+            var asset = await _context.Assets
+                .Include(a => a.Category)  // Include Category to access DepreciationRate
+                .FirstOrDefaultAsync(a => a.AssetId == id);
+            
             if (asset is null) return NotFound();
 
             return Ok(new AssetReadDTO
@@ -145,15 +151,17 @@ public class AssetsController : ControllerBase
                 InvoiceNumber = asset.InvoiceNumber,
                 Quantity = asset.Quantity,
                 CostPerUnit = asset.CostPerUnit,
-                TotalCost = asset.TotalCost,
-                DepreciationRate = asset.DepreciationRate,
-                AccumulatedDepreciation = asset.AccumulatedDepreciation,
-                NetBookValue = asset.NetBookValue,
                 UsefulLifeYears = asset.UsefulLifeYears,
                 WarrantyExpiry = asset.WarrantyExpiry,
                 DisposalDate = asset.DisposalDate,
                 DisposalValue = asset.DisposalValue,
-                Remarks = asset.Remarks
+                Remarks = asset.Remarks,
+                // Get depreciation rate from Category
+                DepreciationRate = asset.Category?.DepreciationRate,
+                // Calculated fields
+                TotalCost = asset.TotalCost,
+                AccumulatedDepreciation = asset.AccumulatedDepreciation,
+                NetBookValue = asset.NetBookValue
             });
         }
 
@@ -185,15 +193,12 @@ public class AssetsController : ControllerBase
                 InvoiceNumber = dto.InvoiceNumber,
                 Quantity = dto.Quantity,
                 CostPerUnit = dto.CostPerUnit,
-                TotalCost = dto.TotalCost,
-                DepreciationRate = dto.DepreciationRate,
-                AccumulatedDepreciation = dto.AccumulatedDepreciation,
-                NetBookValue = dto.NetBookValue,
                 UsefulLifeYears = dto.UsefulLifeYears,
                 WarrantyExpiry = dto.WarrantyExpiry,
                 DisposalDate = dto.DisposalDate,
                 DisposalValue = dto.DisposalValue,
                 Remarks = dto.Remarks,
+                // Calculated fields (TotalCost, AccumulatedDepreciation, NetBookValue) are computed properties
                 Category = null!,
                 Location = null!,
                 Department = null!,
@@ -214,38 +219,44 @@ public class AssetsController : ControllerBase
             );
             await _context.SaveChangesAsync();
 
+            // Reload asset with Category to get computed properties
+            var createdAsset = await _context.Assets
+                .Include(a => a.Category)
+                .FirstOrDefaultAsync(a => a.AssetId == asset.AssetId);
+
             return CreatedAtAction(nameof(Get), new { id = asset.AssetId },
                 new AssetReadDTO
                 {
-                    AssetId = asset.AssetId,
-                    AssetTag = asset.AssetTag,
-                    Name = asset.Name,
-                    Description = asset.Description,
-                    CategoryId = asset.CategoryId,
-                    LocationId = asset.LocationId,
-                    DepartmentId = asset.DepartmentId,
-                    PurchaseDate = asset.PurchaseDate,
-                    PurchasePrice = asset.PurchasePrice,
-                    CurrentValue = asset.CurrentValue,
-                    Status = asset.Status,
-                    AssignedToUserId = asset.AssignedToUserId,
-                    CreatedAt = asset.CreatedAt,
-                    DateModified = asset.DateModified,
-                    SerialNumber = asset.SerialNumber,
-                    Condition = asset.Condition,
-                    VendorName = asset.VendorName,
-                    InvoiceNumber = asset.InvoiceNumber,
-                    Quantity = asset.Quantity,
-                    CostPerUnit = asset.CostPerUnit,
-                    TotalCost = asset.TotalCost,
-                    DepreciationRate = asset.DepreciationRate,
-                    AccumulatedDepreciation = asset.AccumulatedDepreciation,
-                    NetBookValue = asset.NetBookValue,
-                    UsefulLifeYears = asset.UsefulLifeYears,
-                    WarrantyExpiry = asset.WarrantyExpiry,
-                    DisposalDate = asset.DisposalDate,
-                    DisposalValue = asset.DisposalValue,
-                    Remarks = asset.Remarks
+                    AssetId = createdAsset!.AssetId,
+                    AssetTag = createdAsset.AssetTag,
+                    Name = createdAsset.Name,
+                    Description = createdAsset.Description,
+                    CategoryId = createdAsset.CategoryId,
+                    LocationId = createdAsset.LocationId,
+                    DepartmentId = createdAsset.DepartmentId,
+                    PurchaseDate = createdAsset.PurchaseDate,
+                    PurchasePrice = createdAsset.PurchasePrice,
+                    CurrentValue = createdAsset.CurrentValue,
+                    Status = createdAsset.Status,
+                    AssignedToUserId = createdAsset.AssignedToUserId,
+                    CreatedAt = createdAsset.CreatedAt,
+                    DateModified = createdAsset.DateModified,
+                    SerialNumber = createdAsset.SerialNumber,
+                    Condition = createdAsset.Condition,
+                    VendorName = createdAsset.VendorName,
+                    InvoiceNumber = createdAsset.InvoiceNumber,
+                    Quantity = createdAsset.Quantity,
+                    CostPerUnit = createdAsset.CostPerUnit,
+                    UsefulLifeYears = createdAsset.UsefulLifeYears,
+                    WarrantyExpiry = createdAsset.WarrantyExpiry,
+                    DisposalDate = createdAsset.DisposalDate,
+                    DisposalValue = createdAsset.DisposalValue,
+                    Remarks = createdAsset.Remarks,
+                    // Get from Category and computed properties
+                    DepreciationRate = createdAsset.Category?.DepreciationRate,
+                    TotalCost = createdAsset.TotalCost,
+                    AccumulatedDepreciation = createdAsset.AccumulatedDepreciation,
+                    NetBookValue = createdAsset.NetBookValue
                 });
         }
 
@@ -341,9 +352,6 @@ public class AssetsController : ControllerBase
             if (dto.CostPerUnit is not null && dto.CostPerUnit != asset.CostPerUnit)
                 changes.Add($"Cost per unit changed to {dto.CostPerUnit?.ToString("C")}");
 
-            if (dto.TotalCost is not null && dto.TotalCost != asset.TotalCost)
-                changes.Add($"Total cost changed to {dto.TotalCost?.ToString("C")}");
-
             if (dto.WarrantyExpiry is not null && dto.WarrantyExpiry != asset.WarrantyExpiry)
                 changes.Add($"Warranty expiry changed to '{dto.WarrantyExpiry?.ToString("MMM dd, yyyy")}'");
 
@@ -368,15 +376,13 @@ public class AssetsController : ControllerBase
             asset.InvoiceNumber = dto.InvoiceNumber ?? asset.InvoiceNumber;
             if (dto.Quantity.HasValue) asset.Quantity = dto.Quantity.Value;
             asset.CostPerUnit = dto.CostPerUnit ?? asset.CostPerUnit;
-            asset.TotalCost = dto.TotalCost ?? asset.TotalCost;
-            asset.DepreciationRate = dto.DepreciationRate ?? asset.DepreciationRate;
-            asset.AccumulatedDepreciation = dto.AccumulatedDepreciation ?? asset.AccumulatedDepreciation;
-            asset.NetBookValue = dto.NetBookValue ?? asset.NetBookValue;
             if (dto.UsefulLifeYears.HasValue) asset.UsefulLifeYears = dto.UsefulLifeYears.Value;
             asset.WarrantyExpiry = dto.WarrantyExpiry ?? asset.WarrantyExpiry;
             asset.DisposalDate = dto.DisposalDate ?? asset.DisposalDate;
             asset.DisposalValue = dto.DisposalValue ?? asset.DisposalValue;
             asset.Remarks = dto.Remarks ?? asset.Remarks;
+            // DepreciationRate comes from Category (not stored in Asset)
+            // TotalCost, AccumulatedDepreciation, and NetBookValue are computed properties
 
             asset.DateModified = DateTime.UtcNow;
 

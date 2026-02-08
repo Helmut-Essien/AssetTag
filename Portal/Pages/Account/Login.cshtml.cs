@@ -351,24 +351,24 @@ namespace Portal.Pages.Account
 
         private IActionResult RedirectToLocal(string? returnUrl)
         {
-            //if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
-            //{
-            //    _logger.LogDebug("Redirecting to return URL: {ReturnUrl}", returnUrl);
-            //    return Redirect(returnUrl);
-            //}
-
-            //_logger.LogDebug("Redirecting to default page (Index)");
-            //return RedirectToPage("/Index");
-
-            // Don't redirect directly - go through landing page to ensure cookie is set
             if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
             {
-                _logger.LogDebug("Redirecting to landing page with return URL: {ReturnUrl}", returnUrl);
-                return RedirectToPage("/LoginRedirect", new { returnUrl });
+                _logger.LogDebug("Redirecting to return URL: {ReturnUrl}", returnUrl);
+                return Redirect(returnUrl);
             }
 
-            _logger.LogDebug("Redirecting to landing page with default target (Index)");
-            return RedirectToPage("/LoginRedirect", new { returnUrl = "/Diagnostics/TokenDiagnostics" });
+            _logger.LogDebug("Redirecting to default page (Index)");
+            return RedirectToPage("/Index");
+
+            //// Don't redirect directly - go through landing page to ensure cookie is set
+            //if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+            //{
+            //    _logger.LogDebug("Redirecting to landing page with return URL: {ReturnUrl}", returnUrl);
+            //    return RedirectToPage("/LoginRedirect", new { returnUrl });
+            //}
+
+            //_logger.LogDebug("Redirecting to landing page with default target (Index)");
+            //return RedirectToPage("/LoginRedirect", new { returnUrl = "/Diagnostics/TokenDiagnostics" });
         }
     }
 }
