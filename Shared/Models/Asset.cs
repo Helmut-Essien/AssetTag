@@ -30,9 +30,32 @@ namespace Shared.Models
         // Base Financial Fields (Stored in Database)
         public int Quantity { get; set; } = 1;
         public decimal? CostPerUnit { get; set; }
-        public int? UsefulLifeYears { get; set; }
+        public int? UsefulLifeYears { get; set; }  // Optional: User can override calculated useful life
         
         // Calculated Financial Fields (Not Stored - Computed Properties)
+        /// <summary>
+        /// Calculated Useful Life based on Category Depreciation Rate.
+        /// Formula: 100 / Depreciation Rate = Useful Life Years
+        /// Example: 20% depreciation rate = 5 years useful life
+        /// Returns user-specified UsefulLifeYears if set, otherwise calculates from depreciation rate.
+        /// </summary>
+        [NotMapped]
+        public int? CalculatedUsefulLifeYears
+        {
+            get
+            {
+                // If user specified useful life, use that
+                if (UsefulLifeYears.HasValue)
+                    return UsefulLifeYears.Value;
+                
+                // Otherwise calculate from depreciation rate
+                if (Category?.DepreciationRate == null || Category.DepreciationRate.Value == 0)
+                    return null;
+                
+                return (int)Math.Ceiling(100m / Category.DepreciationRate.Value);
+            }
+        }
+        
         /// <summary>
         /// Total Cost = Cost Per Unit × Quantity
         /// </summary>
@@ -42,7 +65,8 @@ namespace Shared.Models
         /// <summary>
         /// Accumulated Depreciation calculated using straight-line method.
         /// Uses the depreciation rate from the asset's Category.
-        /// Formula: (Purchase Price × Category Depreciation Rate × Years Owned) capped at Purchase Price
+        /// Formula: (Purchase Price × Category Depreciation Rate × Years Owned)
+        /// Capped at Purchase Price and stops depreciating after CalculatedUsefulLifeYears.
         /// </summary>
         [NotMapped]
         public decimal? AccumulatedDepreciation
@@ -53,6 +77,14 @@ namespace Shared.Models
                     return null;
 
                 var yearsOwned = (DateTime.UtcNow - PurchaseDate.Value).TotalDays / 365.25;
+                
+                // Cap years at calculated useful life (asset is fully depreciated after useful life)
+                var usefulLife = CalculatedUsefulLifeYears;
+                if (usefulLife.HasValue && yearsOwned > usefulLife.Value)
+                {
+                    yearsOwned = usefulLife.Value;
+                }
+                
                 var rate = Category.DepreciationRate.Value / 100m;
                 var calculated = PurchasePrice.Value * rate * (decimal)yearsOwned;
                 

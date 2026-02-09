@@ -191,6 +191,10 @@
     color: var(--accent-purple);
 }
 
+.stat-card.acquisition-cost .stat-icon {
+    color: var(--warning-amber);
+}
+
 .stat-card.available-assets .stat-icon {
     color: var(--success-emerald);
 }

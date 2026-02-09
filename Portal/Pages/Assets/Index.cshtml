@@ -315,7 +315,7 @@
                                         data-depreciationrate="@asset.DepreciationRate"
                                         data-accumulateddepreciation="@asset.AccumulatedDepreciation"
                                         data-netbookvalue="@asset.NetBookValue"
-                                        data-usefullifeyears="@asset.UsefulLifeYears"
+                                        data-calculatedusefullifeyears="@asset.CalculatedUsefulLifeYears"
                                         data-warrantyexpiry="@asset.WarrantyExpiry?.ToString("yyyy-MM-dd")"
                                         data-disposaldate="@asset.DisposalDate?.ToString("yyyy-MM-dd")"
                                         data-disposalvalue="@asset.DisposalValue"
@@ -554,9 +554,9 @@
                         </div>
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label asp-for="CreateDto.UsefulLifeYears" class="form-label"></label>
-                                <input asp-for="CreateDto.UsefulLifeYears" type="number" class="form-control" />
-                                <span asp-validation-for="CreateDto.UsefulLifeYears" class="text-danger"></span>
+                                <label class="form-label">Useful Life (Years)</label>
+                                <input type="text" class="form-control" value="Auto-calculated from category" readonly disabled style="background-color: #e9ecef;" />
+                                <small class="text-muted">Calculated: 100 ÷ Category Depreciation Rate</small>
                             </div>
                         </div>
                     </div>
@@ -805,9 +805,9 @@
                         </div>
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label asp-for="UpdateDto.UsefulLifeYears" class="form-label"></label>
-                                <input asp-for="UpdateDto.UsefulLifeYears" type="number" class="form-control" />
-                                <span asp-validation-for="UpdateDto.UsefulLifeYears" class="text-danger"></span>
+                                <label class="form-label">Useful Life (Years)</label>
+                                <input type="text" class="form-control" id="editUsefulLifeDisplay" readonly disabled style="background-color: #e9ecef;" />
+                                <small class="text-muted">Auto-calculated from category depreciation rate</small>
                             </div>
                         </div>
                     </div>
@@ -1026,7 +1026,11 @@ function populateEditModal(asset) {
     document.getElementById('UpdateDto_DepreciationRate').value = asset.depreciationRate || '';
     document.getElementById('UpdateDto_AccumulatedDepreciation').value = asset.accumulatedDepreciation || '';
     document.getElementById('UpdateDto_NetBookValue').value = asset.netBookValue || '';
-    document.getElementById('UpdateDto_UsefulLifeYears').value = asset.usefulLifeYears || '';
+    // Display calculated useful life years (read-only)
+    const calculatedUsefulLife = asset.calculatedUsefulLifeYears ||
+                                 (asset.depreciationRate && asset.depreciationRate > 0 ?
+                                  Math.ceil(100 / asset.depreciationRate) : 'N/A');
+    document.getElementById('editUsefulLifeDisplay').value = calculatedUsefulLife + (typeof calculatedUsefulLife === 'number' ? ' years' : '');
     document.getElementById('UpdateDto_VendorName').value = asset.vendorName || '';
     document.getElementById('UpdateDto_InvoiceNumber').value = asset.invoiceNumber || '';
     document.getElementById('UpdateDto_WarrantyExpiry').value = asset.warrantyExpiry ? asset.warrantyExpiry.split('T')[0] : '';
@@ -1060,7 +1064,7 @@ if (editModal) {
             depreciationRate: button.getAttribute('data-depreciationrate'),
             accumulatedDepreciation: button.getAttribute('data-accumulateddepreciation'),
             netBookValue: button.getAttribute('data-netbookvalue'),
-            usefulLifeYears: button.getAttribute('data-usefullifeyears'),
+            calculatedUsefulLifeYears: button.getAttribute('data-calculatedusefullifeyears'),
             vendorName: button.getAttribute('data-vendorname'),
             invoiceNumber: button.getAttribute('data-invoicenumber'),
             warrantyExpiry: button.getAttribute('data-warrantyexpiry'),

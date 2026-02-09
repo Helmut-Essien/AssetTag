@@ -83,10 +83,11 @@ public class DashboardController : ControllerBase
                 .Where(a => a.NetBookValue.HasValue)
                 .Sum(a => a.NetBookValue!.Value);
 
-            // Calculate total acquisition cost (original purchase cost)
+            // Calculate total acquisition cost (original purchase price)
+            // Use PurchasePrice as it's the primary field users enter
             var totalAcquisitionCost = assets
-                .Where(a => a.TotalCost.HasValue)
-                .Sum(a => a.TotalCost!.Value);
+                .Where(a => a.PurchasePrice.HasValue)
+                .Sum(a => a.PurchasePrice!.Value);
 
             // Calculate monthly depreciation using NetBookValue and Category depreciation rate
             var monthlyDepreciation = assets

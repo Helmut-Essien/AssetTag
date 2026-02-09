@@ -159,6 +159,7 @@ public class AssetsController : ControllerBase
                 // Get depreciation rate from Category
                 DepreciationRate = asset.Category?.DepreciationRate,
                 // Calculated fields
+                CalculatedUsefulLifeYears = asset.CalculatedUsefulLifeYears,
                 TotalCost = asset.TotalCost,
                 AccumulatedDepreciation = asset.AccumulatedDepreciation,
                 NetBookValue = asset.NetBookValue
