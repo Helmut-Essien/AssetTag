@@ -65,7 +65,8 @@ public class DashboardDataDTO
     public int UnderMaintenanceAssets { get; set; }
     public int RetiredAssets { get; set; }
     public int LostAssets { get; set; }
-    public decimal TotalAssetValue { get; set; }
+    public decimal TotalAssetValue { get; set; }  // Net Book Value (depreciated)
+    public decimal TotalAcquisitionCost { get; set; }  // Original purchase cost
     public decimal MonthlyDepreciation { get; set; }
     public int RecentActivities { get; set; }
     public int AssetsDueForMaintenance { get; set; }
