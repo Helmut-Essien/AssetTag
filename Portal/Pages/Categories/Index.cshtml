@@ -45,14 +45,15 @@
                     <tr>
                         <td>@category.Name</td>
                         <td>@category.Description</td>
-                        <td>@category.DepreciationRate</td>
+                        <td>@(category.DepreciationRate.HasValue ? $"{category.DepreciationRate.Value:F2}%" : "N/A")</td>
                         <td>
                             <button class="btn btn-primary btn-sm me-2"
                                     data-bs-toggle="modal"
                                     data-bs-target="#editModal"
                                     data-id="@category.CategoryId"
                                     data-name="@category.Name"
-                                    data-desc="@category.Description">
+                                    data-desc="@category.Description"
+                                    data-depreciation-rate="@category.DepreciationRate">
                                 <i class="bi bi-pencil"></i> Edit
                             </button>
                             <button class="btn btn-danger btn-sm"
@@ -93,8 +94,9 @@
                     </div>
                     <div class="mb-3">
                         <label asp-for="CreateDto.DepreciationRate" class="form-label"></label>
-                        <input asp-for="CreateDto.DepreciationRate" class="form-control" />
+                        <input asp-for="CreateDto.DepreciationRate" type="number" step="0.01" min="0" max="100" class="form-control" placeholder="e.g., 20.00 for 20%" />
                         <span asp-validation-for="CreateDto.DepreciationRate" class="text-danger"></span>
+                        <small class="form-text text-muted">Enter annual depreciation rate as a percentage (0-100)</small>
                     </div>
                     <button type="submit" class="btn btn-success">Create</button>
                 </form>
@@ -127,8 +129,9 @@
                     </div>
                     <div class="mb-3">
                         <label asp-for="UpdateDto.DepreciationRate" class="form-label"></label>
-                        <input asp-for="UpdateDto.DepreciationRate" class="form-control" />
+                        <input asp-for="UpdateDto.DepreciationRate" type="number" step="0.01" min="0" max="100" class="form-control" placeholder="e.g., 20.00 for 20%" />
                         <span asp-validation-for="UpdateDto.DepreciationRate" class="text-danger"></span>
+                        <small class="form-text text-muted">Enter annual depreciation rate as a percentage (0-100)</small>
                     </div>
                     <button type="submit" class="btn btn-success">Update</button>
                 </form>
@@ -169,10 +172,12 @@
                     var id = button.getAttribute('data-id');
                     var name = button.getAttribute('data-name');
                     var desc = button.getAttribute('data-desc') || '';
+                    var depreciationRate = button.getAttribute('data-depreciation-rate') || '';
 
                     document.getElementById('UpdateDto_CategoryId').value = id;
                     document.getElementById('UpdateDto_Name').value = name;
                     document.getElementById('UpdateDto_Description').value = desc;
+                    document.getElementById('UpdateDto_DepreciationRate').value = depreciationRate;
                 });
             }
 
