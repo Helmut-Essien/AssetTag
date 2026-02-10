@@ -80,42 +80,46 @@ public class AssetsController : ControllerBase
 
         var assets = await query
                 .Include(a => a.Category)  // Include Category to access DepreciationRate
-                .Select(a => new AssetReadDTO
-                {
-                    AssetId = a.AssetId,
-                    AssetTag = a.AssetTag,
-                    Name = a.Name,
-                    Description = a.Description,
-                    CategoryId = a.CategoryId,
-                    LocationId = a.LocationId,
-                    DepartmentId = a.DepartmentId,
-                    PurchaseDate = a.PurchaseDate,
-                    PurchasePrice = a.PurchasePrice,
-                    CurrentValue = a.CurrentValue,
-                    Status = a.Status,
-                    AssignedToUserId = a.AssignedToUserId,
-                    CreatedAt = a.CreatedAt,
-                    DateModified = a.DateModified,
-                    SerialNumber = a.SerialNumber,
-                    Condition = a.Condition,
-                    VendorName = a.VendorName,
-                    InvoiceNumber = a.InvoiceNumber,
-                    Quantity = a.Quantity,
-                    CostPerUnit = a.CostPerUnit,
-                    UsefulLifeYears = a.UsefulLifeYears,
-                    WarrantyExpiry = a.WarrantyExpiry,
-                    DisposalDate = a.DisposalDate,
-                    DisposalValue = a.DisposalValue,
-                    Remarks = a.Remarks,
-                    // Calculated fields from Category
-                    DepreciationRate = a.Category != null ? a.Category.DepreciationRate : null,
-                    // Note: TotalCost, AccumulatedDepreciation, NetBookValue are computed on the client side
-                    TotalCost = a.CostPerUnit.HasValue ? a.CostPerUnit.Value * a.Quantity : null,
-                    AccumulatedDepreciation = null,  // Computed property - calculate client-side if needed
-                    NetBookValue = null  // Computed property - calculate client-side if needed
-                })
-            .ToListAsync();
-        return Ok(assets);
+                .ToListAsync();
+        
+        // Map to DTOs with computed properties
+        var assetDtos = assets.Select(a => new AssetReadDTO
+        {
+            AssetId = a.AssetId,
+            AssetTag = a.AssetTag,
+            Name = a.Name,
+            Description = a.Description,
+            CategoryId = a.CategoryId,
+            LocationId = a.LocationId,
+            DepartmentId = a.DepartmentId,
+            PurchaseDate = a.PurchaseDate,
+            PurchasePrice = a.PurchasePrice,
+            CurrentValue = a.CurrentValue,
+            Status = a.Status,
+            AssignedToUserId = a.AssignedToUserId,
+            CreatedAt = a.CreatedAt,
+            DateModified = a.DateModified,
+            SerialNumber = a.SerialNumber,
+            Condition = a.Condition,
+            VendorName = a.VendorName,
+            InvoiceNumber = a.InvoiceNumber,
+            Quantity = a.Quantity,
+            CostPerUnit = a.CostPerUnit,
+            UsefulLifeYears = a.UsefulLifeYears,
+            WarrantyExpiry = a.WarrantyExpiry,
+            DisposalDate = a.DisposalDate,
+            DisposalValue = a.DisposalValue,
+            Remarks = a.Remarks,
+            // Calculated fields from Category and computed properties
+            DepreciationRate = a.Category?.DepreciationRate,
+            CalculatedUsefulLifeYears = a.CalculatedUsefulLifeYears,
+            TotalCost = a.TotalCost,
+            AccumulatedDepreciation = a.AccumulatedDepreciation,
+            NetBookValue = a.NetBookValue,
+            GainLossOnDisposal = a.GainLossOnDisposal
+        }).ToList();
+        
+        return Ok(assetDtos);
     }
 
 
