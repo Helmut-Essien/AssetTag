@@ -32,9 +32,11 @@ public record AssetCreateDTO
     public DateTime? PurchaseDate { get; init; }
 
     [Display(Name = "Purchase Price")]
+    [Range(0.01, double.MaxValue, ErrorMessage = "Purchase price must be greater than 0")]
     public decimal? PurchasePrice { get; init; }
 
     [Display(Name = "Current Value")]
+    [Range(0, double.MaxValue, ErrorMessage = "Current value cannot be negative")]
     public decimal? CurrentValue { get; init; }
 
     [Required]
@@ -51,34 +53,27 @@ public record AssetCreateDTO
     [Display(Name = "Condition")]
     public string Condition { get; init; } = string.Empty;
 
-    // New fields from Excel
+    // Vendor and Invoice Information
     [Display(Name = "Vendor Name")]
     public string? VendorName { get; init; }
 
     [Display(Name = "Invoice Number")]
     public string? InvoiceNumber { get; init; }
 
+    // Base Financial Fields (User Input)
     [Display(Name = "Quantity")]
+    [Range(1, int.MaxValue, ErrorMessage = "Quantity must be at least 1")]
     public int Quantity { get; init; } = 1;
 
     [Display(Name = "Cost Per Unit")]
+    [Range(0, double.MaxValue, ErrorMessage = "Cost per unit cannot be negative")]
     public decimal? CostPerUnit { get; init; }
 
-    [Display(Name = "Total Cost")]
-    public decimal? TotalCost { get; init; }
-
-    [Display(Name = "Depreciation Rate (%)")]
-    public decimal? DepreciationRate { get; init; }
-
-    [Display(Name = "Accumulated Depreciation")]
-    public decimal? AccumulatedDepreciation { get; init; }
-
-    [Display(Name = "Net Book Value")]
-    public decimal? NetBookValue { get; init; }
-
     [Display(Name = "Useful Life (Years)")]
+    [Range(1, 100, ErrorMessage = "Useful life must be between 1 and 100 years")]
     public int? UsefulLifeYears { get; init; }
 
+    // Other Fields
     [Display(Name = "Warranty Expiry")]
     public DateTime? WarrantyExpiry { get; init; }
 
@@ -86,6 +81,7 @@ public record AssetCreateDTO
     public DateTime? DisposalDate { get; init; }
 
     [Display(Name = "Disposal Value")]
+    [Range(0, double.MaxValue, ErrorMessage = "Disposal value cannot be negative")]
     public decimal? DisposalValue { get; init; }
 
     [Display(Name = "Remarks")]
@@ -120,9 +116,11 @@ public record AssetUpdateDTO
     public DateTime? PurchaseDate { get; init; }
 
     [Display(Name = "Purchase Price")]
+    [Range(0.01, double.MaxValue, ErrorMessage = "Purchase price must be greater than 0")]
     public decimal? PurchasePrice { get; init; }
 
     [Display(Name = "Current Value")]
+    [Range(0, double.MaxValue, ErrorMessage = "Current value cannot be negative")]
     public decimal? CurrentValue { get; init; }
 
     [Display(Name = "Status")]
@@ -137,34 +135,27 @@ public record AssetUpdateDTO
     [Display(Name = "Condition")]
     public string? Condition { get; init; }
 
-    // New fields from Excel
+    // Vendor and Invoice Information
     [Display(Name = "Vendor Name")]
     public string? VendorName { get; init; }
 
     [Display(Name = "Invoice Number")]
     public string? InvoiceNumber { get; init; }
 
+    // Base Financial Fields (User Input)
     [Display(Name = "Quantity")]
+    [Range(1, int.MaxValue, ErrorMessage = "Quantity must be at least 1")]
     public int? Quantity { get; init; }
 
     [Display(Name = "Cost Per Unit")]
+    [Range(0, double.MaxValue, ErrorMessage = "Cost per unit cannot be negative")]
     public decimal? CostPerUnit { get; init; }
 
-    [Display(Name = "Total Cost")]
-    public decimal? TotalCost { get; init; }
-
-    [Display(Name = "Depreciation Rate (%)")]
-    public decimal? DepreciationRate { get; init; }
-
-    [Display(Name = "Accumulated Depreciation")]
-    public decimal? AccumulatedDepreciation { get; init; }
-
-    [Display(Name = "Net Book Value")]
-    public decimal? NetBookValue { get; init; }
-
     [Display(Name = "Useful Life (Years)")]
+    [Range(1, 100, ErrorMessage = "Useful life must be between 1 and 100 years")]
     public int? UsefulLifeYears { get; init; }
 
+    // Other Fields
     [Display(Name = "Warranty Expiry")]
     public DateTime? WarrantyExpiry { get; init; }
 
@@ -172,6 +163,7 @@ public record AssetUpdateDTO
     public DateTime? DisposalDate { get; init; }
 
     [Display(Name = "Disposal Value")]
+    [Range(0, double.MaxValue, ErrorMessage = "Disposal value cannot be negative")]
     public decimal? DisposalValue { get; init; }
 
     [Display(Name = "Remarks")]
@@ -228,24 +220,28 @@ public record AssetReadDTO
     [Display(Name = "Condition")]
     public string Condition { get; init; } = string.Empty;
 
-    // New fields from Excel
+    // Vendor and Invoice Information
     [Display(Name = "Vendor Name")]
     public string? VendorName { get; init; }
 
     [Display(Name = "Invoice Number")]
     public string? InvoiceNumber { get; init; }
 
+    // Base Financial Fields
     [Display(Name = "Quantity")]
     public int Quantity { get; init; } = 1;
 
     [Display(Name = "Cost Per Unit")]
     public decimal? CostPerUnit { get; init; }
 
+    [Display(Name = "Useful Life (Years)")]
+    public int? UsefulLifeYears { get; init; }
+
+    // Calculated Financial Fields (Read-Only - Computed from base fields and Category)
+    [Display(Name = "Depreciation Rate (%)")]
+    public decimal? DepreciationRate { get; init; }  // From Category
     [Display(Name = "Total Cost")]
     public decimal? TotalCost { get; init; }
-
-    [Display(Name = "Depreciation Rate (%)")]
-    public decimal? DepreciationRate { get; init; }
 
     [Display(Name = "Accumulated Depreciation")]
     public decimal? AccumulatedDepreciation { get; init; }
@@ -253,9 +249,7 @@ public record AssetReadDTO
     [Display(Name = "Net Book Value")]
     public decimal? NetBookValue { get; init; }
 
-    [Display(Name = "Useful Life (Years)")]
-    public int? UsefulLifeYears { get; init; }
-
+    // Other Fields
     [Display(Name = "Warranty Expiry")]
     public DateTime? WarrantyExpiry { get; init; }
 

@@ -506,6 +506,7 @@ namespace Portal.Pages
         public int RetiredAssets { get; set; }
         public int LostAssets { get; set; }
         public decimal TotalAssetValue { get; set; }
+        public decimal TotalAcquisitionCost { get; set; }
         public decimal MonthlyDepreciation { get; set; }
         public int RecentActivities { get; set; }
         public int AssetsDueForMaintenance { get; set; }
@@ -659,6 +660,7 @@ namespace Portal.Pages
             RetiredAssets = data.RetiredAssets;
             LostAssets = data.LostAssets;
             TotalAssetValue = data.TotalAssetValue;
+            TotalAcquisitionCost = data.TotalAcquisitionCost;
             MonthlyDepreciation = data.MonthlyDepreciation;
             RecentActivities = data.RecentActivities;
             AssetsDueForMaintenance = data.AssetsDueForMaintenance;
@@ -688,6 +690,7 @@ namespace Portal.Pages
             RetiredAssets = 0;
             LostAssets = 0;
             TotalAssetValue = 0;
+            TotalAcquisitionCost = 0;
             MonthlyDepreciation = 0;
             RecentActivities = 0;
             AssetsDueForMaintenance = 0;
@@ -717,6 +720,7 @@ namespace Portal.Pages
             RetiredAssets = _cache.RetiredAssets;
             LostAssets = _cache.LostAssets;
             TotalAssetValue = _cache.TotalAssetValue;
+            TotalAcquisitionCost = _cache.TotalAcquisitionCost;
             MonthlyDepreciation = _cache.MonthlyDepreciation;
             RecentActivities = _cache.RecentActivities;
             AssetsDueForMaintenance = _cache.AssetsDueForMaintenance;
@@ -740,6 +744,7 @@ namespace Portal.Pages
             _cache.RetiredAssets = RetiredAssets;
             _cache.LostAssets = LostAssets;
             _cache.TotalAssetValue = TotalAssetValue;
+            _cache.TotalAcquisitionCost = TotalAcquisitionCost;
             _cache.MonthlyDepreciation = MonthlyDepreciation;
             _cache.RecentActivities = RecentActivities;
             _cache.AssetsDueForMaintenance = AssetsDueForMaintenance;
@@ -769,6 +774,7 @@ namespace Portal.Pages
         public int RetiredAssets { get; set; }
         public int LostAssets { get; set; }
         public decimal TotalAssetValue { get; set; }
+        public decimal TotalAcquisitionCost { get; set; }
         public decimal MonthlyDepreciation { get; set; }
         public int RecentActivities { get; set; }
         public int AssetsDueForMaintenance { get; set; }

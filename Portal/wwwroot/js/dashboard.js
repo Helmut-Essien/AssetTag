@@ -292,7 +292,10 @@ class DashboardManager {
                         },
                         ticks: {
                             callback: (value) => {
-                                return '$' + value.toLocaleString();
+                                return '₵' + value.toLocaleString('en-GH', {
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 0
+                                });
                             }
                         }
                     },
@@ -376,14 +379,20 @@ class DashboardManager {
             case 'depreciation':
                 data = monthlyData.map(m => m.depreciation || 0);
                 label = 'Monthly Depreciation';
-                callback = (value) => '$' + value.toLocaleString();
+                callback = (value) => '₵' + value.toLocaleString('en-GH', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                });
                 borderColor = this.colors.trends.depreciation;
                 backgroundColor = this.hexToRgba(this.colors.trends.depreciation, 0.1);
                 break;
             default:
                 data = monthlyData.map(m => m.value || 0);
                 label = 'Asset Value';
-                callback = (value) => '$' + value.toLocaleString();
+                callback = (value) => '₵' + value.toLocaleString('en-GH', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                });
                 borderColor = this.colors.trends.value;
                 backgroundColor = this.hexToRgba(this.colors.trends.value, 0.1);
         }

@@ -4,8 +4,17 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Portal.Handlers;
 using Portal.Services;
+using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure globalization for Ghana Cedis (GHS)
+var ghanaianCulture = new CultureInfo("en-GH");
+ghanaianCulture.NumberFormat.CurrencySymbol = "₵";
+ghanaianCulture.NumberFormat.CurrencyDecimalDigits = 2;
+
+CultureInfo.DefaultThreadCurrentCulture = ghanaianCulture;
+CultureInfo.DefaultThreadCurrentUICulture = ghanaianCulture;
 
 builder.Services.AddSession(options =>
 {

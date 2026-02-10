@@ -188,10 +188,28 @@
                     </div>
                     <div class="stat-content">
                         <div class="stat-number">@Model.TotalAssetValue.ToString("C0")</div>
-                        <div class="stat-label">Total Value</div>
+                        <div class="stat-label">Net Book Value</div>
                         <div class="stat-trend">
-                            <i class="bi bi-graph-up trend-positive"></i>
-                            <small>Current value</small>
+                            <i class="bi bi-graph-down-arrow text-info"></i>
+                            <small>Depreciated value</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-4 col-sm-6">
+            <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="stat-card-body">
+                    <div class="stat-icon">
+                        <i class="bi bi-cash-stack"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number">@Model.TotalAcquisitionCost.ToString("C0")</div>
+                        <div class="stat-label">Acquisition Cost</div>
+                        <div class="stat-trend">
+                            <i class="bi bi-receipt"></i>
+                            <small>Original cost</small>
                         </div>
                     </div>
                 </div>

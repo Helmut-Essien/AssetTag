@@ -31,19 +31,11 @@ public class DashboardController : ControllerBase
         {
             var startTime = DateTime.UtcNow;
 
-            // Load all assets with required data in a single query
+            // Load all assets with Category for NetBookValue calculation
+            // Must load full entities to use computed properties
             var assets = await _context.Assets
                 .AsNoTracking()
-                .Select(a => new AssetSummaryDTO
-                {
-                    AssetId = a.AssetId,
-                    Status = a.Status,
-                    Condition = a.Condition,
-                    CurrentValue = a.CurrentValue,
-                    DepreciationRate = a.DepreciationRate,
-                    WarrantyExpiry = a.WarrantyExpiry,
-                    CategoryId = a.CategoryId
-                })
+                .Include(a => a.Category)
                 .ToListAsync();
 
             // Load recent histories in a single query
@@ -85,12 +77,21 @@ public class DashboardController : ControllerBase
             var underMaintenanceAssets = assets.Count(a => a.Status == "Under Maintenance");
             var retiredAssets = assets.Count(a => a.Status == "Retired");
             var lostAssets = assets.Count(a => a.Status == "Lost");
-            var totalAssetValue = assets.Where(a => a.CurrentValue.HasValue).Sum(a => a.CurrentValue!.Value);
+            
+            // Use NetBookValue (automatically depreciated) for total asset value
+            var totalAssetValue = assets
+                .Where(a => a.NetBookValue.HasValue)
+                .Sum(a => a.NetBookValue!.Value);
 
-            // Calculate monthly depreciation
+            // Calculate total acquisition cost (original purchase cost)
+            var totalAcquisitionCost = assets
+                .Where(a => a.TotalCost.HasValue)
+                .Sum(a => a.TotalCost!.Value);
+
+            // Calculate monthly depreciation using NetBookValue and Category depreciation rate
             var monthlyDepreciation = assets
-                .Where(a => a.DepreciationRate.HasValue && a.CurrentValue.HasValue)
-                .Sum(a => (a.CurrentValue!.Value * a.DepreciationRate!.Value) / 12 / 100);
+                .Where(a => a.Category?.DepreciationRate != null && a.NetBookValue.HasValue)
+                .Sum(a => (a.NetBookValue!.Value * a.Category!.DepreciationRate!.Value) / 12 / 100);
 
             // Maintenance and warranty alerts
             var thirtyDaysFromNow = DateTime.Now.AddDays(30);
@@ -158,6 +159,7 @@ public class DashboardController : ControllerBase
                 RetiredAssets = retiredAssets,
                 LostAssets = lostAssets,
                 TotalAssetValue = totalAssetValue,
+                TotalAcquisitionCost = totalAcquisitionCost,
                 MonthlyDepreciation = monthlyDepreciation,
                 RecentActivities = recentActivitiesCount,
                 AssetsDueForMaintenance = assetsDueForMaintenance,

@@ -191,16 +191,18 @@ public class ReportsController : ControllerBase
         try
         {
             var results = await _context.Assets
-                .Where(a => a.DepreciationRate.HasValue && a.CurrentValue.HasValue)
+                .Include(a => a.Category)
+                .Include(a => a.Department)
+                .Where(a => a.Category != null && a.Category.DepreciationRate.HasValue && a.CurrentValue.HasValue)
                 .Select(a => new
                 {
                     a.AssetTag,
                     a.Name,
                     CurrentValue = a.CurrentValue!.Value,
-                    DepreciationRate = a.DepreciationRate!.Value,
-                    MonthlyDepreciation = (a.CurrentValue.Value * a.DepreciationRate.Value) / 12 / 100,
-                    YearlyDepreciation = (a.CurrentValue.Value * a.DepreciationRate.Value) / 100,
-                    EstimatedValueIn1Year = a.CurrentValue.Value - (a.CurrentValue.Value * a.DepreciationRate.Value) / 100,
+                    DepreciationRate = a.Category!.DepreciationRate!.Value,
+                    MonthlyDepreciation = (a.CurrentValue.Value * a.Category.DepreciationRate.Value) / 12 / 100,
+                    YearlyDepreciation = (a.CurrentValue.Value * a.Category.DepreciationRate.Value) / 100,
+                    EstimatedValueIn1Year = a.CurrentValue.Value - (a.CurrentValue.Value * a.Category.DepreciationRate.Value) / 100,
                     Category = a.Category != null ? a.Category.Name : "Unknown",
                     Department = a.Department != null ? a.Department.Name : "Unassigned",
                     PurchaseDate = a.AssetHistories
