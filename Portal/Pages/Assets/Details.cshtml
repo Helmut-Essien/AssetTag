@@ -100,10 +100,10 @@
                                 <dd>@Model.Asset.PurchaseDate?.ToString("MMM dd, yyyy")</dd>
 
                                 <dt>Purchase Price</dt>
-                                <dd>@(Model.Asset.PurchasePrice?.ToString("C") ?? "N/A")</dd>
+                                <dd>@(Model.Asset.PurchasePrice.HasValue ? "₵" + Model.Asset.PurchasePrice.Value.ToString("N2") : "N/A")</dd>
 
                                 <dt>Current Value</dt>
-                                <dd>@(Model.Asset.CurrentValue?.ToString("C") ?? "N/A")</dd>
+                                <dd>@(Model.Asset.CurrentValue.HasValue ? "₵" + Model.Asset.CurrentValue.Value.ToString("N2") : "N/A")</dd>
 
                                 <dt>Quantity</dt>
                                 <dd>@Model.Asset.Quantity</dd>
@@ -134,10 +134,10 @@
                                 <dd>@(string.IsNullOrEmpty(Model.Asset.InvoiceNumber) ? "N/A" : Model.Asset.InvoiceNumber)</dd>
 
                                 <dt>Cost Per Unit</dt>
-                                <dd>@(Model.Asset.CostPerUnit?.ToString("C") ?? "N/A")</dd>
+                                <dd>@(Model.Asset.CostPerUnit.HasValue ? "₵" + Model.Asset.CostPerUnit.Value.ToString("N2") : "N/A")</dd>
 
                                 <dt>Total Cost</dt>
-                                <dd>@(Model.Asset.TotalCost?.ToString("C") ?? "N/A")</dd>
+                                <dd>@(Model.Asset.TotalCost.HasValue ? "₵" + Model.Asset.TotalCost.Value.ToString("N2") : "N/A")</dd>
                             </dl>
                         </div>
                         <div class="col-md-6">
@@ -146,13 +146,58 @@
                                 <dd>@(Model.Asset.DepreciationRate.HasValue ? $"{Model.Asset.DepreciationRate.Value:F2}%" : "N/A")</dd>
 
                                 <dt>Accumulated Depreciation</dt>
-                                <dd>@(Model.Asset.AccumulatedDepreciation?.ToString("C") ?? "N/A")</dd>
+                                <dd>@(Model.Asset.AccumulatedDepreciation.HasValue ? "₵" + Model.Asset.AccumulatedDepreciation.Value.ToString("N2") : "N/A")</dd>
 
                                 <dt>Net Book Value</dt>
-                                <dd>@(Model.Asset.NetBookValue?.ToString("C") ?? "N/A")</dd>
+                                <dd>@(Model.Asset.NetBookValue.HasValue ? "₵" + Model.Asset.NetBookValue.Value.ToString("N2") : "N/A")</dd>
 
                                 <dt>Useful Life</dt>
-                                <dd>@(Model.Asset.UsefulLifeYears?.ToString() ?? "N/A") years</dd>
+                                <dd>
+                                    @if (Model.Asset.CalculatedUsefulLifeYears.HasValue)
+                                    {
+                                        <text>@Model.Asset.CalculatedUsefulLifeYears.Value years</text>
+                                        @if (Model.Asset.UsefulLifeYears.HasValue && Model.Asset.UsefulLifeYears.Value != Model.Asset.CalculatedUsefulLifeYears.Value)
+                                        {
+                                            <small class="text-muted">(User-specified)</small>
+                                        }
+                                        else
+                                        {
+                                            <small class="text-muted">(Auto-calculated)</small>
+                                        }
+                                        
+                                        @* Show progress if purchase date is available *@
+                                        @if (Model.Asset.PurchaseDate.HasValue)
+                                        {
+                                            var yearsOwned = (DateTime.UtcNow - Model.Asset.PurchaseDate.Value).TotalDays / 365.25;
+                                            var usefulLife = Model.Asset.CalculatedUsefulLifeYears.Value;
+                                            var progressPercentage = Math.Min(100, (yearsOwned / usefulLife) * 100);
+                                            var isExpired = yearsOwned >= usefulLife;
+                                            
+                                            <div class="mt-2">
+                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                    <small class="text-muted">@yearsOwned.ToString("F1") of @usefulLife years used</small>
+                                                    @if (isExpired)
+                                                    {
+                                                        <span class="badge bg-warning text-dark">Fully Depreciated</span>
+                                                    }
+                                                </div>
+                                                <div class="progress" style="height: 8px;">
+                                                    <div class="progress-bar @(isExpired ? "bg-warning" : "bg-primary")"
+                                                         role="progressbar"
+                                                         style="width: @progressPercentage.ToString("F1")%"
+                                                         aria-valuenow="@progressPercentage"
+                                                         aria-valuemin="0"
+                                                         aria-valuemax="100">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <text>N/A</text>
+                                    }
+                                </dd>
                             </dl>
                         </div>
                     </div>
@@ -195,7 +240,18 @@
                                 <dd>@(Model.Asset.DisposalDate?.ToString("MMM dd, yyyy") ?? "N/A")</dd>
 
                                 <dt>Disposal Value</dt>
-                                <dd>@(Model.Asset.DisposalValue?.ToString("C") ?? "N/A")</dd>
+                                <dd>@(Model.Asset.DisposalValue.HasValue ? "₵" + Model.Asset.DisposalValue.Value.ToString("N2") : "N/A")</dd>
+
+                                @if (Model.Asset.GainLossOnDisposal.HasValue)
+                                {
+                                    <dt>Gain/Loss on Disposal</dt>
+                                    <dd>
+                                        <span class="badge @(Model.Asset.GainLossOnDisposal.Value >= 0 ? "bg-success" : "bg-danger")">
+                                            @(Model.Asset.GainLossOnDisposal.Value >= 0 ? "Gain" : "Loss"):
+                                            ₵@Math.Abs(Model.Asset.GainLossOnDisposal.Value).ToString("N2")
+                                        </span>
+                                    </dd>
+                                }
                             </dl>
                         </div>
                     </div>
@@ -408,10 +464,10 @@
                         </div>
                         <div class="col-12">
                             <div class="stat-value">
-                                @if (Model.Asset.CurrentValue.HasValue && Model.Asset.PurchasePrice.HasValue)
+                                @if (Model.Asset.AccumulatedDepreciation.HasValue && Model.Asset.PurchasePrice.HasValue && Model.Asset.PurchasePrice.Value > 0)
                                 {
-                                    var depreciation = ((Model.Asset.PurchasePrice.Value - Model.Asset.CurrentValue.Value) / Model.Asset.PurchasePrice.Value) * 100;
-                                    <text>@depreciation.ToString("F1")%</text>
+                                    var depreciationPercentage = (Model.Asset.AccumulatedDepreciation.Value / Model.Asset.PurchasePrice.Value) * 100;
+                                    <text>@depreciationPercentage.ToString("F1")%</text>
                                 }
                                 else
                                 {

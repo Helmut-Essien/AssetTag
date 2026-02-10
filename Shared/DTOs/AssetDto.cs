@@ -240,6 +240,10 @@ public record AssetReadDTO
     // Calculated Financial Fields (Read-Only - Computed from base fields and Category)
     [Display(Name = "Depreciation Rate (%)")]
     public decimal? DepreciationRate { get; init; }  // From Category
+    
+    [Display(Name = "Calculated Useful Life (Years)")]
+    public int? CalculatedUsefulLifeYears { get; init; }  // Calculated from depreciation rate or user-specified
+    
     [Display(Name = "Total Cost")]
     public decimal? TotalCost { get; init; }
 
@@ -248,6 +252,9 @@ public record AssetReadDTO
 
     [Display(Name = "Net Book Value")]
     public decimal? NetBookValue { get; init; }
+
+    [Display(Name = "Gain/Loss on Disposal")]
+    public decimal? GainLossOnDisposal { get; init; }
 
     // Other Fields
     [Display(Name = "Warranty Expiry")]

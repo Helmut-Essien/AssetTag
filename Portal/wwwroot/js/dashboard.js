@@ -567,3 +567,47 @@ styleSheet.textContent = `
     }
 `;
 document.head.appendChild(styleSheet);
+
+// Auto-resize stat numbers based on content length
+function autoResizeStatNumbers() {
+    const statNumbers = document.querySelectorAll('.stat-number');
+    
+    statNumbers.forEach(element => {
+        const text = element.textContent.trim();
+        const length = text.length;
+        
+        // Reset to default first
+        element.style.fontSize = '';
+        
+        // Adjust font size based on character count
+        if (length > 15) {
+            element.style.fontSize = '0.9rem';
+        } else if (length > 12) {
+            element.style.fontSize = '1.1rem';
+        } else if (length > 10) {
+            element.style.fontSize = '1.3rem';
+        } else if (length > 8) {
+            element.style.fontSize = '1.5rem';
+        }
+        // else use default from CSS (1.75rem or clamp value)
+        
+        // Additional check: if text overflows container
+        if (element.scrollWidth > element.clientWidth) {
+            const currentSize = parseFloat(window.getComputedStyle(element).fontSize);
+            element.style.fontSize = (currentSize * 0.85) + 'px';
+        }
+    });
+}
+
+// Run on page load
+document.addEventListener('DOMContentLoaded', autoResizeStatNumbers);
+
+// Run after any dynamic updates
+window.addEventListener('load', autoResizeStatNumbers);
+
+// Optional: Re-run on window resize
+let resizeTimeout;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(autoResizeStatNumbers, 250);
+});
