@@ -278,7 +278,7 @@
                         <td>
                             @if (asset.CurrentValue.HasValue)
                             {
-                                <text>@asset.CurrentValue.Value.ToString("C")</text>
+                                <text>₵@asset.CurrentValue.Value.ToString("N2")</text>
                             }
                             else
                             {

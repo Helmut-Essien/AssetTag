@@ -100,10 +100,10 @@
                                 <dd>@Model.Asset.PurchaseDate?.ToString("MMM dd, yyyy")</dd>
 
                                 <dt>Purchase Price</dt>
-                                <dd>@(Model.Asset.PurchasePrice?.ToString("C") ?? "N/A")</dd>
+                                <dd>@(Model.Asset.PurchasePrice.HasValue ? "₵" + Model.Asset.PurchasePrice.Value.ToString("N2") : "N/A")</dd>
 
                                 <dt>Current Value</dt>
-                                <dd>@(Model.Asset.CurrentValue?.ToString("C") ?? "N/A")</dd>
+                                <dd>@(Model.Asset.CurrentValue.HasValue ? "₵" + Model.Asset.CurrentValue.Value.ToString("N2") : "N/A")</dd>
 
                                 <dt>Quantity</dt>
                                 <dd>@Model.Asset.Quantity</dd>
@@ -134,10 +134,10 @@
                                 <dd>@(string.IsNullOrEmpty(Model.Asset.InvoiceNumber) ? "N/A" : Model.Asset.InvoiceNumber)</dd>
 
                                 <dt>Cost Per Unit</dt>
-                                <dd>@(Model.Asset.CostPerUnit?.ToString("C") ?? "N/A")</dd>
+                                <dd>@(Model.Asset.CostPerUnit.HasValue ? "₵" + Model.Asset.CostPerUnit.Value.ToString("N2") : "N/A")</dd>
 
                                 <dt>Total Cost</dt>
-                                <dd>@(Model.Asset.TotalCost?.ToString("C") ?? "N/A")</dd>
+                                <dd>@(Model.Asset.TotalCost.HasValue ? "₵" + Model.Asset.TotalCost.Value.ToString("N2") : "N/A")</dd>
                             </dl>
                         </div>
                         <div class="col-md-6">
@@ -146,10 +146,10 @@
                                 <dd>@(Model.Asset.DepreciationRate.HasValue ? $"{Model.Asset.DepreciationRate.Value:F2}%" : "N/A")</dd>
 
                                 <dt>Accumulated Depreciation</dt>
-                                <dd>@(Model.Asset.AccumulatedDepreciation?.ToString("C") ?? "N/A")</dd>
+                                <dd>@(Model.Asset.AccumulatedDepreciation.HasValue ? "₵" + Model.Asset.AccumulatedDepreciation.Value.ToString("N2") : "N/A")</dd>
 
                                 <dt>Net Book Value</dt>
-                                <dd>@(Model.Asset.NetBookValue?.ToString("C") ?? "N/A")</dd>
+                                <dd>@(Model.Asset.NetBookValue.HasValue ? "₵" + Model.Asset.NetBookValue.Value.ToString("N2") : "N/A")</dd>
 
                                 <dt>Useful Life</dt>
                                 <dd>
@@ -240,7 +240,7 @@
                                 <dd>@(Model.Asset.DisposalDate?.ToString("MMM dd, yyyy") ?? "N/A")</dd>
 
                                 <dt>Disposal Value</dt>
-                                <dd>@(Model.Asset.DisposalValue?.ToString("C") ?? "N/A")</dd>
+                                <dd>@(Model.Asset.DisposalValue.HasValue ? "₵" + Model.Asset.DisposalValue.Value.ToString("N2") : "N/A")</dd>
                             </dl>
                         </div>
                     </div>
