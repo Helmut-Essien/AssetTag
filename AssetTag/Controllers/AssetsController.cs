@@ -162,7 +162,8 @@ public class AssetsController : ControllerBase
                 CalculatedUsefulLifeYears = asset.CalculatedUsefulLifeYears,
                 TotalCost = asset.TotalCost,
                 AccumulatedDepreciation = asset.AccumulatedDepreciation,
-                NetBookValue = asset.NetBookValue
+                NetBookValue = asset.NetBookValue,
+                GainLossOnDisposal = asset.GainLossOnDisposal
             });
         }
 
@@ -257,7 +258,8 @@ public class AssetsController : ControllerBase
                     DepreciationRate = createdAsset.Category?.DepreciationRate,
                     TotalCost = createdAsset.TotalCost,
                     AccumulatedDepreciation = createdAsset.AccumulatedDepreciation,
-                    NetBookValue = createdAsset.NetBookValue
+                    NetBookValue = createdAsset.NetBookValue,
+                    GainLossOnDisposal = createdAsset.GainLossOnDisposal
                 });
         }
 

@@ -241,6 +241,17 @@
 
                                 <dt>Disposal Value</dt>
                                 <dd>@(Model.Asset.DisposalValue.HasValue ? "₵" + Model.Asset.DisposalValue.Value.ToString("N2") : "N/A")</dd>
+
+                                @if (Model.Asset.GainLossOnDisposal.HasValue)
+                                {
+                                    <dt>Gain/Loss on Disposal</dt>
+                                    <dd>
+                                        <span class="badge @(Model.Asset.GainLossOnDisposal.Value >= 0 ? "bg-success" : "bg-danger")">
+                                            @(Model.Asset.GainLossOnDisposal.Value >= 0 ? "Gain" : "Loss"):
+                                            ₵@Math.Abs(Model.Asset.GainLossOnDisposal.Value).ToString("N2")
+                                        </span>
+                                    </dd>
+                                }
                             </dl>
                         </div>
                     </div>

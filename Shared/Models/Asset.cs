@@ -67,6 +67,7 @@ namespace Shared.Models
         /// Uses the depreciation rate from the asset's Category.
         /// Formula: (Purchase Price × Category Depreciation Rate × Years Owned)
         /// Capped at Purchase Price and stops depreciating after CalculatedUsefulLifeYears.
+        /// Depreciation stops at DisposalDate if asset has been disposed (accounting principle).
         /// </summary>
         [NotMapped]
         public decimal? AccumulatedDepreciation
@@ -76,7 +77,13 @@ namespace Shared.Models
                 if (!PurchasePrice.HasValue || !PurchaseDate.HasValue || Category?.DepreciationRate == null)
                     return null;
 
-                var yearsOwned = (DateTime.UtcNow - PurchaseDate.Value).TotalDays / 365.25;
+                // Use disposal date if asset is disposed, otherwise use current date
+                // This ensures depreciation stops at disposal (accounting principle)
+                var endDate = DisposalDate.HasValue && DisposalDate.Value < DateTime.UtcNow
+                    ? DisposalDate.Value
+                    : DateTime.UtcNow;
+
+                var yearsOwned = (endDate - PurchaseDate.Value).TotalDays / 365.25;
                 
                 // Cap years at calculated useful life (asset is fully depreciated after useful life)
                 var usefulLife = CalculatedUsefulLifeYears;
@@ -107,6 +114,23 @@ namespace Shared.Models
 
                 var accumulated = AccumulatedDepreciation ?? 0m;
                 return Math.Max(0m, PurchasePrice.Value - accumulated);
+            }
+        }
+
+        /// <summary>
+        /// Gain or Loss on Disposal = Disposal Value - Net Book Value at Disposal
+        /// Positive value = Gain, Negative value = Loss
+        /// Only calculated if asset has been disposed (DisposalDate and DisposalValue are set)
+        /// </summary>
+        [NotMapped]
+        public decimal? GainLossOnDisposal
+        {
+            get
+            {
+                if (!DisposalDate.HasValue || !DisposalValue.HasValue || !NetBookValue.HasValue)
+                    return null;
+
+                return DisposalValue.Value - NetBookValue.Value;
             }
         }
 

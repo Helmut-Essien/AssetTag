@@ -253,6 +253,9 @@ public record AssetReadDTO
     [Display(Name = "Net Book Value")]
     public decimal? NetBookValue { get; init; }
 
+    [Display(Name = "Gain/Loss on Disposal")]
+    public decimal? GainLossOnDisposal { get; init; }
+
     // Other Fields
     [Display(Name = "Warranty Expiry")]
     public DateTime? WarrantyExpiry { get; init; }
