@@ -123,6 +123,13 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+/* Flexible width cards for large numbers */
+.stat-card-flexible {
+    min-width: 200px;
+    max-width: 280px;
+    width: auto;
+}
+
     .stat-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
@@ -163,6 +170,16 @@
     white-space: normal;
     display: block;
     transition: font-size 0.2s ease;
+}
+
+/* Truncate numbers to max 10 characters */
+.stat-number-truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 10ch; /* 10 characters width */
+    display: inline-block;
+    cursor: help; /* Show pointer to indicate tooltip */
 }
 
 .stat-label {
@@ -671,6 +688,11 @@
         height: auto;
     }
 
+    .stat-card-flexible {
+        min-width: 180px;
+        max-width: 100%;
+    }
+
     .stat-card-body {
         padding: 1rem;
     }
@@ -682,6 +704,10 @@
 
     .stat-number {
         font-size: clamp(1rem, 4vw, 1.5rem);
+    }
+
+    .stat-number-truncate {
+        max-width: 12ch; /* Allow slightly more characters on mobile */
     }
 
     .chart-container {
