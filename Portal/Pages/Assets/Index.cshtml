@@ -276,9 +276,9 @@
                         </td>
                         <td>@asset.PurchaseDate?.ToString("MMM dd, yyyy")</td>
                         <td>
-                            @if (asset.CurrentValue.HasValue)
+                            @if (asset.NetBookValue.HasValue)
                             {
-                                <text>₵@asset.CurrentValue.Value.ToString("N2")</text>
+                                <text>₵@asset.NetBookValue.Value.ToString("N2")</text>
                             }
                             else
                             {
@@ -302,7 +302,6 @@
                                         data-departmentid="@asset.DepartmentId"
                                         data-purchasedate="@asset.PurchaseDate?.ToString("yyyy-MM-dd")"
                                         data-purchaseprice="@asset.PurchasePrice"
-                                        data-currentvalue="@asset.CurrentValue"
                                         data-status="@asset.Status"
                                         data-assignedtouserid="@asset.AssignedToUserId"
                                         data-serialnumber="@asset.SerialNumber"
@@ -311,10 +310,7 @@
                                         data-invoicenumber="@asset.InvoiceNumber"
                                         data-quantity="@asset.Quantity"
                                         data-costperunit="@asset.CostPerUnit"
-                                        data-totalcost="@asset.TotalCost"
                                         data-depreciationrate="@asset.DepreciationRate"
-                                        data-accumulateddepreciation="@asset.AccumulatedDepreciation"
-                                        data-netbookvalue="@asset.NetBookValue"
                                         data-calculatedusefullifeyears="@asset.CalculatedUsefulLifeYears"
                                         data-warrantyexpiry="@asset.WarrantyExpiry?.ToString("yyyy-MM-dd")"
                                         data-disposaldate="@asset.DisposalDate?.ToString("yyyy-MM-dd")"
@@ -507,21 +503,14 @@
 
                     <!-- Basic Financial Information -->
                     <div class="row">
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <div class="mb-3">
                                 <label asp-for="CreateDto.PurchasePrice" class="form-label"></label>
                                 <input asp-for="CreateDto.PurchasePrice" type="number" step="0.01" class="form-control" />
                                 <span asp-validation-for="CreateDto.PurchasePrice" class="text-danger"></span>
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label asp-for="CreateDto.CurrentValue" class="form-label"></label>
-                                <input asp-for="CreateDto.CurrentValue" type="number" step="0.01" class="form-control" />
-                                <span asp-validation-for="CreateDto.CurrentValue" class="text-danger"></span>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <div class="mb-3">
                                 <label asp-for="CreateDto.Quantity" class="form-label"></label>
                                 <input asp-for="CreateDto.Quantity" type="number" class="form-control" />
@@ -765,21 +754,14 @@
 
                     <!-- Basic Financial Information -->
                     <div class="row">
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <div class="mb-3">
                                 <label asp-for="UpdateDto.PurchasePrice" class="form-label"></label>
                                 <input asp-for="UpdateDto.PurchasePrice" type="number" step="0.01" class="form-control" />
                                 <span asp-validation-for="UpdateDto.PurchasePrice" class="text-danger"></span>
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label asp-for="UpdateDto.CurrentValue" class="form-label"></label>
-                                <input asp-for="UpdateDto.CurrentValue" type="number" step="0.01" class="form-control" />
-                                <span asp-validation-for="UpdateDto.CurrentValue" class="text-danger"></span>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <div class="mb-3">
                                 <label asp-for="UpdateDto.Quantity" class="form-label"></label>
                                 <input asp-for="UpdateDto.Quantity" type="number" class="form-control" />
@@ -1016,16 +998,11 @@ function populateEditModal(asset) {
     document.getElementById('UpdateDto_DepartmentId').value = asset.departmentId || '';
     document.getElementById('UpdateDto_PurchaseDate').value = asset.purchaseDate ? asset.purchaseDate.split('T')[0] : '';
     document.getElementById('UpdateDto_PurchasePrice').value = asset.purchasePrice || '';
-    document.getElementById('UpdateDto_CurrentValue').value = asset.currentValue || '';
     document.getElementById('UpdateDto_Status').value = asset.status || '';
     document.getElementById('UpdateDto_SerialNumber').value = asset.serialNumber || '';
     document.getElementById('UpdateDto_Condition').value = asset.condition || '';
     document.getElementById('UpdateDto_Quantity').value = asset.quantity || '1';
     document.getElementById('UpdateDto_CostPerUnit').value = asset.costPerUnit || '';
-    document.getElementById('UpdateDto_TotalCost').value = asset.totalCost || '';
-    document.getElementById('UpdateDto_DepreciationRate').value = asset.depreciationRate || '';
-    document.getElementById('UpdateDto_AccumulatedDepreciation').value = asset.accumulatedDepreciation || '';
-    document.getElementById('UpdateDto_NetBookValue').value = asset.netBookValue || '';
     // Display calculated useful life years (read-only)
     const calculatedUsefulLife = asset.calculatedUsefulLifeYears ||
                                  (asset.depreciationRate && asset.depreciationRate > 0 ?
@@ -1054,16 +1031,12 @@ if (editModal) {
             departmentId: button.getAttribute('data-departmentid'),
             purchaseDate: button.getAttribute('data-purchasedate'),
             purchasePrice: button.getAttribute('data-purchaseprice'),
-            currentValue: button.getAttribute('data-currentvalue'),
             status: button.getAttribute('data-status'),
             serialNumber: button.getAttribute('data-serialnumber'),
             condition: button.getAttribute('data-condition'),
             quantity: button.getAttribute('data-quantity'),
             costPerUnit: button.getAttribute('data-costperunit'),
-            totalCost: button.getAttribute('data-totalcost'),
             depreciationRate: button.getAttribute('data-depreciationrate'),
-            accumulatedDepreciation: button.getAttribute('data-accumulateddepreciation'),
-            netBookValue: button.getAttribute('data-netbookvalue'),
             calculatedUsefulLifeYears: button.getAttribute('data-calculatedusefullifeyears'),
             vendorName: button.getAttribute('data-vendorname'),
             invoiceNumber: button.getAttribute('data-invoicenumber'),
