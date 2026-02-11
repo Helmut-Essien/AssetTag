@@ -33,24 +33,31 @@ public class ReportsController : ControllerBase
     {
         try
         {
-            var totalAssets = await _context.Assets.CountAsync();
-            if (totalAssets == 0)
+            // Load all assets with related data first
+            var assets = await _context.Assets
+                .Include(a => a.Category)
+                .ToListAsync();
+
+            if (!assets.Any())
             {
                 return Ok(new List<AssetsByStatusDto>());
             }
 
-            var results = await _context.Assets
+            var totalAssets = assets.Count;
+
+            // Group and calculate in memory (NetBookValue is a computed property)
+            var results = assets
                 .GroupBy(a => a.Status ?? "Unknown")
                 .Select(g => new AssetsByStatusDto
                 {
                     Status = g.Key,
                     Count = g.Count(),
-                    TotalValue = g.Sum(a => a.CurrentValue ?? 0),
-                    AverageValue = g.Any() ? g.Average(a => a.CurrentValue ?? 0) : 0,
+                    TotalValue = g.Sum(a => a.NetBookValue ?? 0),
+                    AverageValue = g.Any() ? g.Average(a => a.NetBookValue ?? 0) : 0,
                     Percentage = (decimal)g.Count() / totalAssets * 100
                 })
                 .OrderByDescending(r => r.Count)
-                .ToListAsync();
+                .ToList();
 
             return Ok(results);
         }
@@ -66,14 +73,19 @@ public class ReportsController : ControllerBase
     {
         try
         {
-            var results = await _context.Assets
+            // Fetch all assets with department info first
+            var assets = await _context.Assets
                 .Include(a => a.Department)
+                .ToListAsync();
+
+            // Group and calculate in memory
+            var results = assets
                 .GroupBy(a => a.Department != null ? a.Department.Name : "Unassigned")
                 .Select(g => new AssetsByDepartmentDto
                 {
                     Department = g.Key,
                     AssetCount = g.Count(),
-                    TotalValue = g.Sum(a => a.CurrentValue ?? 0),
+                    TotalValue = g.Sum(a => a.NetBookValue ?? 0),
                     InUseCount = g.Count(a => a.Status == AssetConstants.Status.InUse),
                     AvailableCount = g.Count(a => a.Status == AssetConstants.Status.Available),
                     MaintenanceCount = g.Count(a => a.Status == AssetConstants.Status.UnderMaintenance),
@@ -86,7 +98,7 @@ public class ReportsController : ControllerBase
                         && a.Status != AssetConstants.Status.Retired)
                 })
                 .OrderByDescending(r => r.TotalValue)
-                .ToListAsync();
+                .ToList();
 
             return Ok(results);
         }
@@ -102,9 +114,14 @@ public class ReportsController : ControllerBase
     {
         try
         {
-            var results = await _context.Assets
+            // Fetch all assets with location and category info first
+            var assets = await _context.Assets
                 .Include(a => a.Location)
                 .Include(a => a.Category)
+                .ToListAsync();
+
+            // Group and calculate in memory
+            var results = assets
                 .GroupBy(a => a.LocationId)
                 .Select(g => new AssetsByLocationDto
                 {
@@ -112,14 +129,14 @@ public class ReportsController : ControllerBase
                         ? $"{g.First().Location.Name} ({g.First().Location.Campus})"
                         : "Unassigned",
                     AssetCount = g.Count(),
-                    TotalValue = g.Sum(a => a.CurrentValue ?? 0),
+                    TotalValue = g.Sum(a => a.NetBookValue ?? 0),
                     AssetTypes = g.Select(a => a.Category != null ? a.Category.Name : "Unknown")
                                   .Distinct()
                                   .Take(10)
                                   .ToList()
                 })
                 .OrderByDescending(r => r.AssetCount)
-                .ToListAsync();
+                .ToList();
 
             return Ok(results);
         }
@@ -199,28 +216,33 @@ public class ReportsController : ControllerBase
             var sixtyDays = today.AddDays(AssetConstants.Reports.WarrantyExpiryHighDays);
             var ninetyDays = today.AddDays(AssetConstants.Reports.WarrantyExpiryWarningDays);
 
-            var results = await _context.Assets
+            // Fetch assets first
+            var assets = await _context.Assets
                 .Include(a => a.Category)
                 .Include(a => a.Department)
                 .Where(a => a.WarrantyExpiry.HasValue &&
                     a.WarrantyExpiry.Value >= today)
+                .ToListAsync();
+
+            // Process in memory
+            var results = assets
                 .Select(a => new WarrantyExpiryDto
                 {
                     AssetTag = a.AssetTag,
                     Name = a.Name,
                     WarrantyExpiry = a.WarrantyExpiry!.Value,
                     DaysUntilExpiry = (int)(a.WarrantyExpiry.Value - today).TotalDays,
-                    CurrentValue = a.CurrentValue,
+                    CurrentValue = a.NetBookValue,
                     Category = a.Category != null ? a.Category.Name : "Unknown",
                     Department = a.Department != null ? a.Department.Name : "Unassigned",
                     Status = a.Status,
                     Priority = a.WarrantyExpiry.Value <= thirtyDays ? "Critical" :
                               a.WarrantyExpiry.Value <= sixtyDays ? "High" :
                               a.WarrantyExpiry.Value <= ninetyDays ? "Medium" : "Low",
-                    EstimatedReplacementCost = a.PurchasePrice ?? a.CurrentValue
+                    EstimatedReplacementCost = a.PurchasePrice ?? a.NetBookValue
                 })
                 .OrderBy(a => a.WarrantyExpiry)
-                .ToListAsync();
+                .ToList();
 
             return Ok(results);
         }
@@ -236,47 +258,52 @@ public class ReportsController : ControllerBase
     {
         try
         {
+            // Load assets with Category having DepreciationRate and PurchasePrice set
+            // NetBookValue is computed, so we filter on PurchasePrice instead
             var assets = await _context.Assets
                 .Include(a => a.Category)
                 .Include(a => a.Department)
                 .Include(a => a.AssetHistories)
-                .Where(a => a.Category != null && a.Category.DepreciationRate.HasValue && a.CurrentValue.HasValue)
+                .Where(a => a.Category != null && a.Category.DepreciationRate.HasValue && a.PurchasePrice.HasValue)
                 .ToListAsync();
 
-            var results = assets.Select(a =>
-            {
-                var purchaseDate = a.AssetHistories
-                    .Where(h => h.Action == AssetConstants.HistoryAction.Purchased ||
-                               h.Action == AssetConstants.HistoryAction.Added)
-                    .OrderBy(h => h.Timestamp)
-                    .FirstOrDefault()?.Timestamp;
-
-                var ageInMonths = purchaseDate.HasValue
-                    ? (int)((DateTime.UtcNow - purchaseDate.Value).TotalDays / 30.44)
-                    : 0;
-
-                var rate = a.Category!.DepreciationRate!.Value;
-                var currentValue = a.CurrentValue!.Value;
-
-                return new DepreciationReportDto
+            // Filter in memory for assets with NetBookValue (computed property)
+            var results = assets
+                .Where(a => a.NetBookValue.HasValue)
+                .Select(a =>
                 {
-                    AssetTag = a.AssetTag,
-                    Name = a.Name,
-                    CurrentValue = currentValue,
-                    DepreciationRate = rate,
-                    MonthlyDepreciation = (currentValue * rate) / 12 / 100,
-                    YearlyDepreciation = (currentValue * rate) / 100,
-                    EstimatedValueIn1Year = currentValue - (currentValue * rate) / 100,
-                    Category = a.Category.Name,
-                    Department = a.Department?.Name ?? "Unassigned",
-                    PurchaseDate = purchaseDate,
-                    AgeInMonths = ageInMonths,
-                    AccumulatedDepreciation = a.AccumulatedDepreciation ?? 0,
-                    NetBookValue = a.NetBookValue ?? currentValue
-                };
-            })
-            .OrderByDescending(a => a.YearlyDepreciation)
-            .ToList();
+                    var purchaseDate = a.AssetHistories
+                        .Where(h => h.Action == AssetConstants.HistoryAction.Purchased ||
+                                   h.Action == AssetConstants.HistoryAction.Added)
+                        .OrderBy(h => h.Timestamp)
+                        .FirstOrDefault()?.Timestamp;
+
+                    var ageInMonths = purchaseDate.HasValue
+                        ? (int)((DateTime.UtcNow - purchaseDate.Value).TotalDays / 30.44)
+                        : 0;
+
+                    var rate = a.Category!.DepreciationRate!.Value;
+                    var currentValue = a.NetBookValue!.Value;
+
+                    return new DepreciationReportDto
+                    {
+                        AssetTag = a.AssetTag,
+                        Name = a.Name,
+                        CurrentValue = currentValue,
+                        DepreciationRate = rate,
+                        MonthlyDepreciation = (currentValue * rate) / 12 / 100,
+                        YearlyDepreciation = (currentValue * rate) / 100,
+                        EstimatedValueIn1Year = currentValue - (currentValue * rate) / 100,
+                        Category = a.Category.Name,
+                        Department = a.Department?.Name ?? "Unassigned",
+                        PurchaseDate = purchaseDate,
+                        AgeInMonths = ageInMonths,
+                        AccumulatedDepreciation = a.AccumulatedDepreciation ?? 0,
+                        NetBookValue = a.NetBookValue ?? currentValue
+                    };
+                })
+                .OrderByDescending(a => a.YearlyDepreciation)
+                .ToList();
 
             return Ok(results);
         }
@@ -448,7 +475,7 @@ public class ReportsController : ControllerBase
                     {
                         Status = g.Key,
                         Count = g.Count(),
-                        TotalValue = g.Sum(a => a.CurrentValue ?? 0)
+                        TotalValue = g.Sum(a => a.NetBookValue ?? 0)
                     })
                     .ToListAsync(),
                 "assets-by-department" => await _context.Assets
@@ -458,7 +485,7 @@ public class ReportsController : ControllerBase
                     {
                         Department = g.Key,
                         AssetCount = g.Count(),
-                        TotalValue = g.Sum(a => a.CurrentValue ?? 0)
+                        TotalValue = g.Sum(a => a.NetBookValue ?? 0)
                     })
                     .ToListAsync(),
                 _ => null
