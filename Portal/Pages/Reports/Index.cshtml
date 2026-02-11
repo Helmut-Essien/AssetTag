@@ -145,6 +145,7 @@
                     <div class="mt-4">
                         <form method="post" asp-page-handler="ExportReport" class="d-grid gap-2">
                             <input type="hidden" name="format" value="csv">
+                            <input type="hidden" name="reportType" value="@Model.SelectedReportType">
                             <button type="submit" class="btn btn-outline-primary" @(string.IsNullOrEmpty(Model.SelectedReportType) ? "disabled" : "")>
                                 <i class="bi bi-download me-2"></i>Export Selected Report (CSV)
                             </button>

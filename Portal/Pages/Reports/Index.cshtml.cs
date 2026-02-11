@@ -30,6 +30,10 @@ namespace Portal.Pages.Reports
         public async Task OnGetAsync(string reportType = "assets-by-status")
         {
             SelectedReportType = reportType;
+            
+            // Test AI connection
+            IsAiConnected = await _reportsService.TestAiConnectionAsync();
+            
             await LoadReportAsync(reportType);
 
             // Initialize chat history from session
