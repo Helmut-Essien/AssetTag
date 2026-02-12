@@ -114,5 +114,30 @@ namespace Portal.Services
                 return new List<Dictionary<string, object>>();
             }
         }
+
+        public async Task<bool> TestAiConnectionAsync()
+        {
+            try
+            {
+                var httpClient = _httpClientFactory.CreateClient("AssetTagApi");
+                var response = await httpClient.GetAsync("api/reports/ai/test-connection");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+                    if (result.TryGetProperty("connected", out var connectedElement))
+                    {
+                        return connectedElement.GetBoolean();
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error testing AI connection");
+                return false;
+            }
+        }
     }
 }

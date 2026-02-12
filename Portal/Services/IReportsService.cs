@@ -8,5 +8,6 @@ namespace Portal.Services
         Task<string> GenerateAiQueryAsync(string question);
         Task<List<Dictionary<string, object>>> ExecuteAiQueryAsync(string question);
         Task<List<Dictionary<string, object>>> ExecuteSqlAsync(string sqlQuery);
+        Task<bool> TestAiConnectionAsync();
     }
 }

@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using AssetTag.Data;
 using Shared.Models;
+using Shared.DTOs;
+using Shared.Constants;
 using AssetTag.Services;
 
 namespace AssetTag.Controllers;
@@ -31,14 +33,21 @@ public class ReportsController : ControllerBase
     {
         try
         {
+            var totalAssets = await _context.Assets.CountAsync();
+            if (totalAssets == 0)
+            {
+                return Ok(new List<AssetsByStatusDto>());
+            }
+
             var results = await _context.Assets
                 .GroupBy(a => a.Status ?? "Unknown")
-                .Select(g => new
+                .Select(g => new AssetsByStatusDto
                 {
                     Status = g.Key,
                     Count = g.Count(),
                     TotalValue = g.Sum(a => a.CurrentValue ?? 0),
-                    AverageValue = g.Average(a => a.CurrentValue ?? 0)
+                    AverageValue = g.Any() ? g.Average(a => a.CurrentValue ?? 0) : 0,
+                    Percentage = (decimal)g.Count() / totalAssets * 100
                 })
                 .OrderByDescending(r => r.Count)
                 .ToListAsync();
@@ -60,14 +69,21 @@ public class ReportsController : ControllerBase
             var results = await _context.Assets
                 .Include(a => a.Department)
                 .GroupBy(a => a.Department != null ? a.Department.Name : "Unassigned")
-                .Select(g => new
+                .Select(g => new AssetsByDepartmentDto
                 {
                     Department = g.Key,
                     AssetCount = g.Count(),
                     TotalValue = g.Sum(a => a.CurrentValue ?? 0),
-                    InUseCount = g.Count(a => a.Status == "In Use"),
-                    AvailableCount = g.Count(a => a.Status == "Available"),
-                    MaintenanceCount = g.Count(a => a.Status == "Under Maintenance")
+                    InUseCount = g.Count(a => a.Status == AssetConstants.Status.InUse),
+                    AvailableCount = g.Count(a => a.Status == AssetConstants.Status.Available),
+                    MaintenanceCount = g.Count(a => a.Status == AssetConstants.Status.UnderMaintenance),
+                    DisposedCount = g.Count(a => a.Status == AssetConstants.Status.Disposed),
+                    RetiredCount = g.Count(a => a.Status == AssetConstants.Status.Retired),
+                    OtherCount = g.Count(a => a.Status != AssetConstants.Status.InUse
+                        && a.Status != AssetConstants.Status.Available
+                        && a.Status != AssetConstants.Status.UnderMaintenance
+                        && a.Status != AssetConstants.Status.Disposed
+                        && a.Status != AssetConstants.Status.Retired)
                 })
                 .OrderByDescending(r => r.TotalValue)
                 .ToListAsync();
@@ -88,15 +104,18 @@ public class ReportsController : ControllerBase
         {
             var results = await _context.Assets
                 .Include(a => a.Location)
-                .GroupBy(a => a.Location != null ?
-                    $"{a.Location.Name} ({a.Location.Campus})" : "Unassigned")
-                .Select(g => new
+                .Include(a => a.Category)
+                .GroupBy(a => a.LocationId)
+                .Select(g => new AssetsByLocationDto
                 {
-                    Location = g.Key,
+                    Location = g.First().Location != null
+                        ? $"{g.First().Location.Name} ({g.First().Location.Campus})"
+                        : "Unassigned",
                     AssetCount = g.Count(),
                     TotalValue = g.Sum(a => a.CurrentValue ?? 0),
                     AssetTypes = g.Select(a => a.Category != null ? a.Category.Name : "Unknown")
                                   .Distinct()
+                                  .Take(10)
                                   .ToList()
                 })
                 .OrderByDescending(r => r.AssetCount)
@@ -116,30 +135,50 @@ public class ReportsController : ControllerBase
     {
         try
         {
-            var results = await _context.Assets
-                .Where(a => (a.Status == "In Use" || a.Status == "Under Maintenance") &&
-                    (a.Condition == "Fair" || a.Condition == "Poor" || a.Condition == "Broken"))
-                .Select(a => new
-                {
-                    a.AssetTag,
-                    a.Name,
-                    a.Condition,
-                    a.Status,
-                    LastMaintenance = a.AssetHistories
-                        .Where(h => h.Action == "Maintenance")
-                        .OrderByDescending(h => h.Timestamp)
-                        .FirstOrDefault().Timestamp,
-                    NextMaintenanceDue = a.AssetHistories
-                        .Where(h => h.Action == "Maintenance")
-                        .OrderByDescending(h => h.Timestamp)
-                        .FirstOrDefault().Timestamp.AddMonths(6), // Assume 6 months between maintenance
-                    Category = a.Category != null ? a.Category.Name : "Unknown",
-                    Department = a.Department != null ? a.Department.Name : "Unassigned",
-                    Location = a.Location != null ? a.Location.Name : "Unknown"
-                })
-                .OrderBy(a => a.Condition)
-                .ThenBy(a => a.LastMaintenance)
+            var assets = await _context.Assets
+                .Include(a => a.AssetHistories)
+                .Include(a => a.Category)
+                .Include(a => a.Department)
+                .Include(a => a.Location)
+                .Where(a => (a.Status == AssetConstants.Status.InUse || a.Status == AssetConstants.Status.UnderMaintenance) &&
+                    AssetConstants.Condition.RequiresMaintenance.Contains(a.Condition))
                 .ToListAsync();
+
+            var results = assets.Select(a =>
+            {
+                var lastMaintenance = a.AssetHistories
+                    .Where(h => h.Action == AssetConstants.HistoryAction.Maintenance)
+                    .OrderByDescending(h => h.Timestamp)
+                    .FirstOrDefault();
+
+                var maintenanceInterval = AssetConstants.Reports.DefaultMaintenanceIntervalMonths;
+                var nextDue = lastMaintenance?.Timestamp.AddMonths(maintenanceInterval);
+                var daysOverdue = nextDue.HasValue && nextDue.Value < DateTime.UtcNow
+                    ? (DateTime.UtcNow - nextDue.Value).Days
+                    : 0;
+
+                var priority = daysOverdue > 30 ? "Critical" :
+                              daysOverdue > 0 ? "High" :
+                              nextDue.HasValue && (nextDue.Value - DateTime.UtcNow).Days <= 30 ? "Medium" : "Low";
+
+                return new MaintenanceScheduleDto
+                {
+                    AssetTag = a.AssetTag,
+                    Name = a.Name,
+                    Condition = a.Condition,
+                    Status = a.Status,
+                    LastMaintenance = lastMaintenance?.Timestamp,
+                    NextMaintenanceDue = nextDue,
+                    DaysOverdue = daysOverdue,
+                    Priority = priority,
+                    Category = a.Category?.Name ?? "Unknown",
+                    Department = a.Department?.Name ?? "Unassigned",
+                    Location = a.Location?.Name ?? "Unknown"
+                };
+            })
+            .OrderByDescending(r => r.DaysOverdue)
+            .ThenBy(r => r.Condition)
+            .ToList();
 
             return Ok(results);
         }
@@ -155,23 +194,30 @@ public class ReportsController : ControllerBase
     {
         try
         {
-            var today = DateTime.Now;
-            var ninetyDaysFromNow = today.AddDays(90);
+            var today = DateTime.UtcNow;
+            var thirtyDays = today.AddDays(AssetConstants.Reports.WarrantyExpiryCriticalDays);
+            var sixtyDays = today.AddDays(AssetConstants.Reports.WarrantyExpiryHighDays);
+            var ninetyDays = today.AddDays(AssetConstants.Reports.WarrantyExpiryWarningDays);
 
             var results = await _context.Assets
+                .Include(a => a.Category)
+                .Include(a => a.Department)
                 .Where(a => a.WarrantyExpiry.HasValue &&
                     a.WarrantyExpiry.Value >= today)
-                .Select(a => new
+                .Select(a => new WarrantyExpiryDto
                 {
-                    a.AssetTag,
-                    a.Name,
+                    AssetTag = a.AssetTag,
+                    Name = a.Name,
                     WarrantyExpiry = a.WarrantyExpiry!.Value,
                     DaysUntilExpiry = (int)(a.WarrantyExpiry.Value - today).TotalDays,
-                    a.CurrentValue,
+                    CurrentValue = a.CurrentValue,
                     Category = a.Category != null ? a.Category.Name : "Unknown",
                     Department = a.Department != null ? a.Department.Name : "Unassigned",
                     Status = a.Status,
-                    IsExpiringSoon = a.WarrantyExpiry.Value <= ninetyDaysFromNow
+                    Priority = a.WarrantyExpiry.Value <= thirtyDays ? "Critical" :
+                              a.WarrantyExpiry.Value <= sixtyDays ? "High" :
+                              a.WarrantyExpiry.Value <= ninetyDays ? "Medium" : "Low",
+                    EstimatedReplacementCost = a.PurchasePrice ?? a.CurrentValue
                 })
                 .OrderBy(a => a.WarrantyExpiry)
                 .ToListAsync();
@@ -190,28 +236,47 @@ public class ReportsController : ControllerBase
     {
         try
         {
-            var results = await _context.Assets
+            var assets = await _context.Assets
                 .Include(a => a.Category)
                 .Include(a => a.Department)
+                .Include(a => a.AssetHistories)
                 .Where(a => a.Category != null && a.Category.DepreciationRate.HasValue && a.CurrentValue.HasValue)
-                .Select(a => new
-                {
-                    a.AssetTag,
-                    a.Name,
-                    CurrentValue = a.CurrentValue!.Value,
-                    DepreciationRate = a.Category!.DepreciationRate!.Value,
-                    MonthlyDepreciation = (a.CurrentValue.Value * a.Category.DepreciationRate.Value) / 12 / 100,
-                    YearlyDepreciation = (a.CurrentValue.Value * a.Category.DepreciationRate.Value) / 100,
-                    EstimatedValueIn1Year = a.CurrentValue.Value - (a.CurrentValue.Value * a.Category.DepreciationRate.Value) / 100,
-                    Category = a.Category != null ? a.Category.Name : "Unknown",
-                    Department = a.Department != null ? a.Department.Name : "Unassigned",
-                    PurchaseDate = a.AssetHistories
-                        .Where(h => h.Action == "Purchased" || h.Action == "Added")
-                        .OrderBy(h => h.Timestamp)
-                        .FirstOrDefault().Timestamp
-                })
-                .OrderByDescending(a => a.YearlyDepreciation)
                 .ToListAsync();
+
+            var results = assets.Select(a =>
+            {
+                var purchaseDate = a.AssetHistories
+                    .Where(h => h.Action == AssetConstants.HistoryAction.Purchased ||
+                               h.Action == AssetConstants.HistoryAction.Added)
+                    .OrderBy(h => h.Timestamp)
+                    .FirstOrDefault()?.Timestamp;
+
+                var ageInMonths = purchaseDate.HasValue
+                    ? (int)((DateTime.UtcNow - purchaseDate.Value).TotalDays / 30.44)
+                    : 0;
+
+                var rate = a.Category!.DepreciationRate!.Value;
+                var currentValue = a.CurrentValue!.Value;
+
+                return new DepreciationReportDto
+                {
+                    AssetTag = a.AssetTag,
+                    Name = a.Name,
+                    CurrentValue = currentValue,
+                    DepreciationRate = rate,
+                    MonthlyDepreciation = (currentValue * rate) / 12 / 100,
+                    YearlyDepreciation = (currentValue * rate) / 100,
+                    EstimatedValueIn1Year = currentValue - (currentValue * rate) / 100,
+                    Category = a.Category.Name,
+                    Department = a.Department?.Name ?? "Unassigned",
+                    PurchaseDate = purchaseDate,
+                    AgeInMonths = ageInMonths,
+                    AccumulatedDepreciation = a.AccumulatedDepreciation ?? 0,
+                    NetBookValue = a.NetBookValue ?? currentValue
+                };
+            })
+            .OrderByDescending(a => a.YearlyDepreciation)
+            .ToList();
 
             return Ok(results);
         }
@@ -227,7 +292,7 @@ public class ReportsController : ControllerBase
     {
         try
         {
-            var cutoffDate = DateTime.Now.AddDays(-days);
+            var cutoffDate = DateTime.UtcNow.AddDays(-days);
 
             var query = _context.AssetHistories
                 .Include(h => h.Asset)
@@ -240,14 +305,14 @@ public class ReportsController : ControllerBase
             }
 
             var results = await query
-                .Select(h => new
+                .Select(h => new AssetAuditTrailDto
                 {
-                    h.HistoryId,
-                    h.AssetId,
+                    HistoryId = h.HistoryId,
+                    AssetId = h.AssetId,
                     AssetName = h.Asset != null ? h.Asset.Name : "Unknown",
-                    h.Action,
-                    h.Description,
-                    h.Timestamp,
+                    Action = h.Action,
+                    Description = h.Description,
+                    Timestamp = h.Timestamp,
                     UserName = h.User != null ? $"{h.User.FirstName} {h.User.Surname}" : "System",
                     UserEmail = h.User != null ? h.User.Email : null
                 })
