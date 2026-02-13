@@ -134,6 +134,8 @@ namespace Shared.Models
             }
         }
 
+
+
         // Other Fields
         public DateTime? WarrantyExpiry { get; set; }
         public DateTime? DisposalDate { get; set; }

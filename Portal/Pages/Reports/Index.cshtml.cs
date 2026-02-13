@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Portal.Services;
 using System.Text.Json;
+using ClosedXML.Excel;
 
 namespace Portal.Pages.Reports
 {
@@ -26,15 +27,17 @@ namespace Portal.Pages.Reports
         public bool IsAiConnected { get; set; } = true;
         public string? ErrorMessage { get; set; }
         public string? SuccessMessage { get; set; }
+        public int? ReportYear { get; set; }
 
-        public async Task OnGetAsync(string reportType = "assets-by-status")
+        public async Task OnGetAsync(string reportType = "assets-by-status", int? year = null)
         {
             SelectedReportType = reportType;
+            ReportYear = year;
             
             // Test AI connection
             IsAiConnected = await _reportsService.TestAiConnectionAsync();
             
-            await LoadReportAsync(reportType);
+            await LoadReportAsync(reportType, year);
 
             // Initialize chat history from session
             ChatHistory = HttpContext.Session.GetObject<List<ChatMessage>>("ChatHistory")
@@ -113,34 +116,45 @@ namespace Portal.Pages.Reports
                     return Page();
                 }
 
-                // Build CSV
-                var csv = new System.Text.StringBuilder();
-
-                // Header
-                var firstRow = reportData.First();
-                var header = string.Join(",", firstRow.Keys);
-                csv.AppendLine(header);
-
-                // Data rows
-                foreach (var row in reportData)
+                if (format.ToLower() == "excel" && reportType == "fixed-assets-schedule")
                 {
-                    var values = row.Values.Select(v =>
-                    {
-                        var text = v?.ToString() ?? string.Empty;
-                        // Escape quotes
-                        text = text.Replace("\"", "\"\"");
-                        // Wrap in quotes if contains comma, quote, or newline
-                        if (text.Contains(",") || text.Contains("\"") || text.Contains("\n"))
-                        {
-                            text = $"\"{text}\"";
-                        }
-                        return text;
-                    });
-                    csv.AppendLine(string.Join(",", values));
+                    return await ExportFixedAssetsScheduleToExcel(reportData, reportType);
                 }
+                else if (format.ToLower() == "excel")
+                {
+                    return await ExportToExcel(reportData, reportType);
+                }
+                else
+                {
+                    // CSV export
+                    var csv = new System.Text.StringBuilder();
 
-                var bytes = System.Text.Encoding.UTF8.GetBytes(csv.ToString());
-                return File(bytes, "text/csv", $"{reportType}_{DateTime.Now:yyyyMMddHHmmss}.csv");
+                    // Header
+                    var firstRow = reportData.First();
+                    var header = string.Join(",", firstRow.Keys);
+                    csv.AppendLine(header);
+
+                    // Data rows
+                    foreach (var row in reportData)
+                    {
+                        var values = row.Values.Select(v =>
+                        {
+                            var text = v?.ToString() ?? string.Empty;
+                            // Escape quotes
+                            text = text.Replace("\"", "\"\"");
+                            // Wrap in quotes if contains comma, quote, or newline
+                            if (text.Contains(",") || text.Contains("\"") || text.Contains("\n"))
+                            {
+                                text = $"\"{text}\"";
+                            }
+                            return text;
+                        });
+                        csv.AppendLine(string.Join(",", values));
+                    }
+
+                    var bytes = System.Text.Encoding.UTF8.GetBytes(csv.ToString());
+                    return File(bytes, "text/csv", $"{reportType}_{DateTime.Now:yyyyMMddHHmmss}.csv");
+                }
             }
             catch (Exception ex)
             {
@@ -150,11 +164,170 @@ namespace Portal.Pages.Reports
             }
         }
 
-        private async Task LoadReportAsync(string reportType)
+        private async Task<IActionResult> ExportFixedAssetsScheduleToExcel(List<Dictionary<string, object>> reportData, string reportType)
+        {
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Fixed Assets Schedule");
+
+            var currentRow = 1;
+            var headers = reportData.First().Keys.ToList();
+
+            // Add title
+            worksheet.Cell(currentRow, 1).Value = "FIXED ASSETS SCHEDULE";
+            worksheet.Range(currentRow, 1, currentRow, headers.Count).Merge();
+            worksheet.Cell(currentRow, 1).Style.Font.Bold = true;
+            worksheet.Cell(currentRow, 1).Style.Font.FontSize = 14;
+            worksheet.Cell(currentRow, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            currentRow += 2;
+
+            // Add headers
+            for (int i = 0; i < headers.Count; i++)
+            {
+                var cell = worksheet.Cell(currentRow, i + 1);
+                cell.Value = headers[i];
+                cell.Style.Font.Bold = true;
+                cell.Style.Fill.BackgroundColor = XLColor.DarkGray;
+                cell.Style.Font.FontColor = XLColor.White;
+                cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            }
+            currentRow++;
+
+            // Add data rows
+            foreach (var row in reportData)
+            {
+                var rowLabel = row.Values.FirstOrDefault()?.ToString() ?? "";
+                
+                // Check if section header
+                if (rowLabel == "Cost/Valuation" || rowLabel == "Depreciation")
+                {
+                    worksheet.Range(currentRow, 1, currentRow, headers.Count).Merge();
+                    var cell = worksheet.Cell(currentRow, 1);
+                    cell.Value = rowLabel;
+                    cell.Style.Font.Bold = true;
+                    cell.Style.Font.FontSize = 11;
+                    cell.Style.Fill.BackgroundColor = XLColor.LightGray;
+                    cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                }
+                else if (string.IsNullOrEmpty(rowLabel))
+                {
+                    // Empty separator row - just increment
+                }
+                else
+                {
+                    // Regular data row
+                    for (int i = 0; i < headers.Count; i++)
+                    {
+                        var cell = worksheet.Cell(currentRow, i + 1);
+                        var value = row[headers[i]];
+                        
+                        if (value is decimal decimalValue)
+                        {
+                            cell.Value = decimalValue;
+                            cell.Style.NumberFormat.Format = "#,##0";
+                            cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                        }
+                        else if (value?.ToString() == "-")
+                        {
+                            cell.Value = "-";
+                            cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                        }
+                        else
+                        {
+                            cell.Value = value?.ToString() ?? "";
+                        }
+                        
+                        // Bold first column (row labels) and last column (totals)
+                        if (i == 0 || i == headers.Count - 1)
+                        {
+                            cell.Style.Font.Bold = true;
+                        }
+                        
+                        // Highlight NBV row
+                        if (rowLabel.StartsWith("NBV"))
+                        {
+                            cell.Style.Fill.BackgroundColor = XLColor.LightBlue;
+                            cell.Style.Font.Bold = true;
+                        }
+                        
+                        cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                    }
+                }
+                
+                currentRow++;
+            }
+
+            // Auto-fit columns
+            worksheet.Columns().AdjustToContents();
+
+            // Save to memory stream
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            var content = stream.ToArray();
+
+            return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"{reportType}_{DateTime.Now:yyyyMMddHHmmss}.xlsx");
+        }
+
+        private async Task<IActionResult> ExportToExcel(List<Dictionary<string, object>> reportData, string reportType)
+        {
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Report");
+
+            var currentRow = 1;
+            var headers = reportData.First().Keys.ToList();
+
+            // Add headers
+            for (int i = 0; i < headers.Count; i++)
+            {
+                var cell = worksheet.Cell(currentRow, i + 1);
+                cell.Value = headers[i];
+                cell.Style.Font.Bold = true;
+                cell.Style.Fill.BackgroundColor = XLColor.LightGray;
+            }
+            currentRow++;
+
+            // Add data
+            foreach (var row in reportData)
+            {
+                for (int i = 0; i < headers.Count; i++)
+                {
+                    var cell = worksheet.Cell(currentRow, i + 1);
+                    var value = row[headers[i]];
+                    
+                    if (value is decimal decimalValue)
+                    {
+                        cell.Value = decimalValue;
+                        cell.Style.NumberFormat.Format = "#,##0.00";
+                    }
+                    else if (value is DateTime dateValue)
+                    {
+                        cell.Value = dateValue;
+                        cell.Style.DateFormat.Format = "yyyy-MM-dd";
+                    }
+                    else
+                    {
+                        cell.Value = value?.ToString() ?? "";
+                    }
+                }
+                currentRow++;
+            }
+
+            worksheet.Columns().AdjustToContents();
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            var content = stream.ToArray();
+
+            return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"{reportType}_{DateTime.Now:yyyyMMddHHmmss}.xlsx");
+        }
+
+        private async Task LoadReportAsync(string reportType, int? year = null)
         {
             try
             {
-                ReportResults = await _reportsService.GetReportAsync(reportType);
+                ReportResults = await _reportsService.GetReportAsync(reportType, year);
             }
             catch (Exception ex)
             {

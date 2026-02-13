@@ -253,64 +253,230 @@ public class ReportsController : ControllerBase
         }
     }
 
-    [HttpGet("depreciation-report")]
-    public async Task<IActionResult> GetDepreciationReport()
+
+
+
+    [HttpGet("fixed-assets-schedule")]
+    public async Task<IActionResult> GetFixedAssetsSchedule([FromQuery] int? year = null)
     {
         try
         {
-            // Load assets with Category having DepreciationRate and PurchasePrice set
-            // NetBookValue is computed, so we filter on PurchasePrice instead
-            var assets = await _context.Assets
-                .Include(a => a.Category)
-                .Include(a => a.Department)
-                .Include(a => a.AssetHistories)
-                .Where(a => a.Category != null && a.Category.DepreciationRate.HasValue && a.PurchasePrice.HasValue)
+            // Default to current year if not specified
+            var reportYear = year ?? DateTime.UtcNow.Year;
+            
+            // Get all categories with depreciation rates
+            var categories = await _context.Categories
+                .Where(c => c.DepreciationRate.HasValue)
+                .OrderBy(c => c.Name)
                 .ToListAsync();
 
-            // Filter in memory for assets with NetBookValue (computed property)
-            var results = assets
-                .Where(a => a.NetBookValue.HasValue)
-                .Select(a =>
+            if (!categories.Any())
+            {
+                return Ok(new {
+                    categories = new List<CategoryColumnDto>(),
+                    rows = new List<FixedAssetsScheduleDto>(),
+                    year = reportYear
+                });
+            }
+
+            // Get all assets with their categories
+            var assets = await _context.Assets
+                .Include(a => a.Category)
+                .Include(a => a.AssetHistories)
+                .Where(a => a.Category != null &&
+                           a.Category.DepreciationRate.HasValue &&
+                           a.PurchasePrice.HasValue)
+                .ToListAsync();
+
+            // Build category columns
+            var categoryColumns = categories.Select(c => new CategoryColumnDto
+            {
+                CategoryId = c.CategoryId,
+                CategoryName = c.Name,
+                DepreciationRate = c.DepreciationRate
+            }).ToList();
+
+            // Group assets by category
+            var assetsByCategory = assets.GroupBy(a => a.CategoryId).ToDictionary(g => g.Key, g => g.ToList());
+
+            // Build rows
+            var rows = new List<FixedAssetsScheduleDto>();
+
+            // Define date ranges for the report year
+            var startOfYear = new DateTime(reportYear, 1, 1);
+            var endOfYear = new DateTime(reportYear, 12, 31, 23, 59, 59);
+
+            // Section Header: Cost/Valuation
+            rows.Add(new FixedAssetsScheduleDto
+            {
+                RowLabel = "Cost/Valuation",
+                CategoryValues = new Dictionary<string, decimal?>()
+            });
+
+            // Row 1: Cost/Valuation - Balance at start of year
+            var balStartRow = new FixedAssetsScheduleDto
+            {
+                RowLabel = $"Bal: 1 Jan., {reportYear}",
+                CategoryValues = new Dictionary<string, decimal?>()
+            };
+            foreach (var cat in categories)
+            {
+                var catAssets = assetsByCategory.ContainsKey(cat.CategoryId) ? assetsByCategory[cat.CategoryId] : new List<Asset>();
+                var value = catAssets
+                    .Where(a => a.PurchaseDate.HasValue && a.PurchaseDate.Value < startOfYear)
+                    .Sum(a => a.PurchasePrice ?? 0);
+                balStartRow.CategoryValues[cat.CategoryId] = value > 0 ? value : null;
+            }
+            balStartRow.Total = balStartRow.CategoryValues.Values.Sum(v => v ?? 0);
+            rows.Add(balStartRow);
+
+            // Row 2: Additions during the year
+            var additionsRow = new FixedAssetsScheduleDto
+            {
+                RowLabel = "Additions",
+                CategoryValues = new Dictionary<string, decimal?>()
+            };
+            foreach (var cat in categories)
+            {
+                var catAssets = assetsByCategory.ContainsKey(cat.CategoryId) ? assetsByCategory[cat.CategoryId] : new List<Asset>();
+                var value = catAssets
+                    .Where(a => a.PurchaseDate.HasValue &&
+                               a.PurchaseDate.Value >= startOfYear &&
+                               a.PurchaseDate.Value <= endOfYear)
+                    .Sum(a => a.PurchasePrice ?? 0);
+                additionsRow.CategoryValues[cat.CategoryId] = value > 0 ? value : null;
+            }
+            additionsRow.Total = additionsRow.CategoryValues.Values.Sum(v => v ?? 0);
+            rows.Add(additionsRow);
+
+            // Row 3: Balance at end of year
+            var balEndRow = new FixedAssetsScheduleDto
+            {
+                RowLabel = $"Bal: 31 Dec., {reportYear}",
+                CategoryValues = new Dictionary<string, decimal?>()
+            };
+            foreach (var cat in categories)
+            {
+                var catAssets = assetsByCategory.ContainsKey(cat.CategoryId) ? assetsByCategory[cat.CategoryId] : new List<Asset>();
+                var value = catAssets
+                    .Where(a => a.PurchaseDate.HasValue && a.PurchaseDate.Value <= endOfYear)
+                    .Sum(a => a.PurchasePrice ?? 0);
+                balEndRow.CategoryValues[cat.CategoryId] = value > 0 ? value : null;
+            }
+            balEndRow.Total = balEndRow.CategoryValues.Values.Sum(v => v ?? 0);
+            rows.Add(balEndRow);
+
+            // Empty row separator
+            rows.Add(new FixedAssetsScheduleDto { RowLabel = "", CategoryValues = new Dictionary<string, decimal?>() });
+
+            // Section Header: Depreciation
+            rows.Add(new FixedAssetsScheduleDto
+            {
+                RowLabel = "Depreciation",
+                CategoryValues = new Dictionary<string, decimal?>()
+            });
+
+            // Row 4: Depreciation - Balance at start of year
+            var depBalStartRow = new FixedAssetsScheduleDto
+            {
+                RowLabel = $"Bal: 1 Jan., {reportYear}",
+                CategoryValues = new Dictionary<string, decimal?>()
+            };
+            foreach (var cat in categories)
+            {
+                var catAssets = assetsByCategory.ContainsKey(cat.CategoryId) ? assetsByCategory[cat.CategoryId] : new List<Asset>();
+                
+                decimal totalDepreciation = 0;
+                foreach (var asset in catAssets.Where(a => a.PurchaseDate.HasValue && a.PurchaseDate.Value < startOfYear))
                 {
-                    var purchaseDate = a.AssetHistories
-                        .Where(h => h.Action == AssetConstants.HistoryAction.Purchased ||
-                                   h.Action == AssetConstants.HistoryAction.Added)
-                        .OrderBy(h => h.Timestamp)
-                        .FirstOrDefault()?.Timestamp;
+                    var yearsOwned = (startOfYear - asset.PurchaseDate!.Value).TotalDays / 365.25;
+                    var rate = cat.DepreciationRate!.Value / 100m;
+                    var depreciation = Math.Min(asset.PurchasePrice!.Value * rate * (decimal)yearsOwned, asset.PurchasePrice.Value);
+                    totalDepreciation += depreciation;
+                }
+                
+                depBalStartRow.CategoryValues[cat.CategoryId] = totalDepreciation > 0 ? totalDepreciation : null;
+            }
+            depBalStartRow.Total = depBalStartRow.CategoryValues.Values.Sum(v => v ?? 0);
+            rows.Add(depBalStartRow);
 
-                    var ageInMonths = purchaseDate.HasValue
-                        ? (int)((DateTime.UtcNow - purchaseDate.Value).TotalDays / 30.44)
-                        : 0;
+            // Row 5: Charge for the year
+            var chargeRow = new FixedAssetsScheduleDto
+            {
+                RowLabel = "Charge for the yr",
+                CategoryValues = new Dictionary<string, decimal?>()
+            };
+            foreach (var cat in categories)
+            {
+                var catAssets = assetsByCategory.ContainsKey(cat.CategoryId) ? assetsByCategory[cat.CategoryId] : new List<Asset>();
+                var rate = cat.DepreciationRate!.Value / 100m;
+                
+                decimal yearlyCharge = 0;
+                foreach (var asset in catAssets.Where(a => a.PurchasePrice.HasValue && a.PurchaseDate.HasValue && a.PurchaseDate.Value <= endOfYear))
+                {
+                    // Only charge depreciation for assets owned during the year
+                    yearlyCharge += asset.PurchasePrice!.Value * rate;
+                }
+                
+                chargeRow.CategoryValues[cat.CategoryId] = yearlyCharge > 0 ? yearlyCharge : null;
+            }
+            chargeRow.Total = chargeRow.CategoryValues.Values.Sum(v => v ?? 0);
+            rows.Add(chargeRow);
 
-                    var rate = a.Category!.DepreciationRate!.Value;
-                    var currentValue = a.NetBookValue!.Value;
+            // Row 6: Depreciation balance at end of year
+            var depBalEndRow = new FixedAssetsScheduleDto
+            {
+                RowLabel = $"Bal: 31 Dec., {reportYear}",
+                CategoryValues = new Dictionary<string, decimal?>()
+            };
+            foreach (var cat in categories)
+            {
+                var catAssets = assetsByCategory.ContainsKey(cat.CategoryId) ? assetsByCategory[cat.CategoryId] : new List<Asset>();
+                
+                decimal totalDepreciation = 0;
+                foreach (var asset in catAssets.Where(a => a.PurchaseDate.HasValue && a.PurchaseDate.Value <= endOfYear))
+                {
+                    var yearsOwned = (endOfYear - asset.PurchaseDate!.Value).TotalDays / 365.25;
+                    var rate = cat.DepreciationRate!.Value / 100m;
+                    var depreciation = Math.Min(asset.PurchasePrice!.Value * rate * (decimal)yearsOwned, asset.PurchasePrice.Value);
+                    totalDepreciation += depreciation;
+                }
+                
+                depBalEndRow.CategoryValues[cat.CategoryId] = totalDepreciation > 0 ? totalDepreciation : null;
+            }
+            depBalEndRow.Total = depBalEndRow.CategoryValues.Values.Sum(v => v ?? 0);
+            rows.Add(depBalEndRow);
 
-                    return new DepreciationReportDto
-                    {
-                        AssetTag = a.AssetTag,
-                        Name = a.Name,
-                        CurrentValue = currentValue,
-                        DepreciationRate = rate,
-                        MonthlyDepreciation = (currentValue * rate) / 12 / 100,
-                        YearlyDepreciation = (currentValue * rate) / 100,
-                        EstimatedValueIn1Year = currentValue - (currentValue * rate) / 100,
-                        Category = a.Category.Name,
-                        Department = a.Department?.Name ?? "Unassigned",
-                        PurchaseDate = purchaseDate,
-                        AgeInMonths = ageInMonths,
-                        AccumulatedDepreciation = a.AccumulatedDepreciation ?? 0,
-                        NetBookValue = a.NetBookValue ?? currentValue
-                    };
-                })
-                .OrderByDescending(a => a.YearlyDepreciation)
-                .ToList();
+            // Empty row separator
+            rows.Add(new FixedAssetsScheduleDto { RowLabel = "", CategoryValues = new Dictionary<string, decimal?>() });
 
-            return Ok(results);
+            // Row 7: Net Book Value at end of year
+            var nbvRow = new FixedAssetsScheduleDto
+            {
+                RowLabel = $"NBV 31 Dec., {reportYear}",
+                CategoryValues = new Dictionary<string, decimal?>()
+            };
+            foreach (var cat in categories)
+            {
+                var costValue = balEndRow.CategoryValues.ContainsKey(cat.CategoryId) ? balEndRow.CategoryValues[cat.CategoryId] ?? 0 : 0;
+                var depValue = depBalEndRow.CategoryValues.ContainsKey(cat.CategoryId) ? depBalEndRow.CategoryValues[cat.CategoryId] ?? 0 : 0;
+                var nbv = costValue - depValue;
+                nbvRow.CategoryValues[cat.CategoryId] = nbv > 0 ? nbv : null;
+            }
+            nbvRow.Total = nbvRow.CategoryValues.Values.Sum(v => v ?? 0);
+            rows.Add(nbvRow);
+
+            return Ok(new
+            {
+                categories = categoryColumns,
+                rows = rows,
+                year = reportYear
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting depreciation report");
-            return StatusCode(500, new { error = "Failed to generate report" });
+            _logger.LogError(ex, "Error getting fixed assets schedule");
+            return StatusCode(500, new { error = "Failed to generate fixed assets schedule" });
         }
     }
 

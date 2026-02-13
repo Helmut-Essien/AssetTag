@@ -108,4 +108,26 @@ namespace Shared.DTOs
         public string UserName { get; set; } = string.Empty;
         public string? UserEmail { get; set; }
     }
+    /// <summary>
+    /// DTO for Fixed Assets Schedule report - categories as columns
+    /// </summary>
+    public class FixedAssetsScheduleDto
+    {
+        public string RowLabel { get; set; } = string.Empty;
+        public Dictionary<string, decimal?> CategoryValues { get; set; } = new();
+        public decimal? Total { get; set; }
+    }
+    
+    /// <summary>
+    /// Category column header with depreciation rate
+    /// </summary>
+    public class CategoryColumnDto
+    {
+        public string CategoryId { get; set; } = string.Empty;
+        public string CategoryName { get; set; } = string.Empty;
+        public decimal? DepreciationRate { get; set; }
+        public string DisplayName => DepreciationRate.HasValue
+            ? $"{CategoryName} ({DepreciationRate:0.##}%)"
+            : CategoryName;
+    }
 }
