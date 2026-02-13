@@ -28,16 +28,33 @@ namespace Portal.Pages.Reports
         public string? ErrorMessage { get; set; }
         public string? SuccessMessage { get; set; }
         public int? ReportYear { get; set; }
+        
+        // Date range depreciation properties
+        public DateTime? StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+        public JsonElement DepreciationSummary { get; set; }
+        public List<Dictionary<string, object>> DepreciationResults { get; set; } = new();
 
-        public async Task OnGetAsync(string reportType = "assets-by-status", int? year = null)
+        public async Task OnGetAsync(string reportType = "assets-by-status", int? year = null,
+            DateTime? startDate = null, DateTime? endDate = null)
         {
             SelectedReportType = reportType;
             ReportYear = year;
+            StartDate = startDate;
+            EndDate = endDate;
             
             // Test AI connection
             IsAiConnected = await _reportsService.TestAiConnectionAsync();
             
-            await LoadReportAsync(reportType, year);
+            // Load depreciation date range report if selected
+            if (reportType == "depreciation-date-range")
+            {
+                await LoadDepreciationDateRangeAsync(startDate, endDate);
+            }
+            else
+            {
+                await LoadReportAsync(reportType, year);
+            }
 
             // Initialize chat history from session
             ChatHistory = HttpContext.Session.GetObject<List<ChatMessage>>("ChatHistory")
@@ -334,6 +351,58 @@ namespace Portal.Pages.Reports
                 _logger.LogError(ex, "Error loading report");
                 ErrorMessage = $"Failed to load report: {ex.Message}";
             }
+        }
+
+        private async Task LoadDepreciationDateRangeAsync(DateTime? startDate, DateTime? endDate)
+        {
+            try
+            {
+                var result = await _reportsService.GetDepreciationByDateRangeAsync(startDate, endDate);
+                
+                if (result.ValueKind != JsonValueKind.Undefined && result.ValueKind != JsonValueKind.Null)
+                {
+                    DepreciationSummary = result;
+                    
+                    // Extract assets array and convert to list of dictionaries
+                    if (result.TryGetProperty("assets", out var assetsElement) &&
+                        assetsElement.ValueKind == JsonValueKind.Array)
+                    {
+                        DepreciationResults = new List<Dictionary<string, object>>();
+                        
+                        foreach (var asset in assetsElement.EnumerateArray())
+                        {
+                            var dict = new Dictionary<string, object>();
+                            foreach (var property in asset.EnumerateObject())
+                            {
+                                dict[property.Name] = ConvertJsonElement(property.Value);
+                            }
+                            DepreciationResults.Add(dict);
+                        }
+                        
+                        ReportResults = DepreciationResults;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading depreciation date range report");
+                ErrorMessage = $"Failed to load depreciation report: {ex.Message}";
+            }
+        }
+
+        private object ConvertJsonElement(JsonElement element)
+        {
+            return element.ValueKind switch
+            {
+                JsonValueKind.String => element.GetString() ?? string.Empty,
+                JsonValueKind.Number => element.TryGetInt32(out var intVal) ? intVal :
+                                       element.TryGetDecimal(out var decVal) ? decVal :
+                                       element.GetDouble(),
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                JsonValueKind.Null => null!,
+                _ => element.ToString()
+            };
         }
 
         private void AddUserMessage(string message)
