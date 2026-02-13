@@ -14,12 +14,17 @@ namespace Portal.Services
             _logger = logger;
         }
 
-        public async Task<List<Dictionary<string, object>>> GetReportAsync(string reportType)
+        public async Task<List<Dictionary<string, object>>> GetReportAsync(string reportType, int? year = null)
         {
             try
             {
                 var httpClient = _httpClientFactory.CreateClient("AssetTagApi");
-                var response = await httpClient.GetAsync($"api/reports/{reportType}");
+                var url = $"api/reports/{reportType}";
+                if (year.HasValue && reportType == "fixed-assets-schedule")
+                {
+                    url += $"?year={year.Value}";
+                }
+                var response = await httpClient.GetAsync(url);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -31,6 +36,12 @@ namespace Portal.Services
                     
                     // Convert to list of dictionaries
                     var results = new List<Dictionary<string, object>>();
+                    
+                    // Handle fixed-assets-schedule special format
+                    if (reportType == "fixed-assets-schedule")
+                    {
+                        return ConvertFixedAssetsScheduleToTable(jsonElement);
+                    }
                     
                     if (jsonElement.ValueKind == JsonValueKind.Array)
                     {
@@ -58,6 +69,67 @@ namespace Portal.Services
                 _logger.LogError(ex, $"Error getting report {reportType}");
                 return new List<Dictionary<string, object>>();
             }
+        }
+
+        private List<Dictionary<string, object>> ConvertFixedAssetsScheduleToTable(JsonElement jsonElement)
+        {
+            var results = new List<Dictionary<string, object>>();
+            
+            if (!jsonElement.TryGetProperty("categories", out var categoriesElement) ||
+                !jsonElement.TryGetProperty("rows", out var rowsElement))
+            {
+                return results;
+            }
+
+            // Parse categories
+            var categories = new List<(string id, string displayName)>();
+            foreach (var cat in categoriesElement.EnumerateArray())
+            {
+                var id = cat.GetProperty("categoryId").GetString() ?? "";
+                var name = cat.GetProperty("categoryName").GetString() ?? "";
+                var rate = cat.TryGetProperty("depreciationRate", out var rateEl) && rateEl.ValueKind != JsonValueKind.Null
+                    ? rateEl.GetDecimal()
+                    : (decimal?)null;
+                var displayName = rate.HasValue ? $"{name} ({rate:0.##}%)" : name;
+                categories.Add((id, displayName));
+            }
+
+            // Parse rows
+            foreach (var row in rowsElement.EnumerateArray())
+            {
+                var dict = new Dictionary<string, object>();
+                var rowLabel = row.GetProperty("rowLabel").GetString() ?? "";
+                dict[""] = rowLabel; // First column is the row label
+                
+                if (row.TryGetProperty("categoryValues", out var valuesElement))
+                {
+                    foreach (var cat in categories)
+                    {
+                        if (valuesElement.TryGetProperty(cat.id, out var valueEl) &&
+                            valueEl.ValueKind != JsonValueKind.Null)
+                        {
+                            dict[cat.displayName] = valueEl.GetDecimal();
+                        }
+                        else
+                        {
+                            dict[cat.displayName] = "-";
+                        }
+                    }
+                }
+                
+                if (row.TryGetProperty("total", out var totalEl) && totalEl.ValueKind != JsonValueKind.Null)
+                {
+                    dict["Total"] = totalEl.GetDecimal();
+                }
+                else
+                {
+                    dict["Total"] = rowLabel == "" ? "" : "-";
+                }
+                
+                results.Add(dict);
+            }
+            
+            return results;
         }
 
         private object ConvertJsonElement(JsonElement element)
