@@ -24,11 +24,33 @@ namespace Portal.Services
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
-                    return JsonSerializer.Deserialize<List<Dictionary<string, object>>>(content)
-                        ?? new List<Dictionary<string, object>>();
+                    _logger.LogInformation($"Report API response for {reportType}: {content.Substring(0, Math.Min(200, content.Length))}...");
+                    
+                    // Deserialize to JsonElement first to handle any JSON structure
+                    var jsonElement = JsonSerializer.Deserialize<JsonElement>(content);
+                    
+                    // Convert to list of dictionaries
+                    var results = new List<Dictionary<string, object>>();
+                    
+                    if (jsonElement.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in jsonElement.EnumerateArray())
+                        {
+                            var dict = new Dictionary<string, object>();
+                            foreach (var property in item.EnumerateObject())
+                            {
+                                dict[property.Name] = ConvertJsonElement(property.Value);
+                            }
+                            results.Add(dict);
+                        }
+                    }
+                    
+                    return results;
                 }
 
                 _logger.LogError($"Failed to get report: {response.StatusCode}");
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError($"Error content: {errorContent}");
                 return new List<Dictionary<string, object>>();
             }
             catch (Exception ex)
@@ -36,6 +58,25 @@ namespace Portal.Services
                 _logger.LogError(ex, $"Error getting report {reportType}");
                 return new List<Dictionary<string, object>>();
             }
+        }
+
+        private object ConvertJsonElement(JsonElement element)
+        {
+            return element.ValueKind switch
+            {
+                JsonValueKind.String => element.GetString() ?? string.Empty,
+                JsonValueKind.Number => element.TryGetInt32(out var intVal) ? intVal :
+                                       element.TryGetInt64(out var longVal) ? longVal :
+                                       element.TryGetDecimal(out var decVal) ? decVal :
+                                       element.GetDouble(),
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                JsonValueKind.Null => null!,
+                JsonValueKind.Array => element.EnumerateArray().Select(ConvertJsonElement).ToList(),
+                JsonValueKind.Object => element.EnumerateObject()
+                    .ToDictionary(p => p.Name, p => ConvertJsonElement(p.Value)),
+                _ => element.ToString()
+            };
         }
 
         public async Task<string> GenerateAiQueryAsync(string question)
