@@ -4,11 +4,17 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:MobileApp"
-    Title="MobileApp">
+    xmlns:views="clr-namespace:MobileApp.Views"
+    Title="MobileApp"
+    Shell.FlyoutBehavior="Disabled"
+    Shell.NavBarIsVisible="False"
+    Shell.TabBarIsVisible="False">
 
+    <!-- Initial content will be set programmatically in AppShell.xaml.cs -->
     <ShellContent
-        Title="Home"
-        ContentTemplate="{DataTemplate local:MainPage}"
-        Route="MainPage" />
+        x:Name="InitialContent"
+        Route="SplashScreen"
+        Shell.NavBarIsVisible="False"
+        Shell.TabBarIsVisible="False" />
 
 </Shell>

@@ -8,6 +8,17 @@ namespace AssetTag.Controllers
     [ApiController]
     public class TestController : ControllerBase
     {
+        [HttpGet("ping")]
+        public IActionResult Ping()
+        {
+            return Ok(new
+            {
+                status = "ok",
+                timestamp = DateTime.UtcNow,
+                message = "API is reachable"
+            });
+        }
+
         [HttpGet("public")]
         public IActionResult Public()
         {
@@ -23,7 +34,6 @@ namespace AssetTag.Controllers
 
         [Authorize(Roles = "Admin")]
         [HttpGet("admin")]
-
         public IActionResult Admin()
         {
             return Ok("This is an admin endpoint. You are authorized as an Admin");

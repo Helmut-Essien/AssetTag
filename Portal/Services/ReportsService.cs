@@ -252,5 +252,50 @@ namespace Portal.Services
                 return false;
             }
         }
+
+        public async Task<JsonElement> GetDepreciationByDateRangeAsync(
+            DateTime? startDate = null,
+            DateTime? endDate = null,
+            string? categoryId = null,
+            string? departmentId = null,
+            string? status = null)
+        {
+            try
+            {
+                var httpClient = _httpClientFactory.CreateClient("AssetTagApi");
+                
+                // Build query string
+                var queryParams = new List<string>();
+                if (startDate.HasValue)
+                    queryParams.Add($"startDate={startDate.Value:yyyy-MM-dd}");
+                if (endDate.HasValue)
+                    queryParams.Add($"endDate={endDate.Value:yyyy-MM-dd}");
+                if (!string.IsNullOrWhiteSpace(categoryId))
+                    queryParams.Add($"categoryId={categoryId}");
+                if (!string.IsNullOrWhiteSpace(departmentId))
+                    queryParams.Add($"departmentId={departmentId}");
+                if (!string.IsNullOrWhiteSpace(status))
+                    queryParams.Add($"status={status}");
+
+                var queryString = queryParams.Any() ? "?" + string.Join("&", queryParams) : "";
+                var url = $"api/reports/depreciation-date-range{queryString}";
+                
+                var response = await httpClient.GetAsync(url);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    return JsonSerializer.Deserialize<JsonElement>(content);
+                }
+
+                _logger.LogError($"Failed to get depreciation report: {response.StatusCode}");
+                return new JsonElement();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting depreciation by date range");
+                return new JsonElement();
+            }
+        }
     }
 }

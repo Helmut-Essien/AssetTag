@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:MobileApp.ViewModels"
+             xmlns:inputLayout="clr-namespace:Syncfusion.Maui.Toolkit.TextInputLayout;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             x:Class="MobileApp.Views.LoginPage"
+             x:DataType="viewmodels:LoginViewModel"
+             Shell.NavBarIsVisible="False">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <!-- Gradient Background -->
+            <LinearGradientBrush x:Key="LoginGradient" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#512BD4" Offset="0.0" />
+                <GradientStop Color="#2B0B98" Offset="1.0" />
+            </LinearGradientBrush>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid Background="{StaticResource LoginGradient}">
+        
+        <!-- Main Content - Removed ScrollView for single screen fit -->
+        <VerticalStackLayout Padding="30,20,30,20"
+                            Spacing="15"
+                            VerticalOptions="Center">
+
+            <!-- Logo Container - Smaller -->
+            <Border BackgroundColor="White"
+                    StrokeThickness="0"
+                    Padding="15"
+                    HorizontalOptions="Center"
+                    WidthRequest="100"
+                    HeightRequest="100">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="20"/>
+                </Border.StrokeShape>
+                <Image Source="methodist_university_logo.png"
+                       Aspect="AspectFit"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"/>
+            </Border>
+
+            <!-- Welcome Text - Compact -->
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Welcome Back"
+                       FontSize="24"
+                       FontAttributes="Bold"
+                       TextColor="White"
+                       HorizontalTextAlignment="Center"/>
+                <Label Text="Sign in to your account"
+                       FontSize="14"
+                       TextColor="White"
+                       Opacity="0.9"
+                       HorizontalTextAlignment="Center"/>
+            </VerticalStackLayout>
+
+            <!-- Login Form Card - Compact -->
+            <Border BackgroundColor="White"
+                    StrokeThickness="0"
+                    Padding="20"
+                    Margin="0,5,0,0">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="15"/>
+                </Border.StrokeShape>
+
+                <VerticalStackLayout Spacing="15">
+                        
+                        <!-- Email Field - Compact -->
+                        <inputLayout:SfTextInputLayout
+                            Hint="Email Address"
+                            ContainerType="Outlined"
+                            OutlineCornerRadius="10">
+                            <Entry Text="{Binding Email}"
+                                   Keyboard="Email"
+                                   TextColor="{StaticResource Gray900}"
+                                   FontSize="15"/>
+                        </inputLayout:SfTextInputLayout>
+
+                        <!-- Password Field - Compact -->
+                        <inputLayout:SfTextInputLayout
+                            Hint="Password"
+                            ContainerType="Outlined"
+                            OutlineCornerRadius="10"
+                            EnablePasswordVisibilityToggle="True">
+                            <Entry Text="{Binding Password}"
+                                   IsPassword="True"
+                                   TextColor="{StaticResource Gray900}"
+                                   FontSize="15"/>
+                        </inputLayout:SfTextInputLayout>
+
+                        <!-- Error Message - Compact -->
+                        <Border IsVisible="{Binding HasError}"
+                                BackgroundColor="#FFEBEE"
+                                StrokeThickness="1"
+                                Stroke="#EF5350"
+                                Padding="10,8">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="8"/>
+                            </Border.StrokeShape>
+                            <Label Text="{Binding ErrorMessage}"
+                                   TextColor="#C62828"
+                                   FontSize="12"
+                                   LineBreakMode="WordWrap"/>
+                        </Border>
+
+                        <!-- Login Button - Compact -->
+                        <buttons:SfButton
+                            Text="Sign In"
+                            Command="{Binding LoginCommand}"
+                            CornerRadius="20"
+                            HeightRequest="48"
+                            FontSize="16"
+                            FontAttributes="Bold"
+                            Margin="0,5,0,0">
+                            <buttons:SfButton.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                    <GradientStop Color="#512BD4" Offset="0.0" />
+                                    <GradientStop Color="#2B0B98" Offset="1.0" />
+                                </LinearGradientBrush>
+                            </buttons:SfButton.Background>
+                        </buttons:SfButton>
+
+                        <!-- Loading Indicator - Compact -->
+                        <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                          IsVisible="{Binding IsBusy}"
+                                          Color="{StaticResource Primary}"
+                                          HeightRequest="30"/>
+
+                        <!-- Biometric Login Button - Compact -->
+                        <buttons:SfButton
+                            Text="Biometric Login"
+                            Command="{Binding BiometricLoginCommand}"
+                            IsVisible="{Binding BiometricAvailable}"
+                            CornerRadius="20"
+                            HeightRequest="44"
+                            FontSize="14"
+                            Margin="0,5,0,0"
+                            BackgroundColor="Transparent"
+                            Stroke="{StaticResource Primary}"
+                            StrokeThickness="2"
+                            TextColor="{StaticResource Primary}"/>
+
+                        <!-- Forgot Password - Compact -->
+                        <Button Text="Forgot Password?"
+                                Command="{Binding ForgotPasswordCommand}"
+                                BackgroundColor="Transparent"
+                                TextColor="{StaticResource Primary}"
+                                FontSize="13"
+                                FontAttributes="Bold"
+                                Padding="0"
+                                Margin="0,0,0,0"/>
+
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- App Version - Compact -->
+                <Label Text="AssetTag Mobile v1.0"
+                       FontSize="11"
+                       TextColor="White"
+                       Opacity="0.7"
+                       HorizontalTextAlignment="Center"
+                       Margin="0,5,0,0"/>
+
+            </VerticalStackLayout>
+    </Grid>
+
+</ContentPage>

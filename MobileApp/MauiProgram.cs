@@ -6,6 +6,8 @@ using CommunityToolkit.Maui;
 using Syncfusion.Maui.Toolkit.Hosting;
 using MobileData.Data;
 using MobileApp.ViewModels;
+using MobileApp.Services;
+using MobileApp.Views;
 
 namespace MobileApp
 {
@@ -49,19 +51,42 @@ namespace MobileApp
             builder.Services.AddSingleton(dbPath);
 
             // ────────────────────────────────────────────────────────────────
-            // Register hosted service to apply migrations at startup
+            // Register background service to apply migrations (non-blocking)
             // ────────────────────────────────────────────────────────────────
-            builder.Services.AddHostedService<MigrationHostedService>();
+            builder.Services.AddSingleton<MigrationBackgroundService>();
+
+            // ────────────────────────────────────────────────────────────────
+            // Register HttpClient and Services
+            // ────────────────────────────────────────────────────────────────
+            builder.Services.AddTransient<TokenRefreshHandler>();
+            
+            // Register AuthService as Singleton with HttpClient
+            builder.Services.AddSingleton<IAuthService>(sp =>
+            {
+                var httpClient = new HttpClient();
+                return new AuthService(httpClient);
+            });
+            
+            // Register API HttpClient with TokenRefreshHandler for authenticated requests
+            builder.Services.AddHttpClient("ApiClient")
+                .AddHttpMessageHandler<TokenRefreshHandler>();
 
             // ────────────────────────────────────────────────────────────────
             // Register ViewModels for dependency injection
             // ────────────────────────────────────────────────────────────────
             builder.Services.AddTransient<MainPageViewModel>();
+            builder.Services.AddTransient<LoginViewModel>();
+            builder.Services.AddTransient<SplashScreenViewModel>();
 
             // ────────────────────────────────────────────────────────────────
             // Register Pages for dependency injection
             // ────────────────────────────────────────────────────────────────
             builder.Services.AddTransient<MainPage>();
+            builder.Services.AddTransient<LoginPage>();
+            builder.Services.AddTransient<SplashScreen>();
+            
+            // Register AppShell for dependency injection
+            builder.Services.AddSingleton<AppShell>();
 
             // ────────────────────────────────────────────────────────────────
             // Logging – keep your debug logging and add file/app logging if desired
@@ -77,39 +102,57 @@ namespace MobileApp
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // Production-ready migration application service
-    // Runs once at app startup, logs success/failure
+    // Non-blocking background migration service
+    // Runs migrations in background without blocking app startup
     // ────────────────────────────────────────────────────────────────────────
-    public class MigrationHostedService : IHostedService
+    public class MigrationBackgroundService
     {
         private readonly IServiceProvider _serviceProvider;
-        private readonly ILogger<MigrationHostedService> _logger;
+        private readonly ILogger<MigrationBackgroundService> _logger;
+        private Task? _migrationTask;
 
-        public MigrationHostedService(
+        public MigrationBackgroundService(
             IServiceProvider serviceProvider,
-            ILogger<MigrationHostedService> logger)
+            ILogger<MigrationBackgroundService> logger)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
+            
+            // Start migration in background immediately (non-blocking)
+            _migrationTask = Task.Run(RunMigrationsAsync);
         }
 
-        public async Task StartAsync(CancellationToken cancellationToken)
+        private async Task RunMigrationsAsync()
         {
             try
             {
+                // Small delay to let app UI initialize first
+                await Task.Delay(100);
+                
                 using var scope = _serviceProvider.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
 
-                _logger.LogInformation("Starting database migration... Path: {DbPath}",
-                    Path.Combine(FileSystem.AppDataDirectory, "AssetTagOffline.db3"));
+                // Check if there are pending migrations before running
+                var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync();
+                
+                if (pendingMigrations.Any())
+                {
+                    _logger.LogInformation("Applying {Count} pending database migrations in background... Path: {DbPath}",
+                        pendingMigrations.Count(),
+                        Path.Combine(FileSystem.AppDataDirectory, "AssetTagOffline.db3"));
 
-                await dbContext.Database.MigrateAsync(cancellationToken);
+                    await dbContext.Database.MigrateAsync();
 
-                _logger.LogInformation("Database migrations applied successfully.");
+                    _logger.LogInformation("Database migrations applied successfully.");
+                }
+                else
+                {
+                    _logger.LogInformation("Database is up to date. No migrations needed.");
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to apply database migrations.");
+                _logger.LogError(ex, "Failed to apply database migrations in background.");
 
                 // In production, you might want to:
                 // 1. Show user-friendly message (e.g. via dialog)
@@ -120,6 +163,7 @@ namespace MobileApp
             }
         }
 
-        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        // Optional: Method to wait for migrations to complete if needed
+        public Task WaitForCompletionAsync() => _migrationTask ?? Task.CompletedTask;
     }
 }

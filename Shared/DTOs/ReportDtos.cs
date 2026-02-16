@@ -95,6 +95,39 @@ namespace Shared.DTOs
     }
 
     /// <summary>
+    /// DTO for Date Range Depreciation report
+    /// </summary>
+    public class DateRangeDepreciationReportDto
+    {
+        public string AssetTag { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public string Department { get; set; } = string.Empty;
+        public DateTime? PurchaseDate { get; set; }
+        public decimal PurchasePrice { get; set; }
+        public decimal DepreciationRate { get; set; }
+        public decimal CurrentValue { get; set; }
+        public decimal DepreciationForPeriod { get; set; }
+        public decimal ValueAtStartOfPeriod { get; set; }
+        public decimal ValueAtEndOfPeriod { get; set; }
+        public int DaysInPeriod { get; set; }
+        public decimal AccumulatedDepreciation { get; set; }
+        public string Status { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Request DTO for date range depreciation report
+    /// </summary>
+    public class DateRangeDepreciationRequestDto
+    {
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public string? CategoryId { get; set; }
+        public string? DepartmentId { get; set; }
+        public string? Status { get; set; }
+    }
+
+    /// <summary>
     /// DTO for Asset Audit Trail report
     /// </summary>
     public class AssetAuditTrailDto
