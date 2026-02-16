@@ -60,9 +60,12 @@ namespace MobileApp
             // ────────────────────────────────────────────────────────────────
             builder.Services.AddTransient<TokenRefreshHandler>();
             
-            // Register AuthService HttpClient without handler (to avoid circular dependency)
-            builder.Services.AddHttpClient<AuthService>();
-            builder.Services.AddSingleton<IAuthService, AuthService>();
+            // Register AuthService as Singleton with HttpClient
+            builder.Services.AddSingleton<IAuthService>(sp =>
+            {
+                var httpClient = new HttpClient();
+                return new AuthService(httpClient);
+            });
             
             // Register API HttpClient with TokenRefreshHandler for authenticated requests
             builder.Services.AddHttpClient("ApiClient")
@@ -73,12 +76,17 @@ namespace MobileApp
             // ────────────────────────────────────────────────────────────────
             builder.Services.AddTransient<MainPageViewModel>();
             builder.Services.AddTransient<LoginViewModel>();
+            builder.Services.AddTransient<SplashScreenViewModel>();
 
             // ────────────────────────────────────────────────────────────────
             // Register Pages for dependency injection
             // ────────────────────────────────────────────────────────────────
             builder.Services.AddTransient<MainPage>();
             builder.Services.AddTransient<LoginPage>();
+            builder.Services.AddTransient<SplashScreen>();
+            
+            // Register AppShell for dependency injection
+            builder.Services.AddSingleton<AppShell>();
 
             // ────────────────────────────────────────────────────────────────
             // Logging – keep your debug logging and add file/app logging if desired

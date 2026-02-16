@@ -5,6 +5,7 @@ namespace MobileApp.Services
     public interface IAuthService
     {
         Task<(bool Success, TokenResponseDTO? Token, string Message)> LoginAsync(string email, string password);
+        Task<(bool Success, string Message)> LogoutAsync();
         Task<bool> IsConnectedToInternet();
         void SaveTokens(string accessToken, string refreshToken);
         (string? AccessToken, string? RefreshToken) GetStoredTokens();

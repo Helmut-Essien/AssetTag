@@ -8,14 +8,12 @@ namespace MobileApp.Views
         private bool _isAnimating = false;
         private readonly IAuthService _authService;
 
-        public SplashScreen()
+        // Constructor injection - proper DI pattern
+        public SplashScreen(IAuthService authService)
         {
             InitializeComponent();
+            _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             BindingContext = new SplashScreenViewModel();
-            
-            // Get auth service from dependency injection
-            _authService = Handler?.MauiContext?.Services.GetService<IAuthService>()
-                ?? throw new InvalidOperationException("AuthService not found");
         }
 
         protected override async void OnAppearing()
@@ -41,13 +39,13 @@ namespace MobileApp.Views
             
             if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
             {
-                // User has tokens, navigate to main page
-                await Shell.Current.GoToAsync("//MainPage");
+                // User has tokens, navigate to main page (relative routing)
+                await Shell.Current.GoToAsync($"/{nameof(MainPage)}");
             }
             else
             {
-                // No tokens, navigate to login page
-                await Shell.Current.GoToAsync("//LoginPage");
+                // No tokens, navigate to login page (relative routing)
+                await Shell.Current.GoToAsync($"/{nameof(LoginPage)}");
             }
         }
 

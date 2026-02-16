@@ -845,6 +845,58 @@ namespace AssetTag.Controllers
             }
         }
 
+        [HttpPost("logout")]
+        [Authorize]
+        public async Task<IActionResult> Logout([FromBody] TokenResponseDTO dto)
+        {
+            try
+            {
+                _logger.LogInformation("Logout request from IP: {IP}", GetIpAddress());
+
+                // Get user ID from token claims
+                var userId = User.FindFirst("sub")?.Value
+                            ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+                if (string.IsNullOrEmpty(userId))
+                {
+                    _logger.LogWarning("Logout: Unable to determine user ID from token");
+                    return BadRequest(new { Message = "Invalid token." });
+                }
+
+                // Revoke the specific refresh token if provided
+                if (!string.IsNullOrEmpty(dto.RefreshToken))
+                {
+                    var affectedRows = await _context.Database.ExecuteSqlRawAsync(
+                        @"UPDATE RefreshTokens
+                          SET Revoked = {0}, RevokedByIp = {1}
+                          WHERE Token = {2} AND ApplicationUserId = {3} AND Revoked IS NULL",
+                        DateTime.UtcNow, GetIpAddress(), dto.RefreshToken, userId);
+
+                    _logger.LogInformation("Logout: Revoked {Rows} refresh token(s) for user {UserId}",
+                        affectedRows, userId);
+                }
+                else
+                {
+                    // If no specific token provided, revoke all tokens for this user
+                    var affectedRows = await _context.Database.ExecuteSqlRawAsync(
+                        @"UPDATE RefreshTokens
+                          SET Revoked = {0}, RevokedByIp = {1}
+                          WHERE ApplicationUserId = {2} AND Revoked IS NULL",
+                        DateTime.UtcNow, GetIpAddress(), userId);
+
+                    _logger.LogInformation("Logout: Revoked all {Rows} refresh token(s) for user {UserId}",
+                        affectedRows, userId);
+                }
+
+                return Ok(new { Message = "Logged out successfully." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during logout");
+                return StatusCode(500, new { Message = "An error occurred during logout." });
+            }
+        }
+
         [HttpPost("validate-token")]
         [Authorize]
         public IActionResult ValidateToken()

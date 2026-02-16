@@ -10,21 +10,10 @@
     Shell.NavBarIsVisible="False"
     Shell.TabBarIsVisible="False">
 
+    <!-- Initial content will be set programmatically in AppShell.xaml.cs -->
     <ShellContent
-        ContentTemplate="{DataTemplate views:SplashScreen}"
+        x:Name="InitialContent"
         Route="SplashScreen"
-        Shell.NavBarIsVisible="False"
-        Shell.TabBarIsVisible="False" />
-    
-    <ShellContent
-        ContentTemplate="{DataTemplate views:LoginPage}"
-        Route="LoginPage"
-        Shell.NavBarIsVisible="False"
-        Shell.TabBarIsVisible="False" />
-    
-    <ShellContent
-        ContentTemplate="{DataTemplate local:MainPage}"
-        Route="MainPage"
         Shell.NavBarIsVisible="False"
         Shell.TabBarIsVisible="False" />
 

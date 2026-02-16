@@ -82,19 +82,19 @@ namespace MobileApp.Services
                 }
 
                 var loginDto = new LoginDTO(email, password);
-                
+
                 var response = await _httpClient.PostAsJsonAsync("api/auth/login", loginDto);
 
                 if (response.IsSuccessStatusCode)
                 {
                     var token = await response.Content.ReadFromJsonAsync<TokenResponseDTO>();
-                    
+
                     if (token != null)
                     {
                         SaveTokens(token.AccessToken, token.RefreshToken);
                         return (true, token, "Login successful");
                     }
-                    
+
                     return (false, null, "Invalid response from server");
                 }
                 else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
@@ -103,9 +103,9 @@ namespace MobileApp.Services
                     try
                     {
                         var errorContent = await response.Content.ReadAsStringAsync();
-                        var errorResponse = JsonSerializer.Deserialize<ErrorResponse>(errorContent, 
+                        var errorResponse = JsonSerializer.Deserialize<ErrorResponse>(errorContent,
                             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                        
+
                         return (false, null, errorResponse?.Message ?? "Invalid email or password");
                     }
                     catch
@@ -131,6 +131,65 @@ namespace MobileApp.Services
                 return (false, null, $"An error occurred: {ex.Message}");
             }
         }
+        public async Task<(bool Success, string Message)> LogoutAsync()
+        {
+            try
+            {
+                var (accessToken, refreshToken) = GetStoredTokens();
+
+                if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
+                {
+                    // No tokens to revoke, just clear local storage
+                    ClearTokens();
+                    return (true, "Logged out successfully");
+                }
+
+                // Check internet connectivity
+                if (!await IsConnectedToInternet())
+                {
+                    // Offline - just clear local tokens
+                    ClearTokens();
+                    return (true, "Logged out locally (offline)");
+                }
+
+                // Try to revoke tokens on server
+                try
+                {
+                    _httpClient.DefaultRequestHeaders.Authorization = 
+                        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+
+                    var tokenDto = new TokenResponseDTO(accessToken, refreshToken);
+                    var response = await _httpClient.PostAsJsonAsync("api/auth/logout", tokenDto);
+
+                    // Clear tokens regardless of server response
+                    ClearTokens();
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        return (true, "Logged out successfully");
+                    }
+                    else
+                    {
+                        // Server logout failed but local tokens cleared
+                        return (true, "Logged out locally");
+                    }
+                }
+                catch
+                {
+                    // Network error - clear local tokens anyway
+                    ClearTokens();
+                    return (true, "Logged out locally");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Always clear tokens on logout attempt
+                ClearTokens();
+                return (true, $"Logged out with warning: {ex.Message}");
+            }
+        }
+
+        
 
         public void SaveTokens(string accessToken, string refreshToken)
         {
