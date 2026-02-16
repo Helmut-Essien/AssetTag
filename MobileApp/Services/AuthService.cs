@@ -195,8 +195,7 @@ namespace MobileApp.Services
                 return (false, $"An error occurred: {ex.Message}");
             }
         }
-    }
-}
+
         public async Task<bool> IsTokenExpiredAsync()
         {
             try

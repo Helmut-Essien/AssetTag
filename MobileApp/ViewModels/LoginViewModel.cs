@@ -87,6 +87,22 @@ namespace MobileApp.ViewModels
                 {
                     // Navigate to main page
                     await Shell.Current.GoToAsync("//MainPage");
+                }
+                else
+                {
+                    ShowError(message);
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowError($"An unexpected error occurred: {ex.Message}");
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
         [RelayCommand]
         private async Task BiometricLoginAsync()
         {
@@ -190,21 +206,6 @@ namespace MobileApp.ViewModels
                         "Biometric authentication failed. Please try again.", 
                         "OK");
                 }
-            }
-        }
-                }
-                else
-                {
-                    ShowError(message);
-                }
-            }
-            catch (Exception ex)
-            {
-                ShowError($"An unexpected error occurred: {ex.Message}");
-            }
-            finally
-            {
-                IsBusy = false;
             }
         }
 
