@@ -6,6 +6,8 @@ using CommunityToolkit.Maui;
 using Syncfusion.Maui.Toolkit.Hosting;
 using MobileData.Data;
 using MobileApp.ViewModels;
+using MobileApp.Services;
+using MobileApp.Views;
 
 namespace MobileApp
 {
@@ -54,14 +56,29 @@ namespace MobileApp
             builder.Services.AddSingleton<MigrationBackgroundService>();
 
             // ────────────────────────────────────────────────────────────────
+            // Register HttpClient and Services
+            // ────────────────────────────────────────────────────────────────
+            builder.Services.AddTransient<TokenRefreshHandler>();
+            
+            // Register AuthService HttpClient without handler (to avoid circular dependency)
+            builder.Services.AddHttpClient<AuthService>();
+            builder.Services.AddSingleton<IAuthService, AuthService>();
+            
+            // Register API HttpClient with TokenRefreshHandler for authenticated requests
+            builder.Services.AddHttpClient("ApiClient")
+                .AddHttpMessageHandler<TokenRefreshHandler>();
+
+            // ────────────────────────────────────────────────────────────────
             // Register ViewModels for dependency injection
             // ────────────────────────────────────────────────────────────────
             builder.Services.AddTransient<MainPageViewModel>();
+            builder.Services.AddTransient<LoginViewModel>();
 
             // ────────────────────────────────────────────────────────────────
             // Register Pages for dependency injection
             // ────────────────────────────────────────────────────────────────
             builder.Services.AddTransient<MainPage>();
+            builder.Services.AddTransient<LoginPage>();
 
             // ────────────────────────────────────────────────────────────────
             // Logging – keep your debug logging and add file/app logging if desired

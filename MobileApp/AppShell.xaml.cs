@@ -10,6 +10,8 @@ namespace MobileApp
             
             // Register routes for navigation
             Routing.RegisterRoute(nameof(SplashScreen), typeof(SplashScreen));
+            Routing.RegisterRoute(nameof(LoginPage), typeof(LoginPage));
+            Routing.RegisterRoute(nameof(MainPage), typeof(MainPage));
         }
     }
 }

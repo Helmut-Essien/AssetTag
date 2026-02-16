@@ -1,15 +1,21 @@
 using MobileApp.ViewModels;
+using MobileApp.Services;
 
 namespace MobileApp.Views
 {
     public partial class SplashScreen : ContentPage
     {
         private bool _isAnimating = false;
+        private readonly IAuthService _authService;
 
         public SplashScreen()
         {
             InitializeComponent();
             BindingContext = new SplashScreenViewModel();
+            
+            // Get auth service from dependency injection
+            _authService = Handler?.MauiContext?.Services.GetService<IAuthService>()
+                ?? throw new InvalidOperationException("AuthService not found");
         }
 
         protected override async void OnAppearing()
@@ -30,8 +36,19 @@ namespace MobileApp.Views
             // Stop animation before navigation
             _isAnimating = false;
             
-            // Navigate to main page using Shell navigation
-            await Shell.Current.GoToAsync("//MainPage");
+            // Check if user is already logged in
+            var (accessToken, refreshToken) = _authService.GetStoredTokens();
+            
+            if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
+            {
+                // User has tokens, navigate to main page
+                await Shell.Current.GoToAsync("//MainPage");
+            }
+            else
+            {
+                // No tokens, navigate to login page
+                await Shell.Current.GoToAsync("//LoginPage");
+            }
         }
 
         private async Task AnimateLoadingDots()
