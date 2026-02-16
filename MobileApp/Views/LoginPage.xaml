@@ -20,6 +20,53 @@
 
     <Grid Background="{StaticResource LoginGradient}">
         
+        <!-- Decorative Background Circles -->
+        <AbsoluteLayout>
+            <!-- Top Left Circle -->
+            <BoxView BackgroundColor="#FFFFFF"
+                     Opacity="0.1"
+                     WidthRequest="200"
+                     HeightRequest="200"
+                     CornerRadius="100"
+                     AbsoluteLayout.LayoutBounds="0, 0, 200, 200"
+                     AbsoluteLayout.LayoutFlags="None"
+                     TranslationX="-100"
+                     TranslationY="-100"/>
+            
+            <!-- Top Right Circle -->
+            <BoxView BackgroundColor="#FFFFFF"
+                     Opacity="0.08"
+                     WidthRequest="150"
+                     HeightRequest="150"
+                     CornerRadius="75"
+                     AbsoluteLayout.LayoutBounds="1, 0, 150, 150"
+                     AbsoluteLayout.LayoutFlags="PositionProportional"
+                     TranslationX="50"
+                     TranslationY="-50"/>
+            
+            <!-- Bottom Right Circle -->
+            <BoxView BackgroundColor="#FFFFFF"
+                     Opacity="0.12"
+                     WidthRequest="180"
+                     HeightRequest="180"
+                     CornerRadius="90"
+                     AbsoluteLayout.LayoutBounds="1, 1, 180, 180"
+                     AbsoluteLayout.LayoutFlags="PositionProportional"
+                     TranslationX="80"
+                     TranslationY="80"/>
+            
+            <!-- Bottom Left Circle -->
+            <BoxView BackgroundColor="#FFFFFF"
+                     Opacity="0.09"
+                     WidthRequest="120"
+                     HeightRequest="120"
+                     CornerRadius="60"
+                     AbsoluteLayout.LayoutBounds="0, 1, 120, 120"
+                     AbsoluteLayout.LayoutFlags="PositionProportional"
+                     TranslationX="-40"
+                     TranslationY="40"/>
+        </AbsoluteLayout>
+        
         <!-- Main Content - Removed ScrollView for single screen fit -->
         <VerticalStackLayout Padding="30,20,30,20"
                             Spacing="15"
