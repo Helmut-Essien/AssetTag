@@ -19,20 +19,38 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
             
-            <Label Grid.Row="0"
-                   Text="Asset Management"
-                   FontSize="28"
-                   FontAttributes="Bold"
-                   TextColor="White"
-                   HorizontalOptions="Start"/>
+            <VerticalStackLayout Grid.Row="0" Grid.RowSpan="2" Grid.Column="0">
+                <Label Text="Asset Management"
+                       FontSize="28"
+                       FontAttributes="Bold"
+                       TextColor="White"
+                       HorizontalOptions="Start"/>
+                
+                <Label Text="Field Recording System"
+                       FontSize="14"
+                       TextColor="White"
+                       Opacity="0.9"
+                       Margin="0,5,0,0"/>
+            </VerticalStackLayout>
             
-            <Label Grid.Row="1"
-                   Text="Field Recording System"
-                   FontSize="14"
-                   TextColor="White"
-                   Opacity="0.9"
-                   Margin="0,5,0,0"/>
+            <!-- Logout Button -->
+            <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="1"
+                    Text="Logout"
+                    Command="{Binding LogoutCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="White"
+                    BorderColor="White"
+                    BorderWidth="1"
+                    CornerRadius="8"
+                    Padding="15,8"
+                    FontSize="14"
+                    VerticalOptions="Center"
+                    HorizontalOptions="End"/>
         </Grid>
 
         <!-- Main Content Area -->
