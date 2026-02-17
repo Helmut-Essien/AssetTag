@@ -29,11 +29,9 @@ namespace Portal.Pages.Reports
         public string? SuccessMessage { get; set; }
         public int? ReportYear { get; set; }
         
-        // Date range depreciation properties
+        // Date range properties for Fixed Assets Schedule
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
-        public JsonElement DepreciationSummary { get; set; }
-        public List<Dictionary<string, object>> DepreciationResults { get; set; } = new();
 
         public async Task OnGetAsync(string reportType = "assets-by-status", int? year = null,
             DateTime? startDate = null, DateTime? endDate = null)
@@ -46,10 +44,10 @@ namespace Portal.Pages.Reports
             // Test AI connection
             IsAiConnected = await _reportsService.TestAiConnectionAsync();
             
-            // Load depreciation date range report if selected
-            if (reportType == "depreciation-date-range")
+            // Load report with appropriate parameters
+            if (reportType == "fixed-assets-schedule")
             {
-                await LoadDepreciationDateRangeAsync(startDate, endDate);
+                await LoadReportAsync(reportType, year, startDate, endDate);
             }
             else
             {
@@ -340,69 +338,18 @@ namespace Portal.Pages.Reports
                 $"{reportType}_{DateTime.Now:yyyyMMddHHmmss}.xlsx");
         }
 
-        private async Task LoadReportAsync(string reportType, int? year = null)
+        private async Task LoadReportAsync(string reportType, int? year = null,
+            DateTime? startDate = null, DateTime? endDate = null)
         {
             try
             {
-                ReportResults = await _reportsService.GetReportAsync(reportType, year);
+                ReportResults = await _reportsService.GetReportAsync(reportType, year, startDate, endDate);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error loading report");
                 ErrorMessage = $"Failed to load report: {ex.Message}";
             }
-        }
-
-        private async Task LoadDepreciationDateRangeAsync(DateTime? startDate, DateTime? endDate)
-        {
-            try
-            {
-                var result = await _reportsService.GetDepreciationByDateRangeAsync(startDate, endDate);
-                
-                if (result.ValueKind != JsonValueKind.Undefined && result.ValueKind != JsonValueKind.Null)
-                {
-                    DepreciationSummary = result;
-                    
-                    // Extract assets array and convert to list of dictionaries
-                    if (result.TryGetProperty("assets", out var assetsElement) &&
-                        assetsElement.ValueKind == JsonValueKind.Array)
-                    {
-                        DepreciationResults = new List<Dictionary<string, object>>();
-                        
-                        foreach (var asset in assetsElement.EnumerateArray())
-                        {
-                            var dict = new Dictionary<string, object>();
-                            foreach (var property in asset.EnumerateObject())
-                            {
-                                dict[property.Name] = ConvertJsonElement(property.Value);
-                            }
-                            DepreciationResults.Add(dict);
-                        }
-                        
-                        ReportResults = DepreciationResults;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error loading depreciation date range report");
-                ErrorMessage = $"Failed to load depreciation report: {ex.Message}";
-            }
-        }
-
-        private object ConvertJsonElement(JsonElement element)
-        {
-            return element.ValueKind switch
-            {
-                JsonValueKind.String => element.GetString() ?? string.Empty,
-                JsonValueKind.Number => element.TryGetInt32(out var intVal) ? intVal :
-                                       element.TryGetDecimal(out var decVal) ? decVal :
-                                       element.GetDouble(),
-                JsonValueKind.True => true,
-                JsonValueKind.False => false,
-                JsonValueKind.Null => null!,
-                _ => element.ToString()
-            };
         }
 
         private void AddUserMessage(string message)

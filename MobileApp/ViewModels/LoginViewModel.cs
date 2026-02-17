@@ -86,7 +86,7 @@ namespace MobileApp.ViewModels
                 if (success)
                 {
                     // Navigate to main page
-                    await Shell.Current.GoToAsync("//MainPage");
+                    await Shell.Current.GoToAsync($"/{nameof(MainPage)}"); ;
                 }
                 else
                 {
@@ -149,7 +149,7 @@ namespace MobileApp.ViewModels
                     }
 
                     // Navigate to main page
-                    await Shell.Current.GoToAsync("//MainPage");
+                    await Shell.Current.GoToAsync($"/{nameof(MainPage)}"); ;
                 }
                 else
                 {

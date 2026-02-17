@@ -30,28 +30,49 @@ namespace MobileApp.Services
                 var current = Connectivity.NetworkAccess;
                 
                 if (current != NetworkAccess.Internet)
+                {
+                    System.Diagnostics.Debug.WriteLine("No network access detected");
                     return false;
+                }
+
+                System.Diagnostics.Debug.WriteLine("Network access detected, testing API...");
 
                 // Try primary API first
                 if (await TryPingApi(PRIMARY_API_URL))
                 {
-                    _currentBaseUrl = PRIMARY_API_URL;
-                    _httpClient.BaseAddress = new Uri(_currentBaseUrl);
+                    // Only update if it's different from current
+                    if (_currentBaseUrl != PRIMARY_API_URL)
+                    {
+                        _currentBaseUrl = PRIMARY_API_URL;
+                        // Don't modify the existing HttpClient - it's already been used
+                        // The BaseAddress is set in the constructor and shouldn't change
+                    }
+                    System.Diagnostics.Debug.WriteLine($"Connected to PRIMARY: {PRIMARY_API_URL}");
                     return true;
                 }
 
-                // Fallback to development API
+                System.Diagnostics.Debug.WriteLine($"Primary API failed: {PRIMARY_API_URL}");
+                
+                // Only try fallback if on emulator/development
+                #if DEBUG
                 if (await TryPingApi(FALLBACK_API_URL))
                 {
-                    _currentBaseUrl = FALLBACK_API_URL;
-                    _httpClient.BaseAddress = new Uri(_currentBaseUrl);
+                    if (_currentBaseUrl != FALLBACK_API_URL)
+                    {
+                        _currentBaseUrl = FALLBACK_API_URL;
+                        // Don't modify the existing HttpClient - it's already been used
+                    }
+                    System.Diagnostics.Debug.WriteLine($"Connected to FALLBACK: {FALLBACK_API_URL}");
                     return true;
                 }
+                System.Diagnostics.Debug.WriteLine($"Fallback API failed: {FALLBACK_API_URL}");
+                #endif
 
                 return false;
             }
-            catch
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"IsConnectedToInternet Exception: {ex.Message}");
                 return false;
             }
         }
@@ -60,13 +81,48 @@ namespace MobileApp.Services
         {
             try
             {
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-                var tempClient = new HttpClient { BaseAddress = new Uri(baseUrl) };
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15)); // Increased timeout
+                
+                // Use a properly configured HttpClient
+                using var handler = new HttpClientHandler
+                {
+                    ServerCertificateCustomValidationCallback = (message, cert, chain, errors) =>
+                    {
+                        #if DEBUG
+                        // Accept all certificates in DEBUG mode
+                        return true;
+                        #else
+                        // In production, validate properly
+                        return errors == System.Net.Security.SslPolicyErrors.None;
+                        #endif
+                    }
+                };
+                
+                using var tempClient = new HttpClient(handler)
+                {
+                    BaseAddress = new Uri(baseUrl),
+                    Timeout = TimeSpan.FromSeconds(15)
+                };
+                
+                System.Diagnostics.Debug.WriteLine($"Pinging: {baseUrl}api/test/ping");
                 var response = await tempClient.GetAsync("api/test/ping", cts.Token);
+                
+                System.Diagnostics.Debug.WriteLine($"Response: {response.StatusCode}");
                 return response.IsSuccessStatusCode;
             }
-            catch
+            catch (TaskCanceledException ex)
             {
+                System.Diagnostics.Debug.WriteLine($"Timeout pinging {baseUrl}: {ex.Message}");
+                return false;
+            }
+            catch (HttpRequestException ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"HTTP error pinging {baseUrl}: {ex.Message}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error pinging {baseUrl}: {ex.GetType().Name} - {ex.Message}");
                 return false;
             }
         }

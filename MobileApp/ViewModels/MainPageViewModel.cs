@@ -2,6 +2,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MobileData.Data;
 using Microsoft.EntityFrameworkCore;
+using MobileApp.Services;
+using MobileApp.Views;
 
 namespace MobileApp.ViewModels
 {
@@ -11,6 +13,7 @@ namespace MobileApp.ViewModels
     public partial class MainPageViewModel : BaseViewModel
     {
         private readonly LocalDbContext _dbContext;
+        private readonly IAuthService _authService;
 
         [ObservableProperty]
         private int totalAssets;
@@ -27,9 +30,10 @@ namespace MobileApp.ViewModels
         [ObservableProperty]
         private string lastSync = "Never synced";
 
-        public MainPageViewModel(LocalDbContext dbContext)
+        public MainPageViewModel(LocalDbContext dbContext, IAuthService authService)
         {
             _dbContext = dbContext;
+            _authService = authService;
             Title = "Asset Management";
         }
 
@@ -241,6 +245,47 @@ namespace MobileApp.ViewModels
             catch (Exception ex)
             {
                 await Shell.Current.DisplayAlert("Error", ex.Message, "OK");
+            }
+        }
+
+        /// <summary>
+        /// Logout the current user
+        /// </summary>
+        [RelayCommand]
+        private async Task LogoutAsync()
+        {
+            try
+            {
+                var confirm = await Shell.Current.DisplayAlert(
+                    "Logout",
+                    "Are you sure you want to logout?",
+                    "Yes",
+                    "No");
+
+                if (!confirm)
+                    return;
+
+                IsBusy = true;
+
+                var (success, message) = await _authService.LogoutAsync();
+
+                if (success)
+                {
+                    // Navigate back to login page
+                    await Shell.Current.GoToAsync($"/{nameof(LoginPage)}");
+                }
+                else
+                {
+                    await Shell.Current.DisplayAlert("Logout", message, "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                await Shell.Current.DisplayAlert("Error", $"Logout failed: {ex.Message}", "OK");
+            }
+            finally
+            {
+                IsBusy = false;
             }
         }
     }

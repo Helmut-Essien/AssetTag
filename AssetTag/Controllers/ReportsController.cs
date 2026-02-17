@@ -256,134 +256,22 @@ public class ReportsController : ControllerBase
 
 
 
-    [HttpGet("depreciation-date-range")]
-    public async Task<IActionResult> GetDepreciationByDateRange(
+    [HttpGet("fixed-assets-schedule")]
+    public async Task<IActionResult> GetFixedAssetsSchedule(
         [FromQuery] DateTime? startDate = null,
-        [FromQuery] DateTime? endDate = null,
-        [FromQuery] string? categoryId = null,
-        [FromQuery] string? departmentId = null,
-        [FromQuery] string? status = null)
+        [FromQuery] DateTime? endDate = null)
     {
         try
         {
-            // Default to current month if dates not provided
-            var start = startDate ?? new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
-            var end = endDate ?? DateTime.UtcNow;
-
+            // Default to current year if dates not specified
+            var start = startDate ?? new DateTime(DateTime.UtcNow.Year, 1, 1);
+            var end = endDate ?? new DateTime(DateTime.UtcNow.Year, 12, 31, 23, 59, 59);
+            
             // Validate date range
             if (start > end)
             {
                 return BadRequest(new { error = "Start date must be before end date" });
             }
-
-            // Build query with filters
-            var query = _context.Assets
-                .Include(a => a.Category)
-                .Include(a => a.Department)
-                .Where(a => a.PurchasePrice.HasValue &&
-                           a.PurchaseDate.HasValue &&
-                           a.Category != null &&
-                           a.Category.DepreciationRate.HasValue &&
-                           a.PurchaseDate.Value <= end); // Asset must be purchased before or during the period
-
-            // Apply filters
-            if (!string.IsNullOrWhiteSpace(categoryId))
-            {
-                query = query.Where(a => a.CategoryId == categoryId);
-            }
-
-            if (!string.IsNullOrWhiteSpace(departmentId))
-            {
-                query = query.Where(a => a.DepartmentId == departmentId);
-            }
-
-            if (!string.IsNullOrWhiteSpace(status))
-            {
-                query = query.Where(a => a.Status == status);
-            }
-
-            var assets = await query.ToListAsync();
-
-            if (!assets.Any())
-            {
-                return Ok(new List<DateRangeDepreciationReportDto>());
-            }
-
-            var daysInPeriod = (end - start).Days + 1;
-            var results = new List<DateRangeDepreciationReportDto>();
-
-            foreach (var asset in assets)
-            {
-                var purchasePrice = asset.PurchasePrice!.Value;
-                var depreciationRate = asset.Category!.DepreciationRate!.Value / 100m;
-                var annualDepreciation = purchasePrice * depreciationRate;
-                var dailyDepreciation = annualDepreciation / 365.25m;
-
-                // Calculate accumulated depreciation up to start of period
-                var daysOwnedAtStart = asset.PurchaseDate!.Value < start
-                    ? (start - asset.PurchaseDate.Value).Days
-                    : 0;
-                var accumulatedDepAtStart = Math.Min(dailyDepreciation * daysOwnedAtStart, purchasePrice);
-
-                // Calculate accumulated depreciation up to end of period
-                var daysOwnedAtEnd = (end - asset.PurchaseDate.Value).Days;
-                var accumulatedDepAtEnd = Math.Min(dailyDepreciation * daysOwnedAtEnd, purchasePrice);
-
-                // Depreciation for this specific period
-                var depreciationForPeriod = accumulatedDepAtEnd - accumulatedDepAtStart;
-
-                // Values at start and end of period
-                var valueAtStart = purchasePrice - accumulatedDepAtStart;
-                var valueAtEnd = purchasePrice - accumulatedDepAtEnd;
-
-                results.Add(new DateRangeDepreciationReportDto
-                {
-                    AssetTag = asset.AssetTag,
-                    Name = asset.Name,
-                    Category = asset.Category.Name,
-                    Department = asset.Department?.Name ?? "Unassigned",
-                    PurchaseDate = asset.PurchaseDate,
-                    PurchasePrice = purchasePrice,
-                    DepreciationRate = asset.Category.DepreciationRate.Value,
-                    CurrentValue = asset.NetBookValue ?? 0,
-                    DepreciationForPeriod = depreciationForPeriod,
-                    ValueAtStartOfPeriod = valueAtStart,
-                    ValueAtEndOfPeriod = valueAtEnd,
-                    DaysInPeriod = daysInPeriod,
-                    AccumulatedDepreciation = accumulatedDepAtEnd,
-                    Status = asset.Status
-                });
-            }
-
-            // Order by depreciation amount (highest first)
-            results = results.OrderByDescending(r => r.DepreciationForPeriod).ToList();
-
-            return Ok(new
-            {
-                startDate = start,
-                endDate = end,
-                daysInPeriod = daysInPeriod,
-                totalAssets = results.Count,
-                totalDepreciationForPeriod = results.Sum(r => r.DepreciationForPeriod),
-                totalValueAtStart = results.Sum(r => r.ValueAtStartOfPeriod),
-                totalValueAtEnd = results.Sum(r => r.ValueAtEndOfPeriod),
-                assets = results
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting depreciation by date range");
-            return StatusCode(500, new { error = "Failed to generate depreciation report" });
-        }
-    }
-
-    [HttpGet("fixed-assets-schedule")]
-    public async Task<IActionResult> GetFixedAssetsSchedule([FromQuery] int? year = null)
-    {
-        try
-        {
-            // Default to current year if not specified
-            var reportYear = year ?? DateTime.UtcNow.Year;
             
             // Get all categories with depreciation rates
             var categories = await _context.Categories
@@ -396,7 +284,8 @@ public class ReportsController : ControllerBase
                 return Ok(new {
                     categories = new List<CategoryColumnDto>(),
                     rows = new List<FixedAssetsScheduleDto>(),
-                    year = reportYear
+                    startDate = start,
+                    endDate = end
                 });
             }
 
@@ -423,10 +312,6 @@ public class ReportsController : ControllerBase
             // Build rows
             var rows = new List<FixedAssetsScheduleDto>();
 
-            // Define date ranges for the report year
-            var startOfYear = new DateTime(reportYear, 1, 1);
-            var endOfYear = new DateTime(reportYear, 12, 31, 23, 59, 59);
-
             // Section Header: Cost/Valuation
             rows.Add(new FixedAssetsScheduleDto
             {
@@ -434,24 +319,24 @@ public class ReportsController : ControllerBase
                 CategoryValues = new Dictionary<string, decimal?>()
             });
 
-            // Row 1: Cost/Valuation - Balance at start of year
+            // Row 1: Cost/Valuation - Balance at start of period
             var balStartRow = new FixedAssetsScheduleDto
             {
-                RowLabel = $"Bal: 1 Jan., {reportYear}",
+                RowLabel = $"Bal: {start:dd MMM, yyyy}",
                 CategoryValues = new Dictionary<string, decimal?>()
             };
             foreach (var cat in categories)
             {
                 var catAssets = assetsByCategory.ContainsKey(cat.CategoryId) ? assetsByCategory[cat.CategoryId] : new List<Asset>();
                 var value = catAssets
-                    .Where(a => a.PurchaseDate.HasValue && a.PurchaseDate.Value < startOfYear)
+                    .Where(a => a.PurchaseDate.HasValue && a.PurchaseDate.Value < start)
                     .Sum(a => a.PurchasePrice ?? 0);
                 balStartRow.CategoryValues[cat.CategoryId] = value > 0 ? value : null;
             }
             balStartRow.Total = balStartRow.CategoryValues.Values.Sum(v => v ?? 0);
             rows.Add(balStartRow);
 
-            // Row 2: Additions during the year
+            // Row 2: Additions during the period
             var additionsRow = new FixedAssetsScheduleDto
             {
                 RowLabel = "Additions",
@@ -462,25 +347,25 @@ public class ReportsController : ControllerBase
                 var catAssets = assetsByCategory.ContainsKey(cat.CategoryId) ? assetsByCategory[cat.CategoryId] : new List<Asset>();
                 var value = catAssets
                     .Where(a => a.PurchaseDate.HasValue &&
-                               a.PurchaseDate.Value >= startOfYear &&
-                               a.PurchaseDate.Value <= endOfYear)
+                               a.PurchaseDate.Value >= start &&
+                               a.PurchaseDate.Value <= end)
                     .Sum(a => a.PurchasePrice ?? 0);
                 additionsRow.CategoryValues[cat.CategoryId] = value > 0 ? value : null;
             }
             additionsRow.Total = additionsRow.CategoryValues.Values.Sum(v => v ?? 0);
             rows.Add(additionsRow);
 
-            // Row 3: Balance at end of year
+            // Row 3: Balance at end of period
             var balEndRow = new FixedAssetsScheduleDto
             {
-                RowLabel = $"Bal: 31 Dec., {reportYear}",
+                RowLabel = $"Bal: {end:dd MMM, yyyy}",
                 CategoryValues = new Dictionary<string, decimal?>()
             };
             foreach (var cat in categories)
             {
                 var catAssets = assetsByCategory.ContainsKey(cat.CategoryId) ? assetsByCategory[cat.CategoryId] : new List<Asset>();
                 var value = catAssets
-                    .Where(a => a.PurchaseDate.HasValue && a.PurchaseDate.Value <= endOfYear)
+                    .Where(a => a.PurchaseDate.HasValue && a.PurchaseDate.Value <= end)
                     .Sum(a => a.PurchasePrice ?? 0);
                 balEndRow.CategoryValues[cat.CategoryId] = value > 0 ? value : null;
             }
@@ -497,10 +382,10 @@ public class ReportsController : ControllerBase
                 CategoryValues = new Dictionary<string, decimal?>()
             });
 
-            // Row 4: Depreciation - Balance at start of year
+            // Row 4: Depreciation - Balance at start of period
             var depBalStartRow = new FixedAssetsScheduleDto
             {
-                RowLabel = $"Bal: 1 Jan., {reportYear}",
+                RowLabel = $"Bal: {start:dd MMM, yyyy}",
                 CategoryValues = new Dictionary<string, decimal?>()
             };
             foreach (var cat in categories)
@@ -508,9 +393,9 @@ public class ReportsController : ControllerBase
                 var catAssets = assetsByCategory.ContainsKey(cat.CategoryId) ? assetsByCategory[cat.CategoryId] : new List<Asset>();
                 
                 decimal totalDepreciation = 0;
-                foreach (var asset in catAssets.Where(a => a.PurchaseDate.HasValue && a.PurchaseDate.Value < startOfYear))
+                foreach (var asset in catAssets.Where(a => a.PurchaseDate.HasValue && a.PurchaseDate.Value < start))
                 {
-                    var yearsOwned = (startOfYear - asset.PurchaseDate!.Value).TotalDays / 365.25;
+                    var yearsOwned = (start - asset.PurchaseDate!.Value).TotalDays / 365.25;
                     var rate = cat.DepreciationRate!.Value / 100m;
                     var depreciation = Math.Min(asset.PurchasePrice!.Value * rate * (decimal)yearsOwned, asset.PurchasePrice.Value);
                     totalDepreciation += depreciation;
@@ -521,10 +406,10 @@ public class ReportsController : ControllerBase
             depBalStartRow.Total = depBalStartRow.CategoryValues.Values.Sum(v => v ?? 0);
             rows.Add(depBalStartRow);
 
-            // Row 5: Charge for the year
+            // Row 5: Charge for the period
             var chargeRow = new FixedAssetsScheduleDto
             {
-                RowLabel = "Charge for the yr",
+                RowLabel = "Charge for period",
                 CategoryValues = new Dictionary<string, decimal?>()
             };
             foreach (var cat in categories)
@@ -532,22 +417,31 @@ public class ReportsController : ControllerBase
                 var catAssets = assetsByCategory.ContainsKey(cat.CategoryId) ? assetsByCategory[cat.CategoryId] : new List<Asset>();
                 var rate = cat.DepreciationRate!.Value / 100m;
                 
-                decimal yearlyCharge = 0;
-                foreach (var asset in catAssets.Where(a => a.PurchasePrice.HasValue && a.PurchaseDate.HasValue && a.PurchaseDate.Value <= endOfYear))
+                decimal periodCharge = 0;
+                var daysInPeriod = (end - start).Days + 1;
+                
+                foreach (var asset in catAssets.Where(a => a.PurchasePrice.HasValue && a.PurchaseDate.HasValue && a.PurchaseDate.Value <= end))
                 {
-                    // Only charge depreciation for assets owned during the year
-                    yearlyCharge += asset.PurchasePrice!.Value * rate;
+                    // Calculate depreciation for the period
+                    var annualDepreciation = asset.PurchasePrice!.Value * rate;
+                    var dailyDepreciation = annualDepreciation / 365.25m;
+                    
+                    // Determine how many days in the period the asset was owned
+                    var assetStartDate = asset.PurchaseDate.Value > start ? asset.PurchaseDate.Value : start;
+                    var daysOwned = (end - assetStartDate).Days + 1;
+                    
+                    periodCharge += dailyDepreciation * daysOwned;
                 }
                 
-                chargeRow.CategoryValues[cat.CategoryId] = yearlyCharge > 0 ? yearlyCharge : null;
+                chargeRow.CategoryValues[cat.CategoryId] = periodCharge > 0 ? periodCharge : null;
             }
             chargeRow.Total = chargeRow.CategoryValues.Values.Sum(v => v ?? 0);
             rows.Add(chargeRow);
 
-            // Row 6: Depreciation balance at end of year
+            // Row 6: Depreciation balance at end of period
             var depBalEndRow = new FixedAssetsScheduleDto
             {
-                RowLabel = $"Bal: 31 Dec., {reportYear}",
+                RowLabel = $"Bal: {end:dd MMM, yyyy}",
                 CategoryValues = new Dictionary<string, decimal?>()
             };
             foreach (var cat in categories)
@@ -555,9 +449,9 @@ public class ReportsController : ControllerBase
                 var catAssets = assetsByCategory.ContainsKey(cat.CategoryId) ? assetsByCategory[cat.CategoryId] : new List<Asset>();
                 
                 decimal totalDepreciation = 0;
-                foreach (var asset in catAssets.Where(a => a.PurchaseDate.HasValue && a.PurchaseDate.Value <= endOfYear))
+                foreach (var asset in catAssets.Where(a => a.PurchaseDate.HasValue && a.PurchaseDate.Value <= end))
                 {
-                    var yearsOwned = (endOfYear - asset.PurchaseDate!.Value).TotalDays / 365.25;
+                    var yearsOwned = (end - asset.PurchaseDate!.Value).TotalDays / 365.25;
                     var rate = cat.DepreciationRate!.Value / 100m;
                     var depreciation = Math.Min(asset.PurchasePrice!.Value * rate * (decimal)yearsOwned, asset.PurchasePrice.Value);
                     totalDepreciation += depreciation;
@@ -571,10 +465,10 @@ public class ReportsController : ControllerBase
             // Empty row separator
             rows.Add(new FixedAssetsScheduleDto { RowLabel = "", CategoryValues = new Dictionary<string, decimal?>() });
 
-            // Row 7: Net Book Value at end of year
+            // Row 7: Net Book Value at end of period
             var nbvRow = new FixedAssetsScheduleDto
             {
-                RowLabel = $"NBV 31 Dec., {reportYear}",
+                RowLabel = $"NBV {end:dd MMM, yyyy}",
                 CategoryValues = new Dictionary<string, decimal?>()
             };
             foreach (var cat in categories)
@@ -591,7 +485,8 @@ public class ReportsController : ControllerBase
             {
                 categories = categoryColumns,
                 rows = rows,
-                year = reportYear
+                startDate = start,
+                endDate = end
             });
         }
         catch (Exception ex)

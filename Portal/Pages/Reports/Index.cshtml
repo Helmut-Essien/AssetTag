@@ -40,7 +40,7 @@
             <div class="card mb-4">
                 <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="bi bi-file-earmark-text me-2"></i>Predefined Reports</h5>
-                    <span class="badge bg-light text-dark">6 Templates</span>
+                    <span class="badge bg-light text-dark">5 Templates</span>
                 </div>
                 <div class="card-body">
                     <div class="row g-3">
@@ -130,27 +130,11 @@
                                 <div class="card-body text-center">
                                     <i class="bi bi-table text-primary fs-1"></i>
                                     <h6 class="mt-2">Fixed Assets Schedule</h6>
-                                    <small class="text-muted">Category-based depreciation schedule</small>
+                                    <small class="text-muted">Category-based depreciation schedule with custom date range</small>
                                     @if (Model.SelectedReportType == "fixed-assets-schedule")
                                     {
                                         <div class="mt-2">
                                             <span class="badge bg-primary">Selected</span>
-                                        </div>
-                                    }
-                                </div>
-                            </a>
-                        </div>
-                        <div class="col-md-6">
-                            <a asp-page="/Reports/Index" asp-route-reportType="depreciation-date-range"
-                               class="card h-100 report-card text-decoration-none @(Model.SelectedReportType == "depreciation-date-range" ? "border-primary border-2" : "")">
-                                <div class="card-body text-center">
-                                    <i class="bi bi-calendar-range text-success fs-1"></i>
-                                    <h6 class="mt-2">Depreciation by Date Range</h6>
-                                    <small class="text-muted">Custom period depreciation report</small>
-                                    @if (Model.SelectedReportType == "depreciation-date-range")
-                                    {
-                                        <div class="mt-2">
-                                            <span class="badge bg-success">Selected</span>
                                         </div>
                                     }
                                 </div>
@@ -294,21 +278,21 @@
     <!-- Report Results Section -->
     <div class="row mt-2">
         <div class="col-12">
-            @if (Model.SelectedReportType == "depreciation-date-range")
+            @if (Model.SelectedReportType == "fixed-assets-schedule")
             {
                 <div class="card mb-3">
                     <div class="card-body">
                         <form method="get" class="row g-3 align-items-end">
-                            <input type="hidden" name="reportType" value="depreciation-date-range" />
+                            <input type="hidden" name="reportType" value="fixed-assets-schedule" />
                             <div class="col-md-3">
                                 <label for="startDate" class="form-label fw-bold">Start Date</label>
                                 <input type="date" name="startDate" id="startDate" class="form-control"
-                                       value="@(Model.StartDate?.ToString("yyyy-MM-dd") ?? DateTime.Now.AddMonths(-1).ToString("yyyy-MM-dd"))" />
+                                       value="@(Model.StartDate?.ToString("yyyy-MM-dd") ?? new DateTime(DateTime.Now.Year, 1, 1).ToString("yyyy-MM-dd"))" />
                             </div>
                             <div class="col-md-3">
                                 <label for="endDate" class="form-label fw-bold">End Date</label>
                                 <input type="date" name="endDate" id="endDate" class="form-control"
-                                       value="@(Model.EndDate?.ToString("yyyy-MM-dd") ?? DateTime.Now.ToString("yyyy-MM-dd"))" />
+                                       value="@(Model.EndDate?.ToString("yyyy-MM-dd") ?? new DateTime(DateTime.Now.Year, 12, 31).ToString("yyyy-MM-dd"))" />
                             </div>
                             <div class="col-md-3">
                                 <button type="submit" class="btn btn-primary w-100">
@@ -317,79 +301,9 @@
                             </div>
                             <div class="col-md-3">
                                 <div class="btn-group w-100" role="group">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setDateRange('week')">This Week</button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setDateRange('month')">This Month</button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setDateRange('quarter')">This Quarter</button>
-                                </div>
-                            </div>
-                        </form>
-                        
-                        @if (Model.DepreciationSummary.ValueKind != System.Text.Json.JsonValueKind.Undefined &&
-                             Model.DepreciationSummary.ValueKind != System.Text.Json.JsonValueKind.Null)
-                        {
-                            <div class="row mt-4">
-                                <div class="col-md-3">
-                                    <div class="card bg-light">
-                                        <div class="card-body text-center">
-                                            <small class="text-muted">Total Assets</small>
-                                            <h4 class="mb-0">@Model.DepreciationSummary.GetProperty("totalAssets").GetInt32()</h4>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="card bg-light">
-                                        <div class="card-body text-center">
-                                            <small class="text-muted">Days in Period</small>
-                                            <h4 class="mb-0">@Model.DepreciationSummary.GetProperty("daysInPeriod").GetInt32()</h4>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="card bg-warning bg-opacity-25">
-                                        <div class="card-body text-center">
-                                            <small class="text-muted">Period Depreciation</small>
-                                            <h4 class="mb-0">@Model.DepreciationSummary.GetProperty("totalDepreciationForPeriod").GetDecimal().ToString("N0")</h4>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="card bg-info bg-opacity-25">
-                                        <div class="card-body text-center">
-                                            <small class="text-muted">Value at Period End</small>
-                                            <h4 class="mb-0">@Model.DepreciationSummary.GetProperty("totalValueAtEnd").GetDecimal().ToString("N0")</h4>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        }
-                    </div>
-                </div>
-            }
-            else if (Model.SelectedReportType == "fixed-assets-schedule")
-            {
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <form method="get" class="row g-3 align-items-end">
-                            <input type="hidden" name="reportType" value="fixed-assets-schedule" />
-                            <div class="col-md-3">
-                                <label for="yearSelect" class="form-label fw-bold">Select Report Year</label>
-                                <select name="year" id="yearSelect" class="form-select" onchange="this.form.submit()">
-                                    @{
-                                        var currentYear = DateTime.Now.Year;
-                                        var selectedYear = Model.ReportYear ?? currentYear;
-                                        for (int y = currentYear; y >= 2020; y--)
-                                        {
-                                            <option value="@y" selected="@(y == selectedYear)">@y</option>
-                                        }
-                                    }
-                                </select>
-                            </div>
-                            <div class="col-md-9">
-                                <div class="alert alert-info mb-0">
-                                    <i class="bi bi-info-circle me-2"></i>
-                                    <strong>Showing report for year: @selectedYear</strong>
-                                    <br />
-                                    <small>Additions = Assets purchased between Jan 1 and Dec 31, @selectedYear</small>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setFixedAssetsDateRange('month')">This Month</button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setFixedAssetsDateRange('quarter')">This Quarter</button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setFixedAssetsDateRange('year')">This Year</button>
                                 </div>
                             </div>
                         </form>
@@ -705,34 +619,36 @@
             }
         });
 
-        // Date range helper functions
-        function setDateRange(period) {
+        // Date range helper functions for Fixed Assets Schedule
+        function setFixedAssetsDateRange(period) {
             const today = new Date();
             const startDateInput = document.getElementById('startDate');
             const endDateInput = document.getElementById('endDate');
             
             let startDate = new Date();
+            let endDate = new Date();
             
             switch(period) {
-                case 'week':
-                    // Start of current week (Monday)
-                    const day = today.getDay();
-                    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-                    startDate = new Date(today.setDate(diff));
-                    break;
                 case 'month':
-                    // Start of current month
+                    // Start and end of current month
                     startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                    endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
                     break;
                 case 'quarter':
-                    // Start of current quarter
+                    // Start and end of current quarter
                     const quarter = Math.floor(today.getMonth() / 3);
                     startDate = new Date(today.getFullYear(), quarter * 3, 1);
+                    endDate = new Date(today.getFullYear(), quarter * 3 + 3, 0);
+                    break;
+                case 'year':
+                    // Start and end of current year
+                    startDate = new Date(today.getFullYear(), 0, 1);
+                    endDate = new Date(today.getFullYear(), 11, 31);
                     break;
             }
             
             startDateInput.value = startDate.toISOString().split('T')[0];
-            endDateInput.value = new Date().toISOString().split('T')[0];
+            endDateInput.value = endDate.toISOString().split('T')[0];
         }
     </script>
 }
