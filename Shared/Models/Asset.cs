@@ -1,4 +1,5 @@
 ﻿using NUlid;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Shared.Models
@@ -8,6 +9,9 @@ namespace Shared.Models
         public string AssetId { get; set; } = Ulid.NewUlid().ToString();
         public required string AssetTag { get; set; }
         public string? OldAssetTag { get; set; }
+        
+        [MaxLength(50)]
+        public string? DigitalAssetTag { get; set; }
         public required string Name { get; set; }
         public string? Description { get; set; }
         public required string CategoryId { get; set; }

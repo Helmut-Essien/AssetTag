@@ -34,17 +34,38 @@ namespace MobileApp.Views
             // Stop animation before navigation
             _isAnimating = false;
             
-            // Check if user is already logged in
+            // Check if user is already logged in with valid tokens
             var (accessToken, refreshToken) = _authService.GetStoredTokens();
             
             if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
             {
-                // User has tokens, navigate to main page (relative routing)
-                await Shell.Current.GoToAsync($"/{nameof(MainPage)}");
+                // Tokens exist, now check if they're expired
+                if (await _authService.IsTokenExpiredAsync())
+                {
+                    // Token is expired, try to refresh
+                    var (success, newTokens, message) = await _authService.RefreshTokenAsync();
+                    
+                    if (success && newTokens != null)
+                    {
+                        // Token refreshed successfully, navigate to main page
+                        await Shell.Current.GoToAsync($"/{nameof(MainPage)}");
+                    }
+                    else
+                    {
+                        // Refresh failed, clear tokens and go to login
+                        _authService.ClearTokens();
+                        await Shell.Current.GoToAsync($"/{nameof(LoginPage)}");
+                    }
+                }
+                else
+                {
+                    // Token is still valid, navigate to main page
+                    await Shell.Current.GoToAsync($"/{nameof(MainPage)}");
+                }
             }
             else
             {
-                // No tokens, navigate to login page (relative routing)
+                // No tokens, navigate to login page
                 await Shell.Current.GoToAsync($"/{nameof(LoginPage)}");
             }
         }

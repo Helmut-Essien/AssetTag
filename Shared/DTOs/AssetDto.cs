@@ -49,6 +49,10 @@ public record AssetCreateDTO
     [Display(Name = "Serial Number")]
     public string? SerialNumber { get; init; }
 
+    [StringLength(50, ErrorMessage = "Digital Asset Tag cannot exceed 50 characters")]
+    [Display(Name = "Digital Asset Tag")]
+    public string? DigitalAssetTag { get; init; }
+
     [Required]
     [Display(Name = "Condition")]
     public string Condition { get; init; } = string.Empty;
@@ -131,6 +135,10 @@ public record AssetUpdateDTO
 
     [Display(Name = "Serial Number")]
     public string? SerialNumber { get; init; }
+
+    [StringLength(50, ErrorMessage = "Digital Asset Tag cannot exceed 50 characters")]
+    [Display(Name = "Digital Asset Tag")]
+    public string? DigitalAssetTag { get; init; }
 
     [Display(Name = "Condition")]
     public string? Condition { get; init; }
@@ -216,6 +224,9 @@ public record AssetReadDTO
 
     [Display(Name = "Serial Number")]
     public string? SerialNumber { get; init; }
+
+    [Display(Name = "Digital Asset Tag")]
+    public string? DigitalAssetTag { get; init; }
 
     [Display(Name = "Condition")]
     public string Condition { get; init; } = string.Empty;
