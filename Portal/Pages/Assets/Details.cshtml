@@ -96,6 +96,9 @@
                                 <dt>Serial Number</dt>
                                 <dd>@(string.IsNullOrEmpty(Model.Asset.SerialNumber) ? "N/A" : Model.Asset.SerialNumber)</dd>
 
+                                <dt>Digital Asset Tag</dt>
+                                <dd>@(string.IsNullOrEmpty(Model.Asset.DigitalAssetTag) ? "N/A" : Model.Asset.DigitalAssetTag)</dd>
+
                                 <dt>Purchase Date</dt>
                                 <dd>@Model.Asset.PurchaseDate?.ToString("MMM dd, yyyy")</dd>
 
