@@ -59,6 +59,7 @@ public class AssetsController : ControllerBase
                 a.Name.Contains(searchTerm) ||
                 a.Description.Contains(searchTerm) ||
                 a.SerialNumber.Contains(searchTerm) ||
+                a.DigitalAssetTag.Contains(searchTerm) ||
                 a.VendorName.Contains(searchTerm) ||
                 a.InvoiceNumber.Contains(searchTerm));
         }
@@ -100,6 +101,7 @@ public class AssetsController : ControllerBase
             CreatedAt = a.CreatedAt,
             DateModified = a.DateModified,
             SerialNumber = a.SerialNumber,
+            DigitalAssetTag = a.DigitalAssetTag,
             Condition = a.Condition,
             VendorName = a.VendorName,
             InvoiceNumber = a.InvoiceNumber,
@@ -150,6 +152,7 @@ public class AssetsController : ControllerBase
                 CreatedAt = asset.CreatedAt,
                 DateModified = asset.DateModified,
                 SerialNumber = asset.SerialNumber,
+                DigitalAssetTag = asset.DigitalAssetTag,
                 Condition = asset.Condition,
                 VendorName = asset.VendorName,
                 InvoiceNumber = asset.InvoiceNumber,
@@ -194,6 +197,7 @@ public class AssetsController : ControllerBase
                 Status = dto.Status,
                 AssignedToUserId = dto.AssignedToUserId,
                 SerialNumber = dto.SerialNumber,
+                DigitalAssetTag = dto.DigitalAssetTag,
                 Condition = dto.Condition,
                 VendorName = dto.VendorName,
                 InvoiceNumber = dto.InvoiceNumber,
@@ -248,6 +252,7 @@ public class AssetsController : ControllerBase
                     CreatedAt = createdAsset.CreatedAt,
                     DateModified = createdAsset.DateModified,
                     SerialNumber = createdAsset.SerialNumber,
+                    DigitalAssetTag = createdAsset.DigitalAssetTag,
                     Condition = createdAsset.Condition,
                     VendorName = createdAsset.VendorName,
                     InvoiceNumber = createdAsset.InvoiceNumber,
@@ -338,6 +343,9 @@ public class AssetsController : ControllerBase
             if (dto.SerialNumber is not null && dto.SerialNumber != asset.SerialNumber)
                 changes.Add($"Serial number changed");
 
+            if (dto.DigitalAssetTag is not null && dto.DigitalAssetTag != asset.DigitalAssetTag)
+                changes.Add($"Digital asset tag changed to '{dto.DigitalAssetTag}'");
+
             if (dto.VendorName is not null && dto.VendorName != asset.VendorName)
                 changes.Add($"Vendor changed to '{dto.VendorName}'");
 
@@ -378,6 +386,7 @@ public class AssetsController : ControllerBase
             asset.Status = dto.Status ?? asset.Status;
             asset.AssignedToUserId = dto.AssignedToUserId ?? asset.AssignedToUserId;
             asset.SerialNumber = dto.SerialNumber ?? asset.SerialNumber;
+            asset.DigitalAssetTag = dto.DigitalAssetTag ?? asset.DigitalAssetTag;
             asset.Condition = dto.Condition ?? asset.Condition;
             asset.VendorName = dto.VendorName ?? asset.VendorName;
             asset.InvoiceNumber = dto.InvoiceNumber ?? asset.InvoiceNumber;
