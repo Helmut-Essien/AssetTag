@@ -17,7 +17,7 @@ namespace MobileApp.Services
             CancellationToken cancellationToken)
         {
             // Get current access token
-            var (accessToken, _) = _authService.GetStoredTokens();
+            var (accessToken, _) = await _authService.GetStoredTokensAsync();
 
             // If no token, proceed without authentication
             if (string.IsNullOrEmpty(accessToken))
@@ -40,8 +40,11 @@ namespace MobileApp.Services
                     // Refresh failed, clear tokens and return unauthorized
                     _authService.ClearTokens();
                     
-                    // Navigate to login page
-                    await Shell.Current.GoToAsync("//LoginPage");
+                    // Navigate to login page on main thread to avoid crashes
+                    MainThread.BeginInvokeOnMainThread(async () =>
+                    {
+                        await Shell.Current.GoToAsync("//LoginPage");
+                    });
                     
                     return new HttpResponseMessage(HttpStatusCode.Unauthorized)
                     {
@@ -71,7 +74,12 @@ namespace MobileApp.Services
                 {
                     // Refresh failed, clear tokens and navigate to login
                     _authService.ClearTokens();
-                    await Shell.Current.GoToAsync("//LoginPage");
+                    
+                    // Navigate to login page on main thread to avoid crashes
+                    MainThread.BeginInvokeOnMainThread(async () =>
+                    {
+                        await Shell.Current.GoToAsync("//LoginPage");
+                    });
                 }
             }
 

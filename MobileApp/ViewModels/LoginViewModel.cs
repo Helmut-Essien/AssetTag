@@ -115,7 +115,7 @@ namespace MobileApp.ViewModels
             }
 
             // Check if user has stored credentials
-            var (accessToken, refreshToken) = _authService.GetStoredTokens();
+            var (accessToken, refreshToken) = await _authService.GetStoredTokensAsync();
             
             if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
             {

@@ -35,7 +35,7 @@ namespace MobileApp.Views
             _isAnimating = false;
             
             // Check if user is already logged in with valid tokens
-            var (accessToken, refreshToken) = _authService.GetStoredTokens();
+            var (accessToken, refreshToken) = await _authService.GetStoredTokensAsync();
             
             if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
             {

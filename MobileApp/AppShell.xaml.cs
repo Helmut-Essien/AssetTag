@@ -39,44 +39,13 @@ namespace MobileApp
                 return;
             }
 
-            // Validate token for all other navigations
-            try
+            // Only check if tokens exist (not expired)
+            // TokenRefreshHandler will handle token expiration and refresh for API calls
+            var (accessToken, refreshToken) = await _authService.GetStoredTokensAsync();
+            
+            if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
             {
-                var (accessToken, refreshToken) = _authService.GetStoredTokens();
-                
-                // Check if tokens exist
-                if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
-                {
-                    // Cancel navigation and redirect to login
-                    e.Cancel();
-                    await GoToAsync($"/{nameof(LoginPage)}");
-                    return;
-                }
-
-                // Check if token is expired
-                if (await _authService.IsTokenExpiredAsync())
-                {
-                    // Try to refresh the token
-                    var (success, newTokens, message) = await _authService.RefreshTokenAsync();
-                    
-                    if (!success || newTokens == null)
-                    {
-                        // Refresh failed, cancel navigation and redirect to login
-                        e.Cancel();
-                        _authService.ClearTokens();
-                        await GoToAsync($"/{nameof(LoginPage)}");
-                        return;
-                    }
-                    
-                    // Token refreshed successfully, allow navigation to continue
-                }
-                
-                // Token is valid, allow navigation to continue
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Navigation token validation error: {ex.Message}");
-                // On error, cancel navigation and redirect to login for safety
+                // No tokens at all - redirect to login
                 e.Cancel();
                 await GoToAsync($"/{nameof(LoginPage)}");
             }
