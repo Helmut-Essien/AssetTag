@@ -28,7 +28,7 @@ namespace MobileApp.ViewModels
             try
             {
                 // Check if tokens exist
-                var (accessToken, refreshToken) = authService.GetStoredTokens();
+                var (accessToken, refreshToken) = await authService.GetStoredTokensAsync();
                 
                 if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
                 {

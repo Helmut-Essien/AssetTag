@@ -2,12 +2,15 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 using CommunityToolkit.Maui;
 using Syncfusion.Maui.Toolkit.Hosting;
 using MobileData.Data;
 using MobileApp.ViewModels;
 using MobileApp.Services;
 using MobileApp.Views;
+using MobileApp.Configuration;
+using System.Reflection;
 
 namespace MobileApp
 {
@@ -26,6 +29,32 @@ namespace MobileApp
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 })
                 .UseMauiCommunityToolkit();
+
+            // ────────────────────────────────────────────────────────────────
+            // Load Configuration from appsettings.json
+            // ────────────────────────────────────────────────────────────────
+            var assembly = Assembly.GetExecutingAssembly();
+            using var stream = assembly.GetManifestResourceStream("MobileApp.appsettings.json");
+            
+            if (stream != null)
+            {
+                var config = new ConfigurationBuilder()
+                    .AddJsonStream(stream)
+                    .Build();
+                
+                // Bind ApiSettings from configuration
+                builder.Services.Configure<ApiSettings>(config.GetSection("ApiSettings"));
+            }
+            else
+            {
+                // Fallback to default settings if config file not found
+                builder.Services.Configure<ApiSettings>(options =>
+                {
+                    options.PrimaryApiUrl = "https://mugassetapi.runasp.net/";
+                    options.FallbackApiUrl = "https://localhost:7135/";
+                    options.RequestTimeout = 30;
+                });
+            }
 
             // ────────────────────────────────────────────────────────────────
             // Register SQLite + EF Core DbContext with real app data path
@@ -60,12 +89,8 @@ namespace MobileApp
             // ────────────────────────────────────────────────────────────────
             builder.Services.AddTransient<TokenRefreshHandler>();
             
-            // Register AuthService as Singleton with HttpClient
-            builder.Services.AddSingleton<IAuthService>(sp =>
-            {
-                var httpClient = new HttpClient();
-                return new AuthService(httpClient);
-            });
+            // Register AuthService as Singleton with HttpClient and Configuration
+            builder.Services.AddSingleton<IAuthService, AuthService>();
             
             // Register API HttpClient with TokenRefreshHandler for authenticated requests
             builder.Services.AddHttpClient("ApiClient")

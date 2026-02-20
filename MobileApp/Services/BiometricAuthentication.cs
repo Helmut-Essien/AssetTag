@@ -1,3 +1,6 @@
+using Plugin.Fingerprint;
+using Plugin.Fingerprint.Abstractions;
+
 namespace MobileApp.Services
 {
     public class AuthenticationRequest
@@ -20,22 +23,33 @@ namespace MobileApp.Services
             try
             {
                 // Check if biometric authentication is available on the device
-                var isBiometricAvailable = await IsBiometricAvailableAsync();
+                var availability = await CrossFingerprint.Current.GetAvailabilityAsync();
                 
-                if (!isBiometricAvailable)
+                if (availability != FingerprintAvailability.Available)
                 {
                     return new AuthenticationResult
                     {
                         Authenticated = false,
-                        ErrorMessage = "Biometric authentication is not available on this device"
+                        ErrorMessage = GetAvailabilityMessage(availability)
                     };
                 }
 
-                // Perform biometric authentication using MAUI's built-in support
-                // Note: This requires platform-specific implementations
-                var result = await PerformBiometricAuthAsync(request);
+                // Configure authentication request
+                var authRequest = new AuthenticationRequestConfiguration(request.Title, request.Reason)
+                {
+                    AllowAlternativeAuthentication = request.AllowAlternativeAuthentication,
+                    CancelTitle = "Cancel",
+                    FallbackTitle = "Use Password"
+                };
+
+                // Perform biometric authentication
+                var result = await CrossFingerprint.Current.AuthenticateAsync(authRequest);
                 
-                return result;
+                return new AuthenticationResult
+                {
+                    Authenticated = result.Authenticated,
+                    ErrorMessage = result.Authenticated ? string.Empty : result.ErrorMessage
+                };
             }
             catch (Exception ex)
             {
@@ -51,18 +65,8 @@ namespace MobileApp.Services
         {
             try
             {
-                // Check if device supports biometric authentication
-                // This is a simplified check - in production, you'd use platform-specific APIs
-                
-#if ANDROID
-                // Android: Check for fingerprint or face unlock
-                return await Task.FromResult(true); // Placeholder - implement Android-specific check
-#elif IOS
-                // iOS: Check for Touch ID or Face ID
-                return await Task.FromResult(true); // Placeholder - implement iOS-specific check
-#else
-                return await Task.FromResult(false);
-#endif
+                var availability = await CrossFingerprint.Current.GetAvailabilityAsync();
+                return availability == FingerprintAvailability.Available;
             }
             catch
             {
@@ -70,65 +74,19 @@ namespace MobileApp.Services
             }
         }
 
-        private static async Task<AuthenticationResult> PerformBiometricAuthAsync(AuthenticationRequest request)
+        private static string GetAvailabilityMessage(FingerprintAvailability availability)
         {
-            try
+            return availability switch
             {
-                // Platform-specific biometric authentication
-                // This is a placeholder - you'll need to implement platform-specific code
-                
-#if ANDROID
-                // Use Android BiometricPrompt API
-                return await AuthenticateAndroidAsync(request);
-#elif IOS
-                // Use iOS LocalAuthentication framework
-                return await AuthenticateIOSAsync(request);
-#else
-                return new AuthenticationResult
-                {
-                    Authenticated = false,
-                    ErrorMessage = "Biometric authentication not supported on this platform"
-                };
-#endif
-            }
-            catch (Exception ex)
-            {
-                return new AuthenticationResult
-                {
-                    Authenticated = false,
-                    ErrorMessage = ex.Message
-                };
-            }
-        }
-
-#if ANDROID
-        private static async Task<AuthenticationResult> AuthenticateAndroidAsync(AuthenticationRequest request)
-        {
-            // TODO: Implement Android BiometricPrompt
-            // For now, return a simulated result
-            await Task.Delay(500); // Simulate authentication delay
-            
-            return new AuthenticationResult
-            {
-                Authenticated = true,
-                ErrorMessage = string.Empty
+                FingerprintAvailability.NoImplementation => "Biometric authentication is not implemented on this platform",
+                FingerprintAvailability.NoApi => "Biometric API is not available on this device",
+                FingerprintAvailability.NoPermission => "Permission to use biometric authentication has not been granted",
+                FingerprintAvailability.NoSensor => "No biometric sensor found on this device",
+                FingerprintAvailability.NoFingerprint => "No biometric data enrolled. Please set up biometric authentication in device settings",
+                FingerprintAvailability.Unknown => "Biometric authentication availability is unknown",
+                FingerprintAvailability.Denied => "Biometric authentication has been denied",
+                _ => "Biometric authentication is not available"
             };
         }
-#endif
-
-#if IOS
-        private static async Task<AuthenticationResult> AuthenticateIOSAsync(AuthenticationRequest request)
-        {
-            // TODO: Implement iOS LocalAuthentication
-            // For now, return a simulated result
-            await Task.Delay(500); // Simulate authentication delay
-            
-            return new AuthenticationResult
-            {
-                Authenticated = true,
-                ErrorMessage = string.Empty
-            };
-        }
-#endif
     }
 }

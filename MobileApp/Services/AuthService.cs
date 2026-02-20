@@ -2,25 +2,28 @@ using Shared.DTOs;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.IdentityModel.Tokens.Jwt;
+using Microsoft.Extensions.Options;
+using MobileApp.Configuration;
 
 namespace MobileApp.Services
 {
     public class AuthService : IAuthService
     {
         private readonly HttpClient _httpClient;
-        private const string PRIMARY_API_URL = "https://mugassetapi.runasp.net/";
-        private const string FALLBACK_API_URL = "https://localhost:7135/"; // Development fallback
+        private readonly ApiSettings _apiSettings;
         private const string ACCESS_TOKEN_KEY = "access_token";
         private const string REFRESH_TOKEN_KEY = "refresh_token";
         private const string BIOMETRIC_ENABLED_KEY = "biometric_enabled";
-        private string _currentBaseUrl = PRIMARY_API_URL;
+        private string _currentBaseUrl;
         private static readonly SemaphoreSlim _refreshLock = new SemaphoreSlim(1, 1);
 
-        public AuthService(HttpClient httpClient)
+        public AuthService(HttpClient httpClient, IOptions<ApiSettings> apiSettings)
         {
             _httpClient = httpClient;
+            _apiSettings = apiSettings.Value;
+            _currentBaseUrl = _apiSettings.PrimaryApiUrl;
             _httpClient.BaseAddress = new Uri(_currentBaseUrl);
-            _httpClient.Timeout = TimeSpan.FromSeconds(30);
+            _httpClient.Timeout = TimeSpan.FromSeconds(_apiSettings.RequestTimeout);
         }
 
         public async Task<bool> IsConnectedToInternet()
@@ -38,34 +41,34 @@ namespace MobileApp.Services
                 System.Diagnostics.Debug.WriteLine("Network access detected, testing API...");
 
                 // Try primary API first
-                if (await TryPingApi(PRIMARY_API_URL))
+                if (await TryPingApi(_apiSettings.PrimaryApiUrl))
                 {
                     // Only update if it's different from current
-                    if (_currentBaseUrl != PRIMARY_API_URL)
+                    if (_currentBaseUrl != _apiSettings.PrimaryApiUrl)
                     {
-                        _currentBaseUrl = PRIMARY_API_URL;
+                        _currentBaseUrl = _apiSettings.PrimaryApiUrl;
                         // Don't modify the existing HttpClient - it's already been used
                         // The BaseAddress is set in the constructor and shouldn't change
                     }
-                    System.Diagnostics.Debug.WriteLine($"Connected to PRIMARY: {PRIMARY_API_URL}");
+                    System.Diagnostics.Debug.WriteLine($"Connected to PRIMARY: {_apiSettings.PrimaryApiUrl}");
                     return true;
                 }
 
-                System.Diagnostics.Debug.WriteLine($"Primary API failed: {PRIMARY_API_URL}");
+                System.Diagnostics.Debug.WriteLine($"Primary API failed: {_apiSettings.PrimaryApiUrl}");
                 
                 // Only try fallback if on emulator/development
                 #if DEBUG
-                if (await TryPingApi(FALLBACK_API_URL))
+                if (await TryPingApi(_apiSettings.FallbackApiUrl))
                 {
-                    if (_currentBaseUrl != FALLBACK_API_URL)
+                    if (_currentBaseUrl != _apiSettings.FallbackApiUrl)
                     {
-                        _currentBaseUrl = FALLBACK_API_URL;
+                        _currentBaseUrl = _apiSettings.FallbackApiUrl;
                         // Don't modify the existing HttpClient - it's already been used
                     }
-                    System.Diagnostics.Debug.WriteLine($"Connected to FALLBACK: {FALLBACK_API_URL}");
+                    System.Diagnostics.Debug.WriteLine($"Connected to FALLBACK: {_apiSettings.FallbackApiUrl}");
                     return true;
                 }
-                System.Diagnostics.Debug.WriteLine($"Fallback API failed: {FALLBACK_API_URL}");
+                System.Diagnostics.Debug.WriteLine($"Fallback API failed: {_apiSettings.FallbackApiUrl}");
                 #endif
 
                 return false;
@@ -81,31 +84,15 @@ namespace MobileApp.Services
         {
             try
             {
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15)); // Increased timeout
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
                 
-                // Use a properly configured HttpClient
-                using var handler = new HttpClientHandler
-                {
-                    ServerCertificateCustomValidationCallback = (message, cert, chain, errors) =>
-                    {
-                        #if DEBUG
-                        // Accept all certificates in DEBUG mode
-                        return true;
-                        #else
-                        // In production, validate properly
-                        return errors == System.Net.Security.SslPolicyErrors.None;
-                        #endif
-                    }
-                };
-                
-                using var tempClient = new HttpClient(handler)
-                {
-                    BaseAddress = new Uri(baseUrl),
-                    Timeout = TimeSpan.FromSeconds(15)
-                };
+                // Create a temporary request with the base URL to test
+                var request = new HttpRequestMessage(HttpMethod.Get, new Uri(new Uri(baseUrl), "api/test/ping"));
                 
                 System.Diagnostics.Debug.WriteLine($"Pinging: {baseUrl}api/test/ping");
-                var response = await tempClient.GetAsync("api/test/ping", cts.Token);
+                
+                // Reuse the main HttpClient but with a custom request
+                var response = await _httpClient.SendAsync(request, cts.Token);
                 
                 System.Diagnostics.Debug.WriteLine($"Response: {response.StatusCode}");
                 return response.IsSuccessStatusCode;
@@ -191,57 +178,43 @@ namespace MobileApp.Services
         {
             try
             {
-                var (accessToken, refreshToken) = GetStoredTokens();
+                var (accessToken, refreshToken) = await GetStoredTokensAsync();
 
+                // Always clear local tokens first
+                ClearTokens();
+
+                // If no tokens or offline, we're done
                 if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
                 {
-                    // No tokens to revoke, just clear local storage
-                    ClearTokens();
                     return (true, "Logged out successfully");
                 }
 
-                // Check internet connectivity
                 if (!await IsConnectedToInternet())
                 {
-                    // Offline - just clear local tokens
-                    ClearTokens();
-                    return (true, "Logged out locally (offline)");
+                    return (true, "Logged out successfully");
                 }
 
-                // Try to revoke tokens on server
+                // Try to revoke tokens on server (best effort)
                 try
                 {
-                    _httpClient.DefaultRequestHeaders.Authorization = 
+                    _httpClient.DefaultRequestHeaders.Authorization =
                         new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
                     var tokenDto = new TokenResponseDTO(accessToken, refreshToken);
-                    var response = await _httpClient.PostAsJsonAsync("api/auth/logout", tokenDto);
-
-                    // Clear tokens regardless of server response
-                    ClearTokens();
-
-                    if (response.IsSuccessStatusCode)
-                    {
-                        return (true, "Logged out successfully");
-                    }
-                    else
-                    {
-                        // Server logout failed but local tokens cleared
-                        return (true, "Logged out locally");
-                    }
+                    await _httpClient.PostAsJsonAsync("api/auth/logout", tokenDto);
                 }
                 catch
                 {
-                    // Network error - clear local tokens anyway
-                    ClearTokens();
-                    return (true, "Logged out locally");
+                    // Ignore server errors - local logout already succeeded
                 }
+
+                return (true, "Logged out successfully");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Always clear tokens on logout attempt
                 ClearTokens();
-                return (true, $"Logged out with warning: {ex.Message}");
+                return (true, "Logged out successfully");
             }
         }
 
@@ -253,12 +226,12 @@ namespace MobileApp.Services
             SecureStorage.SetAsync(REFRESH_TOKEN_KEY, refreshToken);
         }
 
-        public (string? AccessToken, string? RefreshToken) GetStoredTokens()
+        public async Task<(string? AccessToken, string? RefreshToken)> GetStoredTokensAsync()
         {
             try
             {
-                var accessToken = SecureStorage.GetAsync(ACCESS_TOKEN_KEY).Result;
-                var refreshToken = SecureStorage.GetAsync(REFRESH_TOKEN_KEY).Result;
+                var accessToken = await SecureStorage.GetAsync(ACCESS_TOKEN_KEY);
+                var refreshToken = await SecureStorage.GetAsync(REFRESH_TOKEN_KEY);
                 return (accessToken, refreshToken);
             }
             catch
@@ -315,7 +288,7 @@ namespace MobileApp.Services
         {
             try
             {
-                var (accessToken, _) = GetStoredTokens();
+                var (accessToken, _) = await GetStoredTokensAsync();
                 
                 if (string.IsNullOrEmpty(accessToken))
                     return true;
@@ -342,19 +315,29 @@ namespace MobileApp.Services
             
             try
             {
-                var (currentAccessToken, refreshToken) = GetStoredTokens();
+                // Get tokens INSIDE the lock to ensure we have the latest
+                var (currentAccessToken, refreshToken) = await GetStoredTokensAsync();
 
                 if (string.IsNullOrEmpty(refreshToken))
                 {
                     return (false, null, "No refresh token available. Please login again.");
                 }
 
-                // Check if token was already refreshed by another call
-                var (latestAccessToken, _) = GetStoredTokens();
-                if (!string.IsNullOrEmpty(latestAccessToken) && latestAccessToken != currentAccessToken)
+                // Check if access token was recently refreshed (within last 10 seconds)
+                if (!string.IsNullOrEmpty(currentAccessToken))
                 {
-                    // Token was already refreshed
-                    return (true, new TokenResponseDTO(latestAccessToken, refreshToken), "Token already refreshed");
+                    var handler = new JwtSecurityTokenHandler();
+                    if (handler.CanReadToken(currentAccessToken))
+                    {
+                        var jwt = handler.ReadJwtToken(currentAccessToken);
+                        var tokenAge = DateTime.UtcNow - jwt.ValidFrom;
+                        
+                        if (tokenAge.TotalSeconds < 10)
+                        {
+                            // Token was just refreshed, reuse it
+                            return (true, new TokenResponseDTO(currentAccessToken, refreshToken), "Using recently refreshed token");
+                        }
+                    }
                 }
 
                 // Check internet connectivity
@@ -419,11 +402,12 @@ namespace MobileApp.Services
                 var result = await BiometricAuthentication.AuthenticateAsync(authRequest);
                 return result.Authenticated;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // If biometric fails, fall back to allowing access
-                // In production, you might want to handle this differently
-                return true;
+                // SECURITY FIX: Do NOT allow access on exception
+                // Log the error for debugging
+                System.Diagnostics.Debug.WriteLine($"Biometric authentication error: {ex.Message}");
+                return false; // Deny access if biometric authentication fails
             }
         }
 
@@ -432,9 +416,10 @@ namespace MobileApp.Services
             await SecureStorage.SetAsync(BIOMETRIC_ENABLED_KEY, "true");
         }
 
-        public async Task DisableBiometricAuthenticationAsync()
+        public Task DisableBiometricAuthenticationAsync()
         {
             SecureStorage.Remove(BIOMETRIC_ENABLED_KEY);
+            return Task.CompletedTask;
         }
 
         public async Task<bool> IsBiometricEnabledAsync()

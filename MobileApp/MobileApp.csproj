@@ -63,6 +63,8 @@
 		<PackageReference Include="CommunityToolkit.Maui" Version="11.2.0" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.12" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.3" />
+		<PackageReference Include="Plugin.Fingerprint" Version="3.0.0-beta.1" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.2.1" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.12">
 		  <PrivateAssets>all</PrivateAssets>
@@ -82,6 +84,10 @@
 		<PackageReference Include="Syncfusion.Maui.Toolkit" Version="1.0.8" />
 		<PackageReference Include="ZXing.Net.Maui" Version="0.6.0" />
 	</ItemGroup>
+	<ItemGroup>
+		<EmbeddedResource Include="appsettings.json" />
+	</ItemGroup>
+
 
 	<ItemGroup>
 	  <ProjectReference Include="..\MobileData\MobileData.csproj" />

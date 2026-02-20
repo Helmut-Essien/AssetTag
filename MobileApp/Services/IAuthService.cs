@@ -8,7 +8,7 @@ namespace MobileApp.Services
         Task<(bool Success, string Message)> LogoutAsync();
         Task<bool> IsConnectedToInternet();
         void SaveTokens(string accessToken, string refreshToken);
-        (string? AccessToken, string? RefreshToken) GetStoredTokens();
+        Task<(string? AccessToken, string? RefreshToken)> GetStoredTokensAsync();
         void ClearTokens();
         Task<(bool Success, string Message)> ForgotPasswordAsync(string email);
         Task<(bool Success, TokenResponseDTO? Token, string Message)> RefreshTokenAsync();
