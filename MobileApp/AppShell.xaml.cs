@@ -28,7 +28,7 @@ namespace MobileApp
             this.Navigating += OnNavigating;
         }
 
-        private async void OnNavigating(object? sender, ShellNavigatingEventArgs e)
+        private void OnNavigating(object? sender, ShellNavigatingEventArgs e)
         {
             // Skip validation for navigation to LoginPage or SplashScreen
             var targetRoute = e.Target.Location.OriginalString;
@@ -39,16 +39,18 @@ namespace MobileApp
                 return;
             }
 
-            // Only check if tokens exist (not expired)
-            // TokenRefreshHandler will handle token expiration and refresh for API calls
-            var (accessToken, refreshToken) = await _authService.GetStoredTokensAsync();
-            
-            if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
-            {
-                // No tokens at all - redirect to login
-                e.Cancel();
-                await GoToAsync($"/{nameof(LoginPage)}");
-            }
+            // FIXED: Removed token check during navigation to prevent race condition
+            // The issue was that after login, tokens are saved asynchronously to SecureStorage,
+            // but navigation happens immediately. This caused a race condition where sometimes
+            // the tokens weren't available yet, causing navigation to be canceled and redirected
+            // back to login page.
+            //
+            // Token validation is now handled by:
+            // 1. SplashScreen - checks tokens on app startup
+            // 2. TokenRefreshHandler - handles token refresh for API calls
+            // 3. MainPage - will fail gracefully if tokens are missing
+            //
+            // This allows smooth navigation after login without the double-login issue.
         }
     }
 }

@@ -222,8 +222,10 @@ namespace MobileApp.Services
 
         public void SaveTokens(string accessToken, string refreshToken)
         {
-            SecureStorage.SetAsync(ACCESS_TOKEN_KEY, accessToken);
-            SecureStorage.SetAsync(REFRESH_TOKEN_KEY, refreshToken);
+            // Use synchronous Wait() to ensure tokens are saved before method returns
+            // This prevents race conditions where navigation happens before tokens are stored
+            SecureStorage.SetAsync(ACCESS_TOKEN_KEY, accessToken).Wait();
+            SecureStorage.SetAsync(REFRESH_TOKEN_KEY, refreshToken).Wait();
         }
 
         public async Task<(string? AccessToken, string? RefreshToken)> GetStoredTokensAsync()
