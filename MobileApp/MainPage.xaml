@@ -1,9 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:syncfusion="clr-namespace:Syncfusion.Maui.Toolkit;assembly=Syncfusion.Maui.Toolkit"
-             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
-             xmlns:cards="clr-namespace:Syncfusion.Maui.Toolkit.Cards;assembly=Syncfusion.Maui.Toolkit"
              xmlns:vm="clr-namespace:MobileApp.ViewModels"
              x:Class="MobileApp.MainPage"
              x:DataType="vm:MainPageViewModel"
@@ -11,245 +8,262 @@
 
     <Grid RowDefinitions="Auto,*,Auto">
         
-        <!-- Modern Header Section with Gradient Effect -->
-        <Grid Grid.Row="0">
-            <BoxView BackgroundColor="{StaticResource Primary}"
-                     HeightRequest="180"/>
-            <BoxView BackgroundColor="#6D28D9"
-                     Opacity="0.3"
-                     HeightRequest="180"/>
+        <!-- Clean Header Section - Material Design 3 -->
+        <Grid Grid.Row="0"
+              BackgroundColor="#005A9C"
+              Padding="20,15,20,20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
             
-            <Grid Padding="20,15,20,25"
-                  RowDefinitions="Auto,Auto,Auto"
-                  ColumnDefinitions="*,Auto">
-                
-                <!-- Welcome Message -->
-                <Label Grid.Row="0" Grid.Column="0"
-                       Text="Welcome Back"
-                       FontSize="16"
-                       TextColor="White"
-                       Opacity="0.9"
-                       Margin="0,10,0,0"/>
-                
-                <!-- Title -->
-                <Label Grid.Row="1" Grid.Column="0"
-                       Text="Asset Management"
-                       FontSize="32"
-                       FontAttributes="Bold"
-                       TextColor="White"
-                       Margin="0,5,0,0"/>
-                
-                <!-- Subtitle -->
-                <Label Grid.Row="2" Grid.Column="0"
-                       Text="Field Recording System"
-                       FontSize="14"
-                       TextColor="White"
-                       Opacity="0.85"
-                       Margin="0,5,0,0"/>
-                
-                <!-- Logout Button - Modern Icon Style -->
-                <Border Grid.Row="0" Grid.RowSpan="3" Grid.Column="1"
-                        BackgroundColor="#FFFFFF20"
-                        Stroke="Transparent"
-                        StrokeThickness="0"
-                        Padding="12,10"
-                        VerticalOptions="Center"
-                        HorizontalOptions="End">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="12"/>
-                    </Border.StrokeShape>
-                    <Label Text="🚪"
-                           FontSize="20"
-                           HorizontalOptions="Center"
-                           VerticalOptions="Center"/>
-                    <Border.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding LogoutCommand}"/>
-                    </Border.GestureRecognizers>
-                </Border>
-            </Grid>
+            <!-- Title -->
+            <Label Grid.Row="0" Grid.Column="0"
+                   Text="Asset Management"
+                   FontFamily="Roboto"
+                   FontSize="22"
+                   FontAttributes="Bold"
+                   TextColor="White"
+                   VerticalOptions="Center"/>
+            
+            <!-- Settings Icon Button -->
+            <Border Grid.Row="0" Grid.Column="1"
+                    BackgroundColor="Transparent"
+                    Stroke="Transparent"
+                    Padding="8"
+                    VerticalOptions="Center"
+                    HorizontalOptions="End">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="20"/>
+                </Border.StrokeShape>
+                <Label Text="⚙️"
+                       FontSize="24"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"/>
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding NavigateToSettingsCommand}"/>
+                </Border.GestureRecognizers>
+            </Border>
         </Grid>
 
         <!-- Main Content Area with Pull-to-Refresh -->
         <RefreshView Grid.Row="1"
                      IsRefreshing="{Binding IsBusy}"
                      Command="{Binding RefreshCommand}"
-                     RefreshColor="{StaticResource Primary}">
+                     RefreshColor="#005A9C">
             <ScrollView>
-                <VerticalStackLayout Spacing="20" Padding="20,0,20,20">
+                <VerticalStackLayout Spacing="24" Padding="20,20,20,20">
                     
-                    <!-- Stats Cards Section - Elevated from header -->
-                    <Grid ColumnDefinitions="*,*"
-                          RowDefinitions="Auto,Auto"
-                          ColumnSpacing="12"
-                          RowSpacing="12"
-                          Margin="0,-40,0,0">
+                    <!-- Summary Cards Section -->
+                    <Grid ColumnDefinitions="*,*,*"
+                          ColumnSpacing="12">
                         
-                        <!-- Total Assets Card - Enhanced Design -->
-                        <Border Grid.Row="0" Grid.Column="0"
+                        <!-- Total Assets Card -->
+                        <Border Grid.Column="0"
                                 BackgroundColor="White"
                                 Stroke="Transparent"
-                                StrokeThickness="0"
-                                Padding="16"
-                                Shadow="{Shadow Brush=Black, Opacity=0.08, Radius=12, Offset='0,4'}">
+                                Padding="12,16"
+                                Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
                             <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="16"/>
+                                <RoundRectangle CornerRadius="12"/>
                             </Border.StrokeShape>
-                            <Grid RowSpacing="10">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                
-                                <Border Grid.Row="0"
-                                        BackgroundColor="#F3F4F6"
-                                        WidthRequest="48"
-                                        HeightRequest="48"
-                                        HorizontalOptions="Center"
-                                        Stroke="Transparent">
-                                    <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="12"/>
-                                    </Border.StrokeShape>
-                                    <Label Text="📦"
-                                           FontSize="24"
-                                           HorizontalOptions="Center"
-                                           VerticalOptions="Center"/>
-                                </Border>
-                                
-                                <Label Grid.Row="1"
-                                       Text="{Binding TotalAssets}"
+                            <VerticalStackLayout Spacing="8" HorizontalOptions="Center">
+                                <Label Text="📦"
                                        FontSize="28"
+                                       HorizontalOptions="Center"/>
+                                <Label Text="{Binding TotalAssets}"
+                                       FontFamily="Roboto"
+                                       FontSize="24"
                                        FontAttributes="Bold"
                                        HorizontalOptions="Center"
-                                       TextColor="#1F2937"/>
-                                
-                                <Label Grid.Row="2"
-                                       Text="Total Assets"
-                                       FontSize="13"
+                                       TextColor="#333333"/>
+                                <Label Text="Total Assets"
+                                       FontFamily="Roboto"
+                                       FontSize="11"
                                        HorizontalOptions="Center"
-                                       TextColor="#6B7280"/>
-                            </Grid>
+                                       TextColor="#666666"/>
+                            </VerticalStackLayout>
                         </Border>
                         
                         <!-- Scanned Today Card -->
-                        <Border Grid.Row="0" Grid.Column="1"
+                        <Border Grid.Column="1"
                                 BackgroundColor="White"
                                 Stroke="Transparent"
-                                StrokeThickness="0"
-                                Padding="16"
-                                Shadow="{Shadow Brush=Black, Opacity=0.08, Radius=12, Offset='0,4'}">
+                                Padding="12,16"
+                                Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
                             <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="16"/>
+                                <RoundRectangle CornerRadius="12"/>
                             </Border.StrokeShape>
-                            <Grid RowSpacing="10">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                
-                                <Border Grid.Row="0"
-                                        BackgroundColor="#ECFDF5"
-                                        WidthRequest="48"
-                                        HeightRequest="48"
-                                        HorizontalOptions="Center"
-                                        Stroke="Transparent">
-                                    <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="12"/>
-                                    </Border.StrokeShape>
-                                    <Label Text="✅"
-                                           FontSize="24"
-                                           HorizontalOptions="Center"
-                                           VerticalOptions="Center"/>
-                                </Border>
-                                
-                                <Label Grid.Row="1"
-                                       Text="{Binding ScannedToday}"
+                            <VerticalStackLayout Spacing="8" HorizontalOptions="Center">
+                                <Label Text="📱"
                                        FontSize="28"
+                                       HorizontalOptions="Center"/>
+                                <Label Text="{Binding ScannedToday}"
+                                       FontFamily="Roboto"
+                                       FontSize="24"
                                        FontAttributes="Bold"
                                        HorizontalOptions="Center"
-                                       TextColor="#10B981"/>
-                                
-                                <Label Grid.Row="2"
-                                       Text="Scanned Today"
-                                       FontSize="13"
+                                       TextColor="#333333"/>
+                                <Label Text="Scanned Today"
+                                       FontFamily="Roboto"
+                                       FontSize="11"
                                        HorizontalOptions="Center"
-                                       TextColor="#6B7280"/>
-                            </Grid>
+                                       TextColor="#666666"/>
+                            </VerticalStackLayout>
                         </Border>
                         
                         <!-- Pending Sync Card -->
-                        <Border Grid.Row="1" Grid.Column="0"
+                        <Border Grid.Column="2"
                                 BackgroundColor="White"
                                 Stroke="Transparent"
-                                StrokeThickness="0"
-                                Padding="16"
-                                Shadow="{Shadow Brush=Black, Opacity=0.08, Radius=12, Offset='0,4'}">
+                                Padding="12,16"
+                                Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
                             <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="16"/>
+                                <RoundRectangle CornerRadius="12"/>
                             </Border.StrokeShape>
-                            <Grid RowSpacing="10">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                
-                                <Border Grid.Row="0"
-                                        BackgroundColor="#FEF3C7"
+                            <VerticalStackLayout Spacing="8" HorizontalOptions="Center">
+                                <Label Text="⚠️"
+                                       FontSize="28"
+                                       HorizontalOptions="Center"/>
+                                <Label Text="{Binding PendingSync}"
+                                       FontFamily="Roboto"
+                                       FontSize="24"
+                                       FontAttributes="Bold"
+                                       HorizontalOptions="Center"
+                                       TextColor="#FFC107"/>
+                                <Label Text="Pending Sync"
+                                       FontFamily="Roboto"
+                                       FontSize="11"
+                                       HorizontalOptions="Center"
+                                       TextColor="#666666"/>
+                            </VerticalStackLayout>
+                        </Border>
+                    </Grid>
+                    
+                    <!-- Sync Status Section -->
+                    <Border BackgroundColor="White"
+                            Stroke="Transparent"
+                            Padding="20,24"
+                            Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="12"/>
+                        </Border.StrokeShape>
+                        <VerticalStackLayout Spacing="16" HorizontalOptions="Center">
+                            <Label Text="{Binding LastSync, StringFormat='Last Sync: {0}'}"
+                                   FontFamily="Roboto"
+                                   FontSize="14"
+                                   HorizontalOptions="Center"
+                                   TextColor="#666666"/>
+                            
+                            <!-- Sync Data Button -->
+                            <Border BackgroundColor="#00796B"
+                                    Stroke="Transparent"
+                                    Padding="32,14"
+                                    HorizontalOptions="Center"
+                                    MinimumWidthRequest="200">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="8"/>
+                                </Border.StrokeShape>
+                                <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
+                                    <!-- Progress Indicator (visible when syncing) -->
+                                    <ActivityIndicator Grid.Column="0"
+                                                     IsRunning="{Binding IsBusy}"
+                                                     IsVisible="{Binding IsBusy}"
+                                                     Color="White"
+                                                     WidthRequest="20"
+                                                     HeightRequest="20"
+                                                     VerticalOptions="Center"/>
+                                    <Label Grid.Column="1"
+                                           Text="Sync Data"
+                                           FontFamily="Roboto"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           TextColor="White"
+                                           VerticalOptions="Center"/>
+                                </Grid>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding SyncDataCommand}"/>
+                                </Border.GestureRecognizers>
+                            </Border>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Quick Actions Section -->
+                    <VerticalStackLayout Spacing="16">
+                        <Label Text="Quick Actions"
+                               FontFamily="Roboto"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               TextColor="#333333"
+                               Margin="0,0,0,4"/>
+                        
+                        <!-- Add Asset Button -->
+                        <Border BackgroundColor="White"
+                                Stroke="Transparent"
+                                Padding="20,18"
+                                Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12"/>
+                            </Border.StrokeShape>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                                <Border Grid.Column="0"
+                                        BackgroundColor="#E8F5E9"
                                         WidthRequest="48"
                                         HeightRequest="48"
-                                        HorizontalOptions="Center"
                                         Stroke="Transparent">
                                     <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="12"/>
+                                        <RoundRectangle CornerRadius="24"/>
                                     </Border.StrokeShape>
-                                    <Label Text="🔄"
+                                    <Label Text="➕"
                                            FontSize="24"
                                            HorizontalOptions="Center"
                                            VerticalOptions="Center"/>
                                 </Border>
                                 
-                                <Label Grid.Row="1"
-                                       Text="{Binding PendingSync}"
-                                       FontSize="28"
-                                       FontAttributes="Bold"
-                                       HorizontalOptions="Center"
-                                       TextColor="#F59E0B"/>
+                                <VerticalStackLayout Grid.Column="1"
+                                                   VerticalOptions="Center"
+                                                   Spacing="2">
+                                    <Label Text="Add New Asset"
+                                           FontFamily="Roboto"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           TextColor="#333333"/>
+                                    <Label Text="Register a new item into the inventory"
+                                           FontFamily="Roboto"
+                                           FontSize="13"
+                                           TextColor="#666666"/>
+                                </VerticalStackLayout>
                                 
-                                <Label Grid.Row="2"
-                                       Text="Pending Sync"
-                                       FontSize="13"
-                                       HorizontalOptions="Center"
-                                       TextColor="#6B7280"/>
+                                <Label Grid.Column="2"
+                                       Text="›"
+                                       FontSize="28"
+                                       TextColor="#CCCCCC"
+                                       VerticalOptions="Center"/>
                             </Grid>
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding AddAssetCommand}"/>
+                            </Border.GestureRecognizers>
                         </Border>
                         
-                        <!-- Categories Card -->
-                        <Border Grid.Row="1" Grid.Column="1"
-                                BackgroundColor="White"
+                        <!-- View Assets Button -->
+                        <Border BackgroundColor="White"
                                 Stroke="Transparent"
-                                StrokeThickness="0"
-                                Padding="16"
-                                Shadow="{Shadow Brush=Black, Opacity=0.08, Radius=12, Offset='0,4'}">
+                                Padding="20,18"
+                                Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
                             <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="16"/>
+                                <RoundRectangle CornerRadius="12"/>
                             </Border.StrokeShape>
-                            <Grid RowSpacing="10">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                
-                                <Border Grid.Row="0"
-                                        BackgroundColor="#F5F3FF"
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                                <Border Grid.Column="0"
+                                        BackgroundColor="#E3F2FD"
                                         WidthRequest="48"
                                         HeightRequest="48"
-                                        HorizontalOptions="Center"
                                         Stroke="Transparent">
                                     <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="12"/>
+                                        <RoundRectangle CornerRadius="24"/>
                                     </Border.StrokeShape>
                                     <Label Text="📋"
                                            FontSize="24"
@@ -257,169 +271,49 @@
                                            VerticalOptions="Center"/>
                                 </Border>
                                 
-                                <Label Grid.Row="1"
-                                       Text="{Binding Categories}"
-                                       FontSize="28"
-                                       FontAttributes="Bold"
-                                       HorizontalOptions="Center"
-                                       TextColor="#8B5CF6"/>
-                                
-                                <Label Grid.Row="2"
-                                       Text="Categories"
-                                       FontSize="13"
-                                       HorizontalOptions="Center"
-                                       TextColor="#6B7280"/>
-                            </Grid>
-                        </Border>
-                    </Grid>
-
-                    <!-- Quick Actions Section -->
-                    <VerticalStackLayout Spacing="16" Margin="0,20,0,0">
-                        <Label Text="Quick Actions"
-                               FontSize="20"
-                               FontAttributes="Bold"
-                               TextColor="#1F2937"
-                               Margin="0,0,0,8"/>
-                        
-                        <!-- Primary Action - Scan Asset (Featured) -->
-                        <Border BackgroundColor="{StaticResource Primary}"
-                                Stroke="Transparent"
-                                Padding="20,18"
-                                Shadow="{Shadow Brush={StaticResource Primary}, Opacity=0.3, Radius=16, Offset='0,6'}">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="16"/>
-                            </Border.StrokeShape>
-                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
-                                <Border Grid.Column="0"
-                                        BackgroundColor="#FFFFFF30"
-                                        WidthRequest="56"
-                                        HeightRequest="56"
-                                        Stroke="Transparent">
-                                    <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="14"/>
-                                    </Border.StrokeShape>
-                                    <Label Text="📷"
-                                           FontSize="28"
-                                           HorizontalOptions="Center"
-                                           VerticalOptions="Center"/>
-                                </Border>
-                                
                                 <VerticalStackLayout Grid.Column="1"
                                                    VerticalOptions="Center"
-                                                   Spacing="4">
-                                    <Label Text="Scan Asset"
-                                           FontSize="18"
+                                                   Spacing="2">
+                                    <Label Text="View Asset List"
+                                           FontFamily="Roboto"
+                                           FontSize="16"
                                            FontAttributes="Bold"
-                                           TextColor="White"/>
-                                    <Label Text="Scan barcode or QR code"
+                                           TextColor="#333333"/>
+                                    <Label Text="Browse and filter existing inventory"
+                                           FontFamily="Roboto"
                                            FontSize="13"
-                                           TextColor="White"
-                                           Opacity="0.9"/>
+                                           TextColor="#666666"/>
                                 </VerticalStackLayout>
                                 
                                 <Label Grid.Column="2"
                                        Text="›"
-                                       FontSize="32"
-                                       TextColor="White"
-                                       Opacity="0.7"
+                                       FontSize="28"
+                                       TextColor="#CCCCCC"
                                        VerticalOptions="Center"/>
                             </Grid>
                             <Border.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding ScanAssetCommand}"/>
+                                <TapGestureRecognizer Command="{Binding ViewAssetsCommand}"/>
                             </Border.GestureRecognizers>
                         </Border>
                         
-                        <!-- Secondary Actions Grid -->
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12" RowSpacing="12">
-                            
-                            <!-- Add New Asset -->
-                            <Border Grid.Column="0"
-                                    BackgroundColor="White"
-                                    Stroke="Transparent"
-                                    Padding="16"
-                                    Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=10, Offset='0,3'}">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="14"/>
-                                </Border.StrokeShape>
-                                <VerticalStackLayout Spacing="12" HorizontalOptions="Center">
-                                    <Border BackgroundColor="#ECFDF5"
-                                            WidthRequest="52"
-                                            HeightRequest="52"
-                                            HorizontalOptions="Center"
-                                            Stroke="Transparent">
-                                        <Border.StrokeShape>
-                                            <RoundRectangle CornerRadius="13"/>
-                                        </Border.StrokeShape>
-                                        <Label Text="➕"
-                                               FontSize="26"
-                                               HorizontalOptions="Center"
-                                               VerticalOptions="Center"/>
-                                    </Border>
-                                    <Label Text="Add Asset"
-                                           FontSize="15"
-                                           FontAttributes="Bold"
-                                           HorizontalOptions="Center"
-                                           TextColor="#1F2937"/>
-                                </VerticalStackLayout>
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding AddAssetCommand}"/>
-                                </Border.GestureRecognizers>
-                            </Border>
-                            
-                            <!-- View All Assets -->
-                            <Border Grid.Column="1"
-                                    BackgroundColor="White"
-                                    Stroke="Transparent"
-                                    Padding="16"
-                                    Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=10, Offset='0,3'}">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="14"/>
-                                </Border.StrokeShape>
-                                <VerticalStackLayout Spacing="12" HorizontalOptions="Center">
-                                    <Border BackgroundColor="#F5F3FF"
-                                            WidthRequest="52"
-                                            HeightRequest="52"
-                                            HorizontalOptions="Center"
-                                            Stroke="Transparent">
-                                        <Border.StrokeShape>
-                                            <RoundRectangle CornerRadius="13"/>
-                                        </Border.StrokeShape>
-                                        <Label Text="📱"
-                                               FontSize="26"
-                                               HorizontalOptions="Center"
-                                               VerticalOptions="Center"/>
-                                    </Border>
-                                    <Label Text="View Assets"
-                                           FontSize="15"
-                                           FontAttributes="Bold"
-                                           HorizontalOptions="Center"
-                                           TextColor="#1F2937"/>
-                                </VerticalStackLayout>
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding ViewAssetsCommand}"/>
-                                </Border.GestureRecognizers>
-                            </Border>
-                        </Grid>
-                        
-                        <!-- Sync Data Action -->
+                        <!-- Scan Asset Button -->
                         <Border BackgroundColor="White"
-                                Stroke="#E5E7EB"
-                                StrokeThickness="1"
-                                Padding="18"
-                                Shadow="{Shadow Brush=Black, Opacity=0.04, Radius=8, Offset='0,2'}">
+                                Stroke="Transparent"
+                                Padding="20,18"
+                                Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
                             <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="14"/>
+                                <RoundRectangle CornerRadius="12"/>
                             </Border.StrokeShape>
-                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
                                 <Border Grid.Column="0"
-                                        BackgroundColor="#FEF3C7"
+                                        BackgroundColor="#FFF3E0"
                                         WidthRequest="48"
                                         HeightRequest="48"
                                         Stroke="Transparent">
                                     <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="12"/>
+                                        <RoundRectangle CornerRadius="24"/>
                                     </Border.StrokeShape>
-                                    <Label Text="☁️"
+                                    <Label Text="📷"
                                            FontSize="24"
                                            HorizontalOptions="Center"
                                            VerticalOptions="Center"/>
@@ -427,64 +321,29 @@
                                 
                                 <VerticalStackLayout Grid.Column="1"
                                                    VerticalOptions="Center"
-                                                   Spacing="3">
-                                    <Label Text="Sync Data"
+                                                   Spacing="2">
+                                    <Label Text="Scan Asset"
+                                           FontFamily="Roboto"
                                            FontSize="16"
                                            FontAttributes="Bold"
-                                           TextColor="#1F2937"/>
-                                    <Label Text="Sync with cloud server"
+                                           TextColor="#333333"/>
+                                    <Label Text="Quick lookup via barcode or QR"
+                                           FontFamily="Roboto"
                                            FontSize="13"
-                                           TextColor="#6B7280"/>
+                                           TextColor="#666666"/>
                                 </VerticalStackLayout>
                                 
                                 <Label Grid.Column="2"
                                        Text="›"
                                        FontSize="28"
-                                       TextColor="#D1D5DB"
+                                       TextColor="#CCCCCC"
                                        VerticalOptions="Center"/>
                             </Grid>
                             <Border.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding SyncDataCommand}"/>
+                                <TapGestureRecognizer Command="{Binding ScanAssetCommand}"/>
                             </Border.GestureRecognizers>
                         </Border>
                     </VerticalStackLayout>
-                    
-                    <!-- Last Sync Info Banner -->
-                    <Border BackgroundColor="#EFF6FF"
-                            Stroke="#DBEAFE"
-                            StrokeThickness="1"
-                            Padding="16"
-                            Margin="0,8,0,0">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="12"/>
-                        </Border.StrokeShape>
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                            <Border Grid.Column="0"
-                                    BackgroundColor="#DBEAFE"
-                                    WidthRequest="40"
-                                    HeightRequest="40"
-                                    VerticalOptions="Center"
-                                    Stroke="Transparent">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="10"/>
-                                </Border.StrokeShape>
-                                <Label Text="ℹ️"
-                                       FontSize="20"
-                                       HorizontalOptions="Center"
-                                       VerticalOptions="Center"/>
-                            </Border>
-                            
-                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
-                                <Label Text="Last Sync"
-                                       FontSize="13"
-                                       FontAttributes="Bold"
-                                       TextColor="#1E40AF"/>
-                                <Label Text="{Binding LastSync}"
-                                       FontSize="12"
-                                       TextColor="#3B82F6"/>
-                            </VerticalStackLayout>
-                        </Grid>
-                    </Border>
                     
                 </VerticalStackLayout>
             </ScrollView>
@@ -511,78 +370,82 @@
                 
                 <!-- Home Tab - Active State -->
                 <Border Grid.Column="0"
-                        BackgroundColor="#F3F4F6"
+                        BackgroundColor="#E3F2FD"
                         Stroke="Transparent"
-                        Padding="12,10">
+                        Padding="8,8">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="12"/>
                     </Border.StrokeShape>
-                    <VerticalStackLayout Spacing="6" HorizontalOptions="Center">
+                    <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
                         <Label Text="🏠"
                                FontSize="24"
                                HorizontalOptions="Center"/>
                         <Label Text="Home"
+                               FontFamily="Roboto"
                                FontSize="11"
                                FontAttributes="Bold"
                                HorizontalOptions="Center"
-                               TextColor="{StaticResource Primary}"/>
+                               TextColor="#005A9C"/>
                     </VerticalStackLayout>
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding RefreshCommand}"/>
                     </Border.GestureRecognizers>
                 </Border>
                 
-                <!-- Assets Tab -->
+                <!-- Inventory Tab -->
                 <VerticalStackLayout Grid.Column="1"
-                                   Spacing="6"
-                                   Padding="12,10"
+                                   Spacing="4"
+                                   Padding="8,8"
                                    HorizontalOptions="Center">
                     <Label Text="📦"
                            FontSize="24"
                            HorizontalOptions="Center"
-                           Opacity="0.6"/>
-                    <Label Text="Assets"
+                           Opacity="0.5"/>
+                    <Label Text="Inventory"
+                           FontFamily="Roboto"
                            FontSize="11"
                            HorizontalOptions="Center"
-                           TextColor="#6B7280"/>
+                           TextColor="#808080"/>
                     <VerticalStackLayout.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding NavigateToAssetsCommand}"/>
                     </VerticalStackLayout.GestureRecognizers>
                 </VerticalStackLayout>
                 
-                <!-- Reports Tab -->
+                <!-- Categories Tab -->
                 <VerticalStackLayout Grid.Column="2"
-                                   Spacing="6"
-                                   Padding="12,10"
+                                   Spacing="4"
+                                   Padding="8,8"
                                    HorizontalOptions="Center">
-                    <Label Text="📊"
+                    <Label Text="📂"
                            FontSize="24"
                            HorizontalOptions="Center"
-                           Opacity="0.6"/>
-                    <Label Text="Reports"
+                           Opacity="0.5"/>
+                    <Label Text="Categories"
+                           FontFamily="Roboto"
                            FontSize="11"
                            HorizontalOptions="Center"
-                           TextColor="#6B7280"/>
+                           TextColor="#808080"/>
                     <VerticalStackLayout.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding NavigateToReportsCommand}"/>
+                        <TapGestureRecognizer Command="{Binding NavigateToCategoriesCommand}"/>
                     </VerticalStackLayout.GestureRecognizers>
                 </VerticalStackLayout>
                 
-                <!-- Settings Tab -->
+                <!-- Locations Tab -->
                 <VerticalStackLayout Grid.Column="3"
-                                   Spacing="6"
-                                   Padding="12,10"
+                                   Spacing="4"
+                                   Padding="8,8"
                                    HorizontalOptions="Center">
-                    <Label Text="⚙️"
+                    <Label Text="📍"
                            FontSize="24"
                            HorizontalOptions="Center"
-                           Opacity="0.6"/>
-                    <Label Text="Settings"
+                           Opacity="0.5"/>
+                    <Label Text="Locations"
+                           FontFamily="Roboto"
                            FontSize="11"
                            HorizontalOptions="Center"
-                           TextColor="#6B7280"/>
+                           TextColor="#808080"/>
                     <VerticalStackLayout.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding NavigateToSettingsCommand}"/>
+                        <TapGestureRecognizer Command="{Binding NavigateToLocationsCommand}"/>
                     </VerticalStackLayout.GestureRecognizers>
                 </VerticalStackLayout>
                 

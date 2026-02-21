@@ -249,6 +249,42 @@ namespace MobileApp.ViewModels
         }
 
         /// <summary>
+        /// Navigate to categories page (bottom nav)
+        /// </summary>
+        [RelayCommand]
+        private async Task NavigateToCategoriesAsync()
+        {
+            try
+            {
+                // TODO: Navigate to categories page when implemented
+                await Shell.Current.DisplayAlert("Categories", "Opening categories page...", "OK");
+                // await Shell.Current.GoToAsync("CategoriesPage");
+            }
+            catch (Exception ex)
+            {
+                await Shell.Current.DisplayAlert("Error", ex.Message, "OK");
+            }
+        }
+
+        /// <summary>
+        /// Navigate to locations page (bottom nav)
+        /// </summary>
+        [RelayCommand]
+        private async Task NavigateToLocationsAsync()
+        {
+            try
+            {
+                // TODO: Navigate to locations page when implemented
+                await Shell.Current.DisplayAlert("Locations", "Opening locations page...", "OK");
+                // await Shell.Current.GoToAsync("LocationsPage");
+            }
+            catch (Exception ex)
+            {
+                await Shell.Current.DisplayAlert("Error", ex.Message, "OK");
+            }
+        }
+
+        /// <summary>
         /// Logout the current user
         /// </summary>
         [RelayCommand]
