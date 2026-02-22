@@ -238,13 +238,154 @@ namespace MobileApp.ViewModels
         {
             try
             {
-                // TODO: Navigate to settings page when implemented
-                await Shell.Current.DisplayAlert("Settings", "Opening settings page...", "OK");
-                // await Shell.Current.GoToAsync("SettingsPage");
+                // Check if biometric is available
+                var biometricAvailable = await BiometricAuthentication.IsBiometricAvailableAsync();
+                var biometricEnabled = await _authService.IsBiometricEnabledAsync();
+
+                string biometricStatus = biometricAvailable
+                    ? (biometricEnabled ? "✅ Enabled" : "❌ Disabled")
+                    : "⚠️ Not Available";
+
+                var action = await Shell.Current.DisplayActionSheet(
+                    "Settings",
+                    "Cancel",
+                    null,
+                    biometricAvailable ? $"Biometric Login: {biometricStatus}" : null,
+                    "Logout");
+
+                if (action == "Logout")
+                {
+                    await LogoutAsync();
+                }
+                else if (action != null && action.StartsWith("Biometric"))
+                {
+                    await ToggleBiometricAsync();
+                }
             }
             catch (Exception ex)
             {
                 await Shell.Current.DisplayAlert("Error", ex.Message, "OK");
+            }
+        }
+
+        /// <summary>
+        /// Toggle biometric authentication on/off
+        /// </summary>
+        [RelayCommand]
+        private async Task ToggleBiometricAsync()
+        {
+            try
+            {
+                var biometricEnabled = await _authService.IsBiometricEnabledAsync();
+
+                if (biometricEnabled)
+                {
+                    // Disable biometric
+                    var confirm = await Shell.Current.DisplayAlert(
+                        "Disable Biometric Login",
+                        "Are you sure you want to disable biometric authentication?",
+                        "Yes",
+                        "No");
+
+                    if (confirm)
+                    {
+                        await _authService.DisableBiometricAuthenticationAsync();
+                        await Shell.Current.DisplayAlert(
+                            "Success",
+                            "Biometric authentication has been disabled.",
+                            "OK");
+                    }
+                }
+                else
+                {
+                    // Enable biometric - check if biometric is available first
+                    var biometricAvailable = await BiometricAuthentication.IsBiometricAvailableAsync();
+                    
+                    if (!biometricAvailable)
+                    {
+                        await Shell.Current.DisplayAlert(
+                            "Not Available",
+                            "Biometric authentication is not available on this device. Please ensure you have set up fingerprint or face recognition in your device settings.",
+                            "OK");
+                        return;
+                    }
+
+                    // Check if user has stored credentials from login
+                    var (storedEmail, storedPassword) = await _authService.GetStoredCredentialsAsync();
+                    
+                    // If no stored credentials, ask for them
+                    if (string.IsNullOrEmpty(storedEmail) || string.IsNullOrEmpty(storedPassword))
+                    {
+                        var email = await Shell.Current.DisplayPromptAsync(
+                            "Enable Biometric Login",
+                            "Enter your email address:",
+                            "Next",
+                            "Cancel",
+                            keyboard: Keyboard.Email);
+
+                        if (string.IsNullOrWhiteSpace(email))
+                            return;
+
+                        var password = await Shell.Current.DisplayPromptAsync(
+                            "Enable Biometric Login",
+                            "Enter your password:",
+                            "Enable",
+                            "Cancel",
+                            keyboard: Keyboard.Default);
+
+                        if (string.IsNullOrWhiteSpace(password))
+                            return;
+
+                        // Verify credentials by attempting login
+                        IsBusy = true;
+                        var (loginSuccess, _, loginMessage) = await _authService.LoginAsync(email, password);
+                        IsBusy = false;
+
+                        if (!loginSuccess)
+                        {
+                            await Shell.Current.DisplayAlert(
+                                "Error",
+                                $"Invalid credentials: {loginMessage}",
+                                "OK");
+                            return;
+                        }
+
+                        storedEmail = email;
+                        storedPassword = password;
+                    }
+
+                    // Authenticate with biometrics to confirm
+                    var authRequest = new AuthenticationRequest
+                    {
+                        Title = "Enable Biometric Login",
+                        Reason = "Scan your fingerprint or face to enable biometric login",
+                        AllowAlternativeAuthentication = true
+                    };
+
+                    var result = await BiometricAuthentication.AuthenticateAsync(authRequest);
+
+                    if (result.Authenticated)
+                    {
+                        await _authService.EnableBiometricAuthenticationAsync(storedEmail, storedPassword);
+                        await Shell.Current.DisplayAlert(
+                            "Success",
+                            "Biometric authentication has been enabled! You can now login using biometrics even if your session expires.",
+                            "OK");
+                    }
+                    else
+                    {
+                        await Shell.Current.DisplayAlert(
+                            "Failed",
+                            string.IsNullOrEmpty(result.ErrorMessage)
+                                ? "Biometric authentication failed. Please try again."
+                                : $"Biometric authentication failed: {result.ErrorMessage}",
+                            "OK");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                await Shell.Current.DisplayAlert("Error", $"An error occurred: {ex.Message}", "OK");
             }
         }
 

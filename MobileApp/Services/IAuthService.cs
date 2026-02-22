@@ -14,8 +14,10 @@ namespace MobileApp.Services
         Task<(bool Success, TokenResponseDTO? Token, string Message)> RefreshTokenAsync();
         Task<bool> IsTokenExpiredAsync();
         Task<bool> AuthenticateWithBiometricsAsync(string reason);
-        Task EnableBiometricAuthenticationAsync();
+        Task EnableBiometricAuthenticationAsync(string email, string password);
         Task DisableBiometricAuthenticationAsync();
         Task<bool> IsBiometricEnabledAsync();
+        Task<(bool Success, TokenResponseDTO? Token, string Message)> BiometricLoginAsync();
+        Task<(string? Email, string? Password)> GetStoredCredentialsAsync();
     }
 }

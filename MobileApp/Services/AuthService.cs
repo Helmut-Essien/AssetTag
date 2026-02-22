@@ -14,6 +14,8 @@ namespace MobileApp.Services
         private const string ACCESS_TOKEN_KEY = "access_token";
         private const string REFRESH_TOKEN_KEY = "refresh_token";
         private const string BIOMETRIC_ENABLED_KEY = "biometric_enabled";
+        private const string BIOMETRIC_EMAIL_KEY = "biometric_email";
+        private const string BIOMETRIC_PASSWORD_KEY = "biometric_password";
         private string _currentBaseUrl;
         private static readonly SemaphoreSlim _refreshLock = new SemaphoreSlim(1, 1);
 
@@ -385,15 +387,7 @@ namespace MobileApp.Services
         {
             try
             {
-                // Check if biometric authentication is available
-                var isBiometricAvailable = await SecureStorage.GetAsync(BIOMETRIC_ENABLED_KEY);
-                
-                if (isBiometricAvailable != "true")
-                {
-                    return true; // Biometrics not enabled, allow access
-                }
-
-                // Request biometric authentication
+                // Always request biometric authentication when this method is called
                 var authRequest = new AuthenticationRequest
                 {
                     Title = "Authentication Required",
@@ -406,21 +400,25 @@ namespace MobileApp.Services
             }
             catch (Exception ex)
             {
-                // SECURITY FIX: Do NOT allow access on exception
                 // Log the error for debugging
                 System.Diagnostics.Debug.WriteLine($"Biometric authentication error: {ex.Message}");
                 return false; // Deny access if biometric authentication fails
             }
         }
 
-        public async Task EnableBiometricAuthenticationAsync()
+        public async Task EnableBiometricAuthenticationAsync(string email, string password)
         {
+            // Store credentials securely for biometric re-authentication
             await SecureStorage.SetAsync(BIOMETRIC_ENABLED_KEY, "true");
+            await SecureStorage.SetAsync(BIOMETRIC_EMAIL_KEY, email);
+            await SecureStorage.SetAsync(BIOMETRIC_PASSWORD_KEY, password);
         }
 
         public Task DisableBiometricAuthenticationAsync()
         {
             SecureStorage.Remove(BIOMETRIC_ENABLED_KEY);
+            SecureStorage.Remove(BIOMETRIC_EMAIL_KEY);
+            SecureStorage.Remove(BIOMETRIC_PASSWORD_KEY);
             return Task.CompletedTask;
         }
 
@@ -428,6 +426,86 @@ namespace MobileApp.Services
         {
             var enabled = await SecureStorage.GetAsync(BIOMETRIC_ENABLED_KEY);
             return enabled == "true";
+        }
+
+        public async Task<(string? Email, string? Password)> GetStoredCredentialsAsync()
+        {
+            try
+            {
+                var email = await SecureStorage.GetAsync(BIOMETRIC_EMAIL_KEY);
+                var password = await SecureStorage.GetAsync(BIOMETRIC_PASSWORD_KEY);
+                return (email, password);
+            }
+            catch
+            {
+                return (null, null);
+            }
+        }
+
+        public async Task<(bool Success, TokenResponseDTO? Token, string Message)> BiometricLoginAsync()
+        {
+            try
+            {
+                // Check if biometric is enabled
+                if (!await IsBiometricEnabledAsync())
+                {
+                    return (false, null, "Biometric authentication is not enabled.");
+                }
+
+                // Authenticate with biometrics
+                var authenticated = await AuthenticateWithBiometricsAsync("Authenticate to access AssetTag");
+                
+                if (!authenticated)
+                {
+                    return (false, null, "Biometric authentication failed.");
+                }
+
+                // Try to use existing tokens first
+                var (accessToken, refreshToken) = await GetStoredTokensAsync();
+                
+                if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
+                {
+                    // Check if token is still valid
+                    if (!await IsTokenExpiredAsync())
+                    {
+                        return (true, new TokenResponseDTO(accessToken, refreshToken), "Login successful");
+                    }
+
+                    // Try to refresh the token
+                    var (refreshSuccess, newTokens, refreshMessage) = await RefreshTokenAsync();
+                    
+                    if (refreshSuccess && newTokens != null)
+                    {
+                        return (true, newTokens, "Login successful");
+                    }
+                }
+
+                // Token refresh failed or no tokens available - re-authenticate with stored credentials
+                var (email, password) = await GetStoredCredentialsAsync();
+                
+                if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
+                {
+                    return (false, null, "No stored credentials found. Please login with your email and password.");
+                }
+
+                // Re-authenticate with stored credentials
+                var (loginSuccess, token, loginMessage) = await LoginAsync(email, password);
+                
+                if (loginSuccess)
+                {
+                    return (true, token, "Login successful");
+                }
+                else
+                {
+                    // If login fails, credentials might be invalid - disable biometric
+                    await DisableBiometricAuthenticationAsync();
+                    return (false, null, $"Re-authentication failed: {loginMessage}. Please login again.");
+                }
+            }
+            catch (Exception ex)
+            {
+                return (false, null, $"Biometric login failed: {ex.Message}");
+            }
         }
     }
 }

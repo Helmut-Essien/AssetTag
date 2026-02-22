@@ -198,10 +198,10 @@
                         CornerRadius="20"
                         FontSize="14"
                         HeightRequest="44"
-                        IsVisible="{Binding BiometricAvailable}"
+                        IsVisible="{Binding BiometricEnabled}"
                         Stroke="{StaticResource Primary}"
                         StrokeThickness="2"
-                        Text="Biometric Login"
+                        Text="🔐 Login with Biometrics"
                         TextColor="{StaticResource Secondary}" />
 
                     <!--  Forgot Password - Compact  -->
