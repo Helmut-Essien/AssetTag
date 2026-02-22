@@ -182,32 +182,35 @@ namespace MobileApp.Services
             {
                 var (accessToken, refreshToken) = await GetStoredTokensAsync();
 
-                // Always clear local tokens first
+                // Always clear local tokens first - this is the critical part for instant logout
                 ClearTokens();
 
-                // If no tokens or offline, we're done
-                if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
+                // Try to revoke tokens on server in background (best effort, non-blocking)
+                // This ensures the user gets logged out instantly without waiting for network operations
+                if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
                 {
-                    return (true, "Logged out successfully");
-                }
+                    // Fire and forget - don't await this operation
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            // Set a short timeout for the logout request (5 seconds)
+                            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                            
+                            _httpClient.DefaultRequestHeaders.Authorization =
+                                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
-                if (!await IsConnectedToInternet())
-                {
-                    return (true, "Logged out successfully");
-                }
-
-                // Try to revoke tokens on server (best effort)
-                try
-                {
-                    _httpClient.DefaultRequestHeaders.Authorization =
-                        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
-
-                    var tokenDto = new TokenResponseDTO(accessToken, refreshToken);
-                    await _httpClient.PostAsJsonAsync("api/auth/logout", tokenDto);
-                }
-                catch
-                {
-                    // Ignore server errors - local logout already succeeded
+                            var tokenDto = new TokenResponseDTO(accessToken, refreshToken);
+                            await _httpClient.PostAsJsonAsync("api/auth/logout", tokenDto, cts.Token);
+                            
+                            System.Diagnostics.Debug.WriteLine("Server-side logout successful");
+                        }
+                        catch (Exception ex)
+                        {
+                            // Ignore server errors - local logout already succeeded
+                            System.Diagnostics.Debug.WriteLine($"Background server logout failed (non-critical): {ex.Message}");
+                        }
+                    });
                 }
 
                 return (true, "Logged out successfully");
@@ -497,9 +500,22 @@ namespace MobileApp.Services
                 }
                 else
                 {
-                    // If login fails, credentials might be invalid - disable biometric
-                    await DisableBiometricAuthenticationAsync();
-                    return (false, null, $"Re-authentication failed: {loginMessage}. Please login again.");
+                    // Only disable biometric if credentials are invalid (not network errors)
+                    // Network errors contain "No internet", "Network error", "timeout", etc.
+                    bool isNetworkError = loginMessage.Contains("internet", StringComparison.OrdinalIgnoreCase) ||
+                                         loginMessage.Contains("network", StringComparison.OrdinalIgnoreCase) ||
+                                         loginMessage.Contains("timeout", StringComparison.OrdinalIgnoreCase) ||
+                                         loginMessage.Contains("connection", StringComparison.OrdinalIgnoreCase);
+                    
+                    if (!isNetworkError)
+                    {
+                        // Credentials are likely invalid - disable biometric
+                        await DisableBiometricAuthenticationAsync();
+                        return (false, null, $"Re-authentication failed: {loginMessage}. Biometric login has been disabled. Please login again.");
+                    }
+                    
+                    // Network error - keep biometric enabled
+                    return (false, null, $"Cannot connect to server: {loginMessage}. Please check your internet connection and try again.");
                 }
             }
             catch (Exception ex)
