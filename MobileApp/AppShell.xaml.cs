@@ -23,6 +23,7 @@ namespace MobileApp
             Routing.RegisterRoute(nameof(SplashScreen), typeof(SplashScreen));
             Routing.RegisterRoute(nameof(LoginPage), typeof(LoginPage));
             Routing.RegisterRoute(nameof(MainPage), typeof(MainPage));
+            Routing.RegisterRoute(nameof(InventoryPage), typeof(InventoryPage));
 
             // Subscribe to navigation events for token validation
             this.Navigating += OnNavigating;

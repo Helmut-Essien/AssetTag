@@ -137,9 +137,7 @@ namespace MobileApp.ViewModels
         {
             try
             {
-                // TODO: Navigate to assets list page when implemented
-                await Shell.Current.DisplayAlert("View Assets", "Opening asset inventory...", "OK");
-                // await Shell.Current.GoToAsync("AssetsPage");
+                await Shell.Current.GoToAsync(nameof(InventoryPage));
             }
             catch (Exception ex)
             {
@@ -202,9 +200,7 @@ namespace MobileApp.ViewModels
         {
             try
             {
-                // TODO: Navigate to assets page when implemented
-                await Shell.Current.DisplayAlert("Assets", "Opening assets page...", "OK");
-                // await Shell.Current.GoToAsync("AssetsPage");
+                await Shell.Current.GoToAsync(nameof(InventoryPage));
             }
             catch (Exception ex)
             {
