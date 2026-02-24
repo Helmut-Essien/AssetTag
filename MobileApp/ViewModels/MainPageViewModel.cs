@@ -444,8 +444,11 @@ namespace MobileApp.ViewModels
 
                 if (success)
                 {
-                    // Navigate back to login page
-                    await Shell.Current.GoToAsync($"/{nameof(LoginPage)}");
+                    // Navigate back to login page and hide tabs
+                    if (Shell.Current is AppShell appShell)
+                    {
+                        await appShell.ShowLoginAsync();
+                    }
                 }
                 else
                 {

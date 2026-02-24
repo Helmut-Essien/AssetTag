@@ -2,13 +2,14 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewmodels="clr-namespace:MobileApp.ViewModels"
+             xmlns:controls="clr-namespace:MobileApp.Controls"
              x:Class="MobileApp.Views.InventoryPage"
              x:DataType="viewmodels:InventoryViewModel"
              Title="Inventory"
              BackgroundColor="#F8F9FA"
              Shell.NavBarIsVisible="False">
 
-    <Grid RowDefinitions="56,Auto,*,64">
+    <Grid RowDefinitions="56,Auto,*">
         
         <!-- Top Header Bar -->
         <Frame Grid.Row="0" 
@@ -286,80 +287,5 @@
                 Command="{Binding AddAssetCommand}"
                 Shadow="{StaticResource FABShadow}"/>
 
-        <!-- Bottom Navigation Bar -->
-        <Frame Grid.Row="3"
-               BackgroundColor="White"
-               CornerRadius="0"
-               Padding="0"
-               HasShadow="True">
-            <Grid ColumnDefinitions="*,*,*,*,*" Padding="0">
-                
-                <!-- Home Tab -->
-                <VerticalStackLayout Grid.Column="0" Spacing="4" Padding="8">
-                    <VerticalStackLayout.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type Shell}}, Path=BackCommand}"/>
-                    </VerticalStackLayout.GestureRecognizers>
-                    <Label Text="🏠"
-                           FontSize="20"
-                           HorizontalOptions="Center"/>
-                    <Label Text="Home"
-                           FontSize="12"
-                           TextColor="#999999"
-                           HorizontalOptions="Center"/>
-                </VerticalStackLayout>
-
-                <!-- Inventory Tab (Active) -->
-                <Frame Grid.Column="1" 
-                       BackgroundColor="#E3F2FD"
-                       CornerRadius="12"
-                       Padding="8"
-                       HasShadow="False"
-                       Margin="4">
-                    <VerticalStackLayout Spacing="4">
-                        <Label Text="📋"
-                               FontSize="20"
-                               HorizontalOptions="Center"/>
-                        <Label Text="Inventory"
-                               FontFamily="OpenSansSemibold"
-                               FontSize="12"
-                               TextColor="#005A9C"
-                               HorizontalOptions="Center"/>
-                    </VerticalStackLayout>
-                </Frame>
-
-                <!-- Reports Tab -->
-                <VerticalStackLayout Grid.Column="2" Spacing="4" Padding="8">
-                    <Label Text="📊"
-                           FontSize="20"
-                           HorizontalOptions="Center"/>
-                    <Label Text="Reports"
-                           FontSize="12"
-                           TextColor="#999999"
-                           HorizontalOptions="Center"/>
-                </VerticalStackLayout>
-
-                <!-- Profile Tab -->
-                <VerticalStackLayout Grid.Column="3" Spacing="4" Padding="8">
-                    <Label Text="👤"
-                           FontSize="20"
-                           HorizontalOptions="Center"/>
-                    <Label Text="Profile"
-                           FontSize="12"
-                           TextColor="#999999"
-                           HorizontalOptions="Center"/>
-                </VerticalStackLayout>
-
-                <!-- Settings Tab -->
-                <VerticalStackLayout Grid.Column="4" Spacing="4" Padding="8">
-                    <Label Text="⚙️"
-                           FontSize="20"
-                           HorizontalOptions="Center"/>
-                    <Label Text="Settings"
-                           FontSize="12"
-                           TextColor="#999999"
-                           HorizontalOptions="Center"/>
-                </VerticalStackLayout>
-            </Grid>
-        </Frame>
     </Grid>
 </ContentPage>

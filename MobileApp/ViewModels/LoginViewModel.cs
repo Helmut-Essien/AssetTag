@@ -95,8 +95,11 @@ namespace MobileApp.ViewModels
                         await SecureStorage.SetAsync("biometric_enabled", "false");
                     }
                     
-                    // Navigate to main page
-                    await Shell.Current.GoToAsync($"/{nameof(MainPage)}"); ;
+                    // Navigate to main tabs
+                    if (Shell.Current is AppShell appShell)
+                    {
+                        await appShell.ShowMainTabsAsync();
+                    }
                 }
                 else
                 {
@@ -140,8 +143,11 @@ namespace MobileApp.ViewModels
 
                 if (success)
                 {
-                    // Navigate to main page
-                    await Shell.Current.GoToAsync($"/{nameof(MainPage)}");
+                    // Navigate to main tabs
+                    if (Shell.Current is AppShell appShell)
+                    {
+                        await appShell.ShowMainTabsAsync();
+                    }
                 }
                 else
                 {

@@ -15,18 +15,48 @@ namespace MobileApp
             _serviceProvider = serviceProvider;
             _authService = authService;
             
+            // Register LoginPage route for Shell navigation
+            Routing.RegisterRoute(nameof(LoginPage), typeof(LoginPage));
+            
             // Set initial content to DI-resolved SplashScreen
             var splashScreen = _serviceProvider.GetRequiredService<SplashScreen>();
             InitialContent.Content = splashScreen;
-            
-            // Register routes for navigation with factory methods for DI
-            Routing.RegisterRoute(nameof(SplashScreen), typeof(SplashScreen));
-            Routing.RegisterRoute(nameof(LoginPage), typeof(LoginPage));
-            Routing.RegisterRoute(nameof(MainPage), typeof(MainPage));
-            Routing.RegisterRoute(nameof(InventoryPage), typeof(InventoryPage));
 
             // Subscribe to navigation events for token validation
             this.Navigating += OnNavigating;
+        }
+
+        /// <summary>
+        /// Show the main tab bar after successful login
+        /// </summary>
+        public async Task ShowMainTabsAsync()
+        {
+            // Hide the initial splash/login content
+            InitialContent.IsVisible = false;
+            
+            // Show the main tab bar
+            MainTabBar.IsVisible = true;
+            
+            // Navigate to the Home tab using absolute routing
+            await Shell.Current.GoToAsync("///MainTabs/Home");
+        }
+
+        /// <summary>
+        /// Show the login page (hide tabs)
+        /// </summary>
+        public Task ShowLoginAsync()
+        {
+            // Hide the tab bar
+            MainTabBar.IsVisible = false;
+            
+            // Show the initial content
+            InitialContent.IsVisible = true;
+            
+            // Set the login page as the current content
+            var loginPage = _serviceProvider.GetRequiredService<LoginPage>();
+            InitialContent.Content = loginPage;
+            
+            return Task.CompletedTask;
         }
 
         private void OnNavigating(object? sender, ShellNavigatingEventArgs e)

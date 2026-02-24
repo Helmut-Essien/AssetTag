@@ -7,14 +7,48 @@
     xmlns:views="clr-namespace:MobileApp.Views"
     Title="MobileApp"
     Shell.FlyoutBehavior="Disabled"
-    Shell.NavBarIsVisible="False"
-    Shell.TabBarIsVisible="False">
+    Shell.NavBarIsVisible="False">
 
-    <!-- Initial content will be set programmatically in AppShell.xaml.cs -->
+    <!-- Define Shell Resources for Tab Bar Styling -->
+    <Shell.Resources>
+        <Style TargetType="TabBar">
+            <Setter Property="Shell.TabBarBackgroundColor" Value="White"/>
+            <Setter Property="Shell.TabBarTitleColor" Value="#666666"/>
+            <Setter Property="Shell.TabBarUnselectedColor" Value="#666666"/>
+            <Setter Property="Shell.TabBarForegroundColor" Value="#005A9C"/>
+        </Style>
+    </Shell.Resources>
+
+    <!-- Initial Splash Screen (shown before login) -->
     <ShellContent
         x:Name="InitialContent"
         Route="SplashScreen"
         Shell.NavBarIsVisible="False"
         Shell.TabBarIsVisible="False" />
+
+    <!-- Main Tab Bar (shown after login) -->
+    <TabBar x:Name="MainTabBar" Route="MainTabs" IsVisible="False">
+        
+        <!-- Home Tab -->
+        <Tab Title="Home" Route="Home" Icon="tab_home.png">
+            <ShellContent ContentTemplate="{DataTemplate local:MainPage}"/>
+        </Tab>
+
+        <!-- Inventory Tab -->
+        <Tab Title="Inventory" Route="Inventory" Icon="tab_inventory.png">
+            <ShellContent ContentTemplate="{DataTemplate views:InventoryPage}"/>
+        </Tab>
+
+        <!-- Categories Tab (Placeholder) -->
+        <Tab Title="Categories" Route="Categories" Icon="tab_categories.png">
+            <ShellContent ContentTemplate="{DataTemplate local:MainPage}"/>
+        </Tab>
+
+        <!-- Locations Tab (Placeholder) -->
+        <Tab Title="Locations" Route="Locations" Icon="tab_locations.png">
+            <ShellContent ContentTemplate="{DataTemplate local:MainPage}"/>
+        </Tab>
+
+    </TabBar>
 
 </Shell>

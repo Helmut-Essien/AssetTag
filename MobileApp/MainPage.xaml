@@ -2,11 +2,12 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:MobileApp.ViewModels"
+             xmlns:controls="clr-namespace:MobileApp.Controls"
              x:Class="MobileApp.MainPage"
              x:DataType="vm:MainPageViewModel"
              BackgroundColor="#F8F9FA">
 
-    <Grid RowDefinitions="Auto,*,Auto">
+    <Grid RowDefinitions="Auto,*">
         
         <!-- Clean Header Section - Material Design 3 -->
         <Grid Grid.Row="0"
@@ -349,109 +350,6 @@
             </ScrollView>
         </RefreshView>
 
-        <!-- Modern Bottom Navigation Bar -->
-        <Border Grid.Row="2"
-                BackgroundColor="White"
-                Stroke="#E5E7EB"
-                StrokeThickness="1">
-            <Border.StrokeShape>
-                <RoundRectangle CornerRadius="24,24,0,0"/>
-            </Border.StrokeShape>
-            <Border.Shadow>
-                <Shadow Brush="Black"
-                        Opacity="0.08"
-                        Radius="20"
-                        Offset="0,-4"/>
-            </Border.Shadow>
-            
-            <Grid Padding="8,12,8,20"
-                  ColumnDefinitions="*,*,*,*"
-                  ColumnSpacing="4">
-                
-                <!-- Home Tab - Active State -->
-                <Border Grid.Column="0"
-                        BackgroundColor="#E3F2FD"
-                        Stroke="Transparent"
-                        Padding="8,8">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="12"/>
-                    </Border.StrokeShape>
-                    <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
-                        <Label Text="🏠"
-                               FontSize="24"
-                               HorizontalOptions="Center"/>
-                        <Label Text="Home"
-                               FontFamily="Roboto"
-                               FontSize="11"
-                               FontAttributes="Bold"
-                               HorizontalOptions="Center"
-                               TextColor="#005A9C"/>
-                    </VerticalStackLayout>
-                    <Border.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding RefreshCommand}"/>
-                    </Border.GestureRecognizers>
-                </Border>
-                
-                <!-- Inventory Tab -->
-                <VerticalStackLayout Grid.Column="1"
-                                   Spacing="4"
-                                   Padding="8,8"
-                                   HorizontalOptions="Center">
-                    <Label Text="📦"
-                           FontSize="24"
-                           HorizontalOptions="Center"
-                           Opacity="0.5"/>
-                    <Label Text="Inventory"
-                           FontFamily="Roboto"
-                           FontSize="11"
-                           HorizontalOptions="Center"
-                           TextColor="#808080"/>
-                    <VerticalStackLayout.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding NavigateToAssetsCommand}"/>
-                    </VerticalStackLayout.GestureRecognizers>
-                </VerticalStackLayout>
-                
-                <!-- Categories Tab -->
-                <VerticalStackLayout Grid.Column="2"
-                                   Spacing="4"
-                                   Padding="8,8"
-                                   HorizontalOptions="Center">
-                    <Label Text="📂"
-                           FontSize="24"
-                           HorizontalOptions="Center"
-                           Opacity="0.5"/>
-                    <Label Text="Categories"
-                           FontFamily="Roboto"
-                           FontSize="11"
-                           HorizontalOptions="Center"
-                           TextColor="#808080"/>
-                    <VerticalStackLayout.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding NavigateToCategoriesCommand}"/>
-                    </VerticalStackLayout.GestureRecognizers>
-                </VerticalStackLayout>
-                
-                <!-- Locations Tab -->
-                <VerticalStackLayout Grid.Column="3"
-                                   Spacing="4"
-                                   Padding="8,8"
-                                   HorizontalOptions="Center">
-                    <Label Text="📍"
-                           FontSize="24"
-                           HorizontalOptions="Center"
-                           Opacity="0.5"/>
-                    <Label Text="Locations"
-                           FontFamily="Roboto"
-                           FontSize="11"
-                           HorizontalOptions="Center"
-                           TextColor="#808080"/>
-                    <VerticalStackLayout.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding NavigateToLocationsCommand}"/>
-                    </VerticalStackLayout.GestureRecognizers>
-                </VerticalStackLayout>
-                
-            </Grid>
-        </Border>
-        
     </Grid>
 
 </ContentPage>

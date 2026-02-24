@@ -47,8 +47,11 @@ namespace MobileApp.Views
                     
                     if (success && newTokens != null)
                     {
-                        // Token refreshed successfully, navigate to main page
-                        await Shell.Current.GoToAsync($"/{nameof(MainPage)}");
+                        // Token refreshed successfully, navigate to main tabs
+                        if (Shell.Current is AppShell appShell)
+                        {
+                            await appShell.ShowMainTabsAsync();
+                        }
                     }
                     else
                     {
@@ -59,8 +62,11 @@ namespace MobileApp.Views
                 }
                 else
                 {
-                    // Token is still valid, navigate to main page
-                    await Shell.Current.GoToAsync($"/{nameof(MainPage)}");
+                    // Token is still valid, navigate to main tabs
+                    if (Shell.Current is AppShell appShell)
+                    {
+                        await appShell.ShowMainTabsAsync();
+                    }
                 }
             }
             else
