@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -166,6 +168,14 @@ namespace MobileData.Data
 
         private void QueueSyncOperations()
         {
+            // Configure JSON serializer to handle circular references
+            var jsonOptions = new JsonSerializerOptions
+            {
+                ReferenceHandler = ReferenceHandler.IgnoreCycles,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                WriteIndented = false
+            };
+
             // Materialize entries to a list to avoid "Collection was modified" exception
             // when adding SyncQueue items during enumeration
             var entries = ChangeTracker.Entries().ToList();
@@ -189,7 +199,7 @@ namespace MobileData.Data
                             EntityType = "Asset",
                             EntityId = asset.AssetId,
                             Operation = operation,
-                            JsonData = System.Text.Json.JsonSerializer.Serialize(asset),
+                            JsonData = JsonSerializer.Serialize(asset, jsonOptions),
                             CreatedAt = DateTime.UtcNow,
                             RetryCount = 0
                         };

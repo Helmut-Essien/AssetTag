@@ -94,8 +94,9 @@ public class SyncController : ControllerBase
                 request.DeviceId, lastSync);
 
             // Get all assets modified after last sync
+            // Note: Don't use .Include() to avoid circular reference issues
+            // DTOs will map the foreign key IDs without loading navigation properties
             var assets = await _context.Assets
-                .Include(a => a.Category)
                 .Where(a => a.DateModified > lastSync)
                 .ToListAsync();
 
