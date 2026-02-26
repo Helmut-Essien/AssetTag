@@ -55,12 +55,17 @@ public record SyncPullRequestDTO
 
 /// <summary>
 /// Response with delta changes from server
+/// Properties ordered by dependency: reference data first, then assets
 /// </summary>
 public record SyncPullResponseDTO
 {
-    public List<AssetReadDTO> Assets { get; init; } = new();
+    // Reference data FIRST (assets depend on these)
     public List<CategoryReadDTO> Categories { get; init; } = new();
     public List<LocationReadDTO> Locations { get; init; } = new();
     public List<DepartmentReadDTO> Departments { get; init; } = new();
+    
+    // Assets LAST (depend on the above reference data)
+    public List<AssetReadDTO> Assets { get; init; } = new();
+    
     public DateTime ServerTimestamp { get; init; }
 }

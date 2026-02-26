@@ -39,16 +39,16 @@ namespace MobileData.Data
             if (!optionsBuilder.IsConfigured)
             {
                 // Fallback only (should not hit in production)
-                optionsBuilder.UseSqlite($"Data Source={Path.Combine(Path.GetTempPath(), "AssetTagFallback.db3")}");
+                var connectionString = $"Data Source={Path.Combine(Path.GetTempPath(), "AssetTagFallback.db3")};";
+                // Add SQLite pragmas to connection string for better performance
+                connectionString += "Cache=Shared;Mode=Memory;Journal Mode=Wal;Synchronous=Normal;Temp Store=Memory;Cache Size=64000;";
+                optionsBuilder.UseSqlite(connectionString);
             }
 
 #if DEBUG
             optionsBuilder.EnableSensitiveDataLogging();
             optionsBuilder.LogTo(Console.WriteLine, LogLevel.Information);
 #endif
-
-            // Optional: Enable WAL mode for better concurrency on mobile
-            // (Add via connection string in MAUI registration if needed)
         }
 
         /* ---------------  Optimized Model --------------- */
@@ -166,7 +166,11 @@ namespace MobileData.Data
 
         private void QueueSyncOperations()
         {
-            foreach (var entry in ChangeTracker.Entries())
+            // Materialize entries to a list to avoid "Collection was modified" exception
+            // when adding SyncQueue items during enumeration
+            var entries = ChangeTracker.Entries().ToList();
+            
+            foreach (var entry in entries)
             {
                 if (entry.Entity is Asset asset)
                 {

@@ -53,6 +53,12 @@ namespace MobileApp.ViewModels
         [ObservableProperty]
         private string currentSortOption = "Name (A-Z)";
 
+        [ObservableProperty]
+        private int pendingSyncCount;
+
+        [ObservableProperty]
+        private bool hasPendingSync;
+
         public InventoryViewModel(
             LocalDbContext dbContext,
             IAuthService authService,
@@ -124,12 +130,17 @@ namespace MobileApp.ViewModels
                     EmptyStateMessage = "Your inventory is empty. Tap '+' to add one!";
                 }
 
-                // Try background sync
+                // Update sync status
+                await UpdateSyncStatusAsync();
+
+                // Try background sync (fire-and-forget)
                 _ = Task.Run(async () =>
                 {
                     try
                     {
                         await _syncService.FullSyncAsync();
+                        // Update sync status after background sync
+                        await MainThread.InvokeOnMainThreadAsync(async () => await UpdateSyncStatusAsync());
                     }
                     catch (Exception ex)
                     {
@@ -155,6 +166,55 @@ namespace MobileApp.ViewModels
         {
             return await _dbContext.SyncQueue
                 .AnyAsync(s => s.EntityId == assetId && s.EntityType == "Asset");
+        }
+
+        /// <summary>
+        /// Update sync status badge
+        /// </summary>
+        private async Task UpdateSyncStatusAsync()
+        {
+            PendingSyncCount = await _syncService.GetPendingSyncCountAsync();
+            HasPendingSync = PendingSyncCount > 0;
+        }
+
+        /// <summary>
+        /// Manual sync command - triggered by user
+        /// </summary>
+        [RelayCommand]
+        private async Task ManualSyncAsync()
+        {
+            if (IsBusy) return;
+
+            try
+            {
+                IsBusy = true;
+
+                var (success, message) = await _syncService.FullSyncAsync();
+                
+                // Always update sync status to reflect current state
+                await UpdateSyncStatusAsync();
+                
+                await Shell.Current.DisplayAlert(
+                    success ? "Sync Complete" : "Sync Error",
+                    message,
+                    "OK");
+
+                // Reload assets only if sync was successful
+                if (success)
+                {
+                    await LoadAssetsAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                await Shell.Current.DisplayAlert("Error", $"Sync failed: {ex.Message}", "OK");
+                // Update status even on exception to show accurate pending count
+                await UpdateSyncStatusAsync();
+            }
+            finally
+            {
+                IsBusy = false;
+            }
         }
 
         /// <summary>

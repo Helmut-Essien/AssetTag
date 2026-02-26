@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using CommunityToolkit.Maui;
 using Syncfusion.Maui.Toolkit.Hosting;
 using MobileData.Data;
@@ -64,10 +65,12 @@ namespace MobileApp
             builder.Services.AddDbContext<LocalDbContext>((serviceProvider, options) =>
             {
                 options.UseSqlite(
-                    $"Data Source={dbPath};" +
-                    "Cache=Shared;" +                  // Improves concurrency
-                    "PRAGMA journal_mode=WAL;" +       // Write-Ahead Logging – better perf on mobile
-                    "PRAGMA synchronous=NORMAL;"       // Balance between speed & safety
+                    $"Data Source={dbPath};Cache=Shared",
+                    sqliteOptions =>
+                    {
+                        // Configure SQLite-specific options
+                        sqliteOptions.CommandTimeout(30);
+                    }
                 );
 
 #if DEBUG
@@ -93,14 +96,23 @@ namespace MobileApp
             builder.Services.AddSingleton<IAuthService, AuthService>();
             
             // Register API HttpClient with TokenRefreshHandler for authenticated requests
-            builder.Services.AddHttpClient("ApiClient")
-                .AddHttpMessageHandler<TokenRefreshHandler>();
+            // Configure BaseAddress using injected ApiSettings
+            builder.Services.AddHttpClient("ApiClient", (sp, client) =>
+            {
+                var settings = sp.GetRequiredService<IOptions<ApiSettings>>().Value;
+                client.BaseAddress = new Uri(settings.PrimaryApiUrl);
+                client.Timeout = TimeSpan.FromSeconds(settings.RequestTimeout);
+            })
+            .AddHttpMessageHandler<TokenRefreshHandler>();
 
             // ────────────────────────────────────────────────────────────────
             // Register Services for dependency injection
             // ────────────────────────────────────────────────────────────────
             builder.Services.AddScoped<ISyncService, SyncService>();
             builder.Services.AddScoped<IAssetService, AssetService>();
+            
+            // Register BackgroundSyncService as Singleton (runs for app lifetime)
+            builder.Services.AddSingleton<BackgroundSyncService>();
 
             // ────────────────────────────────────────────────────────────────
             // Register ViewModels for dependency injection

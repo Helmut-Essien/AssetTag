@@ -24,4 +24,9 @@ public interface ISyncService
     /// Get count of pending sync operations
     /// </summary>
     Task<int> GetPendingSyncCountAsync();
+
+    /// <summary>
+    /// Reset sync state to force full re-sync from server
+    /// </summary>
+    Task ResetSyncStateAsync();
 }
