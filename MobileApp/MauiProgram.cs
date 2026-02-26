@@ -97,6 +97,12 @@ namespace MobileApp
                 .AddHttpMessageHandler<TokenRefreshHandler>();
 
             // ────────────────────────────────────────────────────────────────
+            // Register Services for dependency injection
+            // ────────────────────────────────────────────────────────────────
+            builder.Services.AddScoped<ISyncService, SyncService>();
+            builder.Services.AddScoped<IAssetService, AssetService>();
+
+            // ────────────────────────────────────────────────────────────────
             // Register ViewModels for dependency injection
             // ────────────────────────────────────────────────────────────────
             builder.Services.AddTransient<MainPageViewModel>();

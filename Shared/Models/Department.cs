@@ -7,6 +7,8 @@ namespace Shared.Models
         public string DepartmentId { get; set; } = Ulid.NewUlid().ToString();
         public required string Name { get; set; }
         public string? Description { get; set; }
+        
+        public DateTime DateModified { get; set; } = DateTime.UtcNow;
 
         public required ICollection<ApplicationUser> Users { get; set; } = new List<ApplicationUser>();
         public ICollection<Asset>? Assets { get; set; } = new List<Asset>();

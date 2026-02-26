@@ -14,6 +14,8 @@ namespace MobileApp.ViewModels
     {
         private readonly LocalDbContext _dbContext;
         private readonly IAuthService _authService;
+        private readonly IAssetService _assetService;
+        private readonly ISyncService _syncService;
 
         [ObservableProperty]
         private ObservableCollection<AssetItemViewModel> assets = new();
@@ -51,10 +53,16 @@ namespace MobileApp.ViewModels
         [ObservableProperty]
         private string currentSortOption = "Name (A-Z)";
 
-        public InventoryViewModel(LocalDbContext dbContext, IAuthService authService)
+        public InventoryViewModel(
+            LocalDbContext dbContext,
+            IAuthService authService,
+            IAssetService assetService,
+            ISyncService syncService)
         {
             _dbContext = dbContext;
             _authService = authService;
+            _assetService = assetService;
+            _syncService = syncService;
             Title = "Inventory";
         }
 
@@ -76,13 +84,8 @@ namespace MobileApp.ViewModels
                     return;
                 }
 
-                // Load assets from database with related data
-                var assetsList = await _dbContext.Assets
-                    .Include(a => a.Category)
-                    .Include(a => a.Location)
-                    .Include(a => a.Department)
-                    .OrderBy(a => a.Name)
-                    .ToListAsync();
+                // Load assets using AssetService
+                var assetsList = await _assetService.GetAllAssetsAsync();
 
                 Assets.Clear();
                 foreach (var asset in assetsList)
@@ -95,7 +98,7 @@ namespace MobileApp.ViewModels
                         CategoryName = asset.Category?.Name ?? "Unknown",
                         CategoryIcon = GetCategoryIcon(asset.Category?.Name),
                         LocationName = asset.Location?.Name ?? "Unknown",
-                        IsPendingSync = false, // TODO: Implement sync tracking
+                        IsPendingSync = await IsPendingSyncAsync(asset.AssetId),
                         DateModified = asset.DateModified
                     });
                 }
@@ -110,8 +113,8 @@ namespace MobileApp.ViewModels
                 {
                     EmptyStateMessage = "No assets match your search";
                 }
-                else if (ShowEmptyState && (IsPendingSyncFilterActive || 
-                         SelectedCategory != "All Categories" || 
+                else if (ShowEmptyState && (IsPendingSyncFilterActive ||
+                         SelectedCategory != "All Categories" ||
                          SelectedLocation != "All Locations"))
                 {
                     EmptyStateMessage = "No assets match your filters";
@@ -120,6 +123,19 @@ namespace MobileApp.ViewModels
                 {
                     EmptyStateMessage = "Your inventory is empty. Tap '+' to add one!";
                 }
+
+                // Try background sync
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _syncService.FullSyncAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Background sync failed: {ex.Message}");
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -130,6 +146,15 @@ namespace MobileApp.ViewModels
             {
                 IsBusy = false;
             }
+        }
+
+        /// <summary>
+        /// Check if an asset has pending sync operations
+        /// </summary>
+        private async Task<bool> IsPendingSyncAsync(string assetId)
+        {
+            return await _dbContext.SyncQueue
+                .AnyAsync(s => s.EntityId == assetId && s.EntityType == "Asset");
         }
 
         /// <summary>
