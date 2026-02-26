@@ -189,6 +189,33 @@
                                     <TapGestureRecognizer Command="{Binding SyncDataCommand}"/>
                                 </Border.GestureRecognizers>
                             </Border>
+                            
+                            <!-- Reset Sync State Button -->
+                            <Border BackgroundColor="#FF6B6B"
+                                    Stroke="Transparent"
+                                    Padding="24,12"
+                                    HorizontalOptions="Center"
+                                    MinimumWidthRequest="200">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="8"/>
+                                </Border.StrokeShape>
+                                <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
+                                    <Label Grid.Column="0"
+                                           Text="🔄"
+                                           FontSize="16"
+                                           VerticalOptions="Center"/>
+                                    <Label Grid.Column="1"
+                                           Text="Reset Sync State"
+                                           FontFamily="Roboto"
+                                           FontSize="14"
+                                           FontAttributes="Bold"
+                                           TextColor="White"
+                                           VerticalOptions="Center"/>
+                                </Grid>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding ResetSyncStateCommand}"/>
+                                </Border.GestureRecognizers>
+                            </Border>
                         </VerticalStackLayout>
                     </Border>
 

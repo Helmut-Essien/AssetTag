@@ -266,6 +266,21 @@ public class SyncService : ISyncService
             // ═══════════════════════════════════════════════════════════
             foreach (var assetDto in result.Assets)
             {
+                // ═══════════════════════════════════════════════════════════
+                // Ensure all referenced entities exist before inserting/updating asset
+                // ═══════════════════════════════════════════════════════════
+                var categoryExists = await _dbContext.Categories.AnyAsync(c => c.CategoryId == assetDto.CategoryId);
+                var locationExists = await _dbContext.Locations.AnyAsync(l => l.LocationId == assetDto.LocationId);
+                var departmentExists = await _dbContext.Departments.AnyAsync(d => d.DepartmentId == assetDto.DepartmentId);
+                
+                if (!categoryExists || !locationExists || !departmentExists)
+                {
+                    _logger.LogWarning(
+                        "Skipping asset {AssetId} ({AssetTag}) - missing references: Category={CategoryExists}, Location={LocationExists}, Department={DepartmentExists}",
+                        assetDto.AssetId, assetDto.AssetTag, categoryExists, locationExists, departmentExists);
+                    continue; // Skip this asset for now, it will sync on next pull when references are available
+                }
+                
                 var existing = await _dbContext.Assets.FindAsync(assetDto.AssetId);
                 
                 if (existing != null)
@@ -344,7 +359,7 @@ public class SyncService : ISyncService
             await _dbContext.SaveChangesAsync();
 
             // ═══════════════════════════════════════════════════════════
-            // STEP 5: Update last sync timestamp
+            // STEP 5: Update last sync timestamp ONLY after successful sync
             // ═══════════════════════════════════════════════════════════
             deviceInfo.LastSync = result.ServerTimestamp;
             await _dbContext.SaveChangesAsync();
@@ -355,7 +370,7 @@ public class SyncService : ISyncService
                          $"{result.Departments.Count} departments, " +
                          $"{result.Assets.Count} assets";
 
-            _logger.LogInformation("Pull sync completed: {Message}", message);
+            _logger.LogInformation("Pull sync completed successfully: {Message}", message);
             
             return (true, message);
         }
@@ -400,17 +415,41 @@ public class SyncService : ISyncService
         var deviceInfo = await _dbContext.DeviceInfo.FirstOrDefaultAsync();
         if (deviceInfo == null)
         {
+            // For first-time install, use a very old date (year 1900) to fetch ALL data from server
+            // This ensures complete initial sync on first app launch
+            var initialSyncDate = new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            
             deviceInfo = new MobileData.Data.DeviceInfo
             {
                 DeviceId = Guid.NewGuid().ToString(),
-                LastSync = DateTime.MinValue,
+                LastSync = initialSyncDate,
                 SyncToken = string.Empty
             };
             _dbContext.DeviceInfo.Add(deviceInfo);
             await _dbContext.SaveChangesAsync();
             
-            _logger.LogInformation("Created new device info with ID: {DeviceId}", deviceInfo.DeviceId);
+            _logger.LogInformation("Created new device info with ID: {DeviceId}, LastSync: {LastSync} (initial full sync)",
+                deviceInfo.DeviceId, deviceInfo.LastSync);
         }
         return deviceInfo;
+    }
+
+    /// <summary>
+    /// Reset sync state to force a full re-sync from server.
+    /// Use this when local database is corrupted or out of sync.
+    /// </summary>
+    public async Task ResetSyncStateAsync()
+    {
+        _logger.LogWarning("Resetting sync state - will perform full re-sync on next pull");
+        
+        var deviceInfo = await _dbContext.DeviceInfo.FirstOrDefaultAsync();
+        if (deviceInfo != null)
+        {
+            // Reset to 1900 to fetch all data
+            deviceInfo.LastSync = new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            await _dbContext.SaveChangesAsync();
+            
+            _logger.LogInformation("Sync state reset. LastSync set to {LastSync}", deviceInfo.LastSync);
+        }
     }
 }

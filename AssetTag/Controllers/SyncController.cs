@@ -90,26 +90,79 @@ public class SyncController : ControllerBase
         {
             var lastSync = request.LastSyncTimestamp ?? DateTime.MinValue;
 
-            _logger.LogInformation("Processing pull sync for device {DeviceId} since {LastSync}", 
+            _logger.LogInformation("Processing pull sync for device {DeviceId} since {LastSync}",
                 request.DeviceId, lastSync);
 
-            // Get all entities modified after last sync
+            // Get all assets modified after last sync
             var assets = await _context.Assets
                 .Include(a => a.Category)
                 .Where(a => a.DateModified > lastSync)
                 .ToListAsync();
 
-            var categories = await _context.Categories
+            // Get categories that were modified OR are referenced by the assets being synced
+            var modifiedCategories = await _context.Categories
                 .Where(c => c.DateModified > lastSync)
                 .ToListAsync();
 
-            var locations = await _context.Locations
+            var referencedCategoryIds = assets
+                .Select(a => a.CategoryId)
+                .Distinct()
+                .ToList();
+
+            _logger.LogInformation("Assets reference {Count} unique categories: {CategoryIds}",
+                referencedCategoryIds.Count, string.Join(", ", referencedCategoryIds));
+
+            var referencedCategories = await _context.Categories
+                .Where(c => referencedCategoryIds.Contains(c.CategoryId))
+                .ToListAsync();
+
+            _logger.LogInformation("Found {Count} referenced categories in database", referencedCategories.Count);
+
+            var categories = modifiedCategories
+                .Union(referencedCategories)
+                .DistinctBy(c => c.CategoryId)
+                .ToList();
+
+            _logger.LogInformation("Total categories to sync: {Modified} modified + {Referenced} referenced = {Total} total",
+                modifiedCategories.Count, referencedCategories.Count, categories.Count);
+
+            // Get locations that were modified OR are referenced by the assets being synced
+            var modifiedLocations = await _context.Locations
                 .Where(l => l.DateModified > lastSync)
                 .ToListAsync();
 
-            var departments = await _context.Departments
+            var referencedLocationIds = assets
+                .Select(a => a.LocationId)
+                .Distinct()
+                .ToList();
+
+            var referencedLocations = await _context.Locations
+                .Where(l => referencedLocationIds.Contains(l.LocationId))
+                .ToListAsync();
+
+            var locations = modifiedLocations
+                .Union(referencedLocations)
+                .DistinctBy(l => l.LocationId)
+                .ToList();
+
+            // Get departments that were modified OR are referenced by the assets being synced
+            var modifiedDepartments = await _context.Departments
                 .Where(d => d.DateModified > lastSync)
                 .ToListAsync();
+
+            var referencedDepartmentIds = assets
+                .Select(a => a.DepartmentId)
+                .Distinct()
+                .ToList();
+
+            var referencedDepartments = await _context.Departments
+                .Where(d => referencedDepartmentIds.Contains(d.DepartmentId))
+                .ToListAsync();
+
+            var departments = modifiedDepartments
+                .Union(referencedDepartments)
+                .DistinctBy(d => d.DepartmentId)
+                .ToList();
 
             _logger.LogInformation(
                 "Pull sync returning: {AssetCount} assets, {CategoryCount} categories, " +

@@ -14,6 +14,7 @@ namespace MobileApp.ViewModels
     {
         private readonly LocalDbContext _dbContext;
         private readonly IAuthService _authService;
+        private readonly ISyncService _syncService;
 
         [ObservableProperty]
         private int totalAssets;
@@ -30,10 +31,14 @@ namespace MobileApp.ViewModels
         [ObservableProperty]
         private string lastSync = "Never synced";
 
-        public MainPageViewModel(LocalDbContext dbContext, IAuthService authService)
+        public MainPageViewModel(
+            LocalDbContext dbContext,
+            IAuthService authService,
+            ISyncService syncService)
         {
             _dbContext = dbContext;
             _authService = authService;
+            _syncService = syncService;
             Title = "Asset Management";
         }
 
@@ -57,23 +62,29 @@ namespace MobileApp.ViewModels
                     .Where(a => a.DateModified.Date == DateTime.Today)
                     .CountAsync();
 
-                // Load pending sync count
-                // TODO: Add IsSynced property to Asset model or use alternative sync tracking
-                // For now, we'll set it to 0 as a placeholder
-                PendingSync = 0;
+                // Load pending sync count from SyncService
+                PendingSync = await _syncService.GetPendingSyncCountAsync();
 
                 // Load categories count
                 Categories = await _dbContext.Categories.CountAsync();
 
-                // Update last sync time if available
-                // TODO: Store last sync time in preferences or database
-                var lastSyncTime = Preferences.Get("LastSyncTime", string.Empty);
-                if (!string.IsNullOrEmpty(lastSyncTime))
+                // Update last sync time from DeviceInfo table
+                var deviceInfo = await _dbContext.DeviceInfo.FirstOrDefaultAsync();
+                if (deviceInfo != null && deviceInfo.LastSync > DateTime.MinValue)
                 {
-                    if (DateTime.TryParse(lastSyncTime, out var syncDate))
-                    {
-                        LastSync = syncDate.ToString("MMM dd, yyyy HH:mm");
-                    }
+                    var timeSinceSync = DateTime.UtcNow - deviceInfo.LastSync;
+                    if (timeSinceSync.TotalMinutes < 1)
+                        LastSync = "Just now";
+                    else if (timeSinceSync.TotalHours < 1)
+                        LastSync = $"{(int)timeSinceSync.TotalMinutes} min ago";
+                    else if (timeSinceSync.TotalDays < 1)
+                        LastSync = $"{(int)timeSinceSync.TotalHours} hours ago";
+                    else
+                        LastSync = deviceInfo.LastSync.ToString("MMM dd, yyyy HH:mm");
+                }
+                else
+                {
+                    LastSync = "Never synced";
                 }
             }
             catch (Exception ex)
@@ -157,21 +168,17 @@ namespace MobileApp.ViewModels
             {
                 IsBusy = true;
 
-                // TODO: Implement actual sync logic with API
-                await Shell.Current.DisplayAlert("Sync Data", "Syncing with server...", "OK");
-
-                // Simulate sync delay
-                await Task.Delay(1000);
-
-                // Update last sync time
-                var now = DateTime.Now;
-                Preferences.Set("LastSyncTime", now.ToString("O"));
-                LastSync = now.ToString("MMM dd, yyyy HH:mm");
+                // Perform full bidirectional sync
+                var (success, message) = await _syncService.FullSyncAsync();
 
                 // Reload dashboard data to reflect sync changes
                 await LoadDashboardDataAsync();
 
-                await Shell.Current.DisplayAlert("Success", "Data synced successfully!", "OK");
+                // Show result to user
+                await Shell.Current.DisplayAlert(
+                    success ? "Success" : "Sync Error",
+                    message,
+                    "OK");
             }
             catch (Exception ex)
             {
@@ -190,6 +197,52 @@ namespace MobileApp.ViewModels
         private async Task RefreshAsync()
         {
             await LoadDashboardDataAsync();
+        }
+
+        /// <summary>
+        /// Reset sync state to force full re-sync from server
+        /// </summary>
+        [RelayCommand]
+        private async Task ResetSyncStateAsync()
+        {
+            if (IsBusy) return;
+
+            try
+            {
+                var confirm = await Shell.Current.DisplayAlert(
+                    "Reset Sync State",
+                    "This will reset the sync timestamp and fetch ALL data from the server on next sync. This is useful if you're missing data. Continue?",
+                    "Yes, Reset",
+                    "Cancel");
+
+                if (!confirm)
+                    return;
+
+                IsBusy = true;
+
+                // Reset sync state
+                await _syncService.ResetSyncStateAsync();
+
+                // Perform full sync immediately
+                var (success, message) = await _syncService.FullSyncAsync();
+
+                // Reload dashboard data
+                await LoadDashboardDataAsync();
+
+                // Show result
+                await Shell.Current.DisplayAlert(
+                    success ? "Success" : "Sync Error",
+                    success ? "Sync state reset and full sync completed successfully!" : $"Reset completed but sync failed: {message}",
+                    "OK");
+            }
+            catch (Exception ex)
+            {
+                await Shell.Current.DisplayAlert("Error", $"Reset failed: {ex.Message}", "OK");
+            }
+            finally
+            {
+                IsBusy = false;
+            }
         }
 
         /// <summary>
