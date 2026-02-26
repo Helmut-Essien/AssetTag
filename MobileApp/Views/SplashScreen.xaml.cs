@@ -27,47 +27,102 @@ namespace MobileApp.Views
             _isAnimating = true;
             _ = AnimateLoadingDots();
             
-            // Reduced wait time for faster startup (1.5 seconds instead of 2)
-            // Animation loops during this time
-            await Task.Delay(1500);
+            // Run minimum display time and auth check concurrently for faster startup
+            // This ensures branding is visible for at least 1.5s while auth happens in parallel
+            var minimumDisplayTask = Task.Delay(1500);
+            var authCheckTask = PerformAuthenticationCheckAsync();
             
-            // Stop animation before navigation
-            _isAnimating = false;
+            // Wait for both to complete
+            await Task.WhenAll(minimumDisplayTask, authCheckTask);
             
-            // Check if user is already logged in with valid tokens
-            var (accessToken, refreshToken) = await _authService.GetStoredTokensAsync();
-            
-            if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
+            // Navigation happens inside PerformAuthenticationCheckAsync
+            // Animation is stopped right before navigation for smooth UX
+        }
+
+        private async Task PerformAuthenticationCheckAsync()
+        {
+            try
             {
-                // Tokens exist, now check if they're expired
-                if (await _authService.IsTokenExpiredAsync())
+                // Check if user is already logged in with valid tokens
+                var (accessToken, refreshToken) = await _authService.GetStoredTokensAsync();
+                
+                if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
                 {
-                    // Token is expired, try to refresh
-                    var (success, newTokens, message) = await _authService.RefreshTokenAsync();
-                    
-                    if (success && newTokens != null)
+                    // Tokens exist, now check if they're expired
+                    if (await _authService.IsTokenExpiredAsync())
                     {
-                        // Token refreshed successfully, navigate to main page
-                        await Shell.Current.GoToAsync($"/{nameof(MainPage)}");
+                        // Token is expired, try to refresh
+                        var (success, newTokens, message) = await _authService.RefreshTokenAsync();
+                        
+                        if (success && newTokens != null)
+                        {
+                            // Stop animation right before navigation
+                            _isAnimating = false;
+                            
+                            // Token refreshed successfully, navigate to main tabs
+                            if (Shell.Current is AppShell appShell)
+                            {
+                                await appShell.ShowMainTabsAsync();
+                            }
+                            else
+                            {
+                                // Fallback if cast fails
+                                await Shell.Current.GoToAsync($"/{nameof(LoginPage)}");
+                            }
+                        }
+                        else
+                        {
+                            // Stop animation right before navigation
+                            _isAnimating = false;
+                            
+                            // Refresh failed, clear tokens and go to login
+                            _authService.ClearTokens();
+                            await Shell.Current.GoToAsync($"/{nameof(LoginPage)}");
+                        }
                     }
                     else
                     {
-                        // Refresh failed, clear tokens and go to login
-                        _authService.ClearTokens();
-                        await Shell.Current.GoToAsync($"/{nameof(LoginPage)}");
+                        // Stop animation right before navigation
+                        _isAnimating = false;
+                        
+                        // Token is still valid, navigate to main tabs
+                        if (Shell.Current is AppShell appShell)
+                        {
+                            await appShell.ShowMainTabsAsync();
+                        }
+                        else
+                        {
+                            // Fallback if cast fails
+                            await Shell.Current.GoToAsync($"/{nameof(LoginPage)}");
+                        }
                     }
                 }
                 else
                 {
-                    // Token is still valid, navigate to main page
-                    await Shell.Current.GoToAsync($"/{nameof(MainPage)}");
+                    // Stop animation right before navigation
+                    _isAnimating = false;
+                    
+                    // No tokens, navigate to login page
+                    await Shell.Current.GoToAsync($"/{nameof(LoginPage)}");
                 }
             }
-            else
+            catch (Exception ex)
             {
-                // No tokens, navigate to login page
+                // Stop animation on error
+                _isAnimating = false;
+                
+                // Log error if you have a logger, for now just navigate to login as fallback
+                // System.Diagnostics.Debug.WriteLine($"Auth check failed: {ex.Message}");
                 await Shell.Current.GoToAsync($"/{nameof(LoginPage)}");
             }
+        }
+
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+            
+            // Ensure animation stops when page disappears
+            _isAnimating = false;
         }
 
         private async Task AnimateLoadingDots()

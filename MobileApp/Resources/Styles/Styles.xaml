@@ -1,8 +1,21 @@
 ﻿<?xml version="1.0" encoding="UTF-8" ?>
 <?xaml-comp compile="true" ?>
-<ResourceDictionary 
+<ResourceDictionary
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:converters="clr-namespace:MobileApp.Converters">
+
+    <!-- Value Converters -->
+    <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+    <converters:StringToBoolConverter x:Key="StringToBoolConverter" />
+    <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+
+    <!-- FAB Shadow -->
+    <Shadow x:Key="FABShadow"
+            Brush="Black"
+            Offset="0,4"
+            Radius="8"
+            Opacity="0.3" />
 
     <Style TargetType="ActivityIndicator">
         <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}" />

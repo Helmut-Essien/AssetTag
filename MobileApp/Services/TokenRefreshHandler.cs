@@ -37,19 +37,46 @@ namespace MobileApp.Services
                 }
                 else
                 {
-                    // Refresh failed, clear tokens and return unauthorized
-                    _authService.ClearTokens();
-                    
-                    // Navigate to login page on main thread to avoid crashes
-                    MainThread.BeginInvokeOnMainThread(async () =>
+                    // Refresh failed - try biometric re-authentication if enabled
+                    if (await _authService.IsBiometricEnabledAsync())
                     {
-                        await Shell.Current.GoToAsync("//LoginPage");
-                    });
-                    
-                    return new HttpResponseMessage(HttpStatusCode.Unauthorized)
+                        var (biometricSuccess, biometricTokens, _) = await _authService.BiometricLoginAsync();
+                        
+                        if (biometricSuccess && biometricTokens != null)
+                        {
+                            accessToken = biometricTokens.AccessToken;
+                        }
+                        else
+                        {
+                            // Biometric re-auth failed, clear tokens and navigate to login
+                            _authService.ClearTokens();
+                            
+                            MainThread.BeginInvokeOnMainThread(async () =>
+                            {
+                                await Shell.Current.GoToAsync("//LoginPage");
+                            });
+                            
+                            return new HttpResponseMessage(HttpStatusCode.Unauthorized)
+                            {
+                                Content = new StringContent("Session expired. Please login again.")
+                            };
+                        }
+                    }
+                    else
                     {
-                        Content = new StringContent("Session expired. Please login again.")
-                    };
+                        // No biometric enabled, clear tokens and navigate to login
+                        _authService.ClearTokens();
+                        
+                        MainThread.BeginInvokeOnMainThread(async () =>
+                        {
+                            await Shell.Current.GoToAsync("//LoginPage");
+                        });
+                        
+                        return new HttpResponseMessage(HttpStatusCode.Unauthorized)
+                        {
+                            Content = new StringContent("Session expired. Please login again.")
+                        };
+                    }
                 }
             }
 
@@ -72,14 +99,38 @@ namespace MobileApp.Services
                 }
                 else
                 {
-                    // Refresh failed, clear tokens and navigate to login
-                    _authService.ClearTokens();
-                    
-                    // Navigate to login page on main thread to avoid crashes
-                    MainThread.BeginInvokeOnMainThread(async () =>
+                    // Refresh failed - try biometric re-authentication if enabled
+                    if (await _authService.IsBiometricEnabledAsync())
                     {
-                        await Shell.Current.GoToAsync("//LoginPage");
-                    });
+                        var (biometricSuccess, biometricTokens, _) = await _authService.BiometricLoginAsync();
+                        
+                        if (biometricSuccess && biometricTokens != null)
+                        {
+                            // Retry request with new token from biometric login
+                            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", biometricTokens.AccessToken);
+                            response = await base.SendAsync(request, cancellationToken);
+                        }
+                        else
+                        {
+                            // Biometric re-auth failed, clear tokens and navigate to login
+                            _authService.ClearTokens();
+                            
+                            MainThread.BeginInvokeOnMainThread(async () =>
+                            {
+                                await Shell.Current.GoToAsync("//LoginPage");
+                            });
+                        }
+                    }
+                    else
+                    {
+                        // No biometric enabled, clear tokens and navigate to login
+                        _authService.ClearTokens();
+                        
+                        MainThread.BeginInvokeOnMainThread(async () =>
+                        {
+                            await Shell.Current.GoToAsync("//LoginPage");
+                        });
+                    }
                 }
             }
 

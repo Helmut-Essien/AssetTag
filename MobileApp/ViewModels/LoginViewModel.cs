@@ -85,8 +85,21 @@ namespace MobileApp.ViewModels
 
                 if (success)
                 {
-                    // Navigate to main page
-                    await Shell.Current.GoToAsync($"/{nameof(MainPage)}"); ;
+                    // Always store credentials temporarily for potential biometric enablement
+                    // This allows users to enable biometric without re-entering credentials
+                    await _authService.EnableBiometricAuthenticationAsync(Email, Password);
+                    
+                    // If biometric was not previously enabled, disable it (just store credentials)
+                    if (!BiometricEnabled)
+                    {
+                        await SecureStorage.SetAsync("biometric_enabled", "false");
+                    }
+                    
+                    // Navigate to main tabs
+                    if (Shell.Current is AppShell appShell)
+                    {
+                        await appShell.ShowMainTabsAsync();
+                    }
                 }
                 else
                 {
@@ -108,19 +121,16 @@ namespace MobileApp.ViewModels
         {
             if (!BiometricAvailable)
             {
-                await Shell.Current.DisplayAlert("Not Available", 
-                    "Biometric authentication is not available on this device.", 
+                await Shell.Current.DisplayAlert("Not Available",
+                    "Biometric authentication is not available on this device.",
                     "OK");
                 return;
             }
 
-            // Check if user has stored credentials
-            var (accessToken, refreshToken) = await _authService.GetStoredTokensAsync();
-            
-            if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
+            if (!BiometricEnabled)
             {
-                await Shell.Current.DisplayAlert("No Saved Session", 
-                    "Please login with your email and password first to enable biometric login.", 
+                await Shell.Current.DisplayAlert("Not Enabled",
+                    "Please login with your email and password first, then enable biometric authentication.",
                     "OK");
                 return;
             }
@@ -129,31 +139,19 @@ namespace MobileApp.ViewModels
 
             try
             {
-                var authenticated = await _authService.AuthenticateWithBiometricsAsync(
-                    "Authenticate to access AssetTag");
+                var (success, token, message) = await _authService.BiometricLoginAsync();
 
-                if (authenticated)
+                if (success)
                 {
-                    // Check if token is still valid
-                    if (await _authService.IsTokenExpiredAsync())
+                    // Navigate to main tabs
+                    if (Shell.Current is AppShell appShell)
                     {
-                        // Try to refresh the token
-                        var (success, _, message) = await _authService.RefreshTokenAsync();
-                        
-                        if (!success)
-                        {
-                            ShowError("Session expired. Please login with your credentials.");
-                            _authService.ClearTokens();
-                            return;
-                        }
+                        await appShell.ShowMainTabsAsync();
                     }
-
-                    // Navigate to main page
-                    await Shell.Current.GoToAsync($"/{nameof(MainPage)}"); ;
                 }
                 else
                 {
-                    ShowError("Biometric authentication failed. Please try again.");
+                    ShowError(message);
                 }
             }
             catch (Exception ex)
@@ -171,8 +169,8 @@ namespace MobileApp.ViewModels
         {
             if (!BiometricAvailable)
             {
-                await Shell.Current.DisplayAlert("Not Available", 
-                    "Biometric authentication is not available on this device.", 
+                await Shell.Current.DisplayAlert("Not Available",
+                    "Biometric authentication is not available on this device.",
                     "OK");
                 return;
             }
@@ -182,28 +180,37 @@ namespace MobileApp.ViewModels
                 // Disable biometric
                 await _authService.DisableBiometricAuthenticationAsync();
                 BiometricEnabled = false;
-                await Shell.Current.DisplayAlert("Disabled", 
-                    "Biometric authentication has been disabled.", 
+                await Shell.Current.DisplayAlert("Disabled",
+                    "Biometric authentication has been disabled.",
                     "OK");
             }
             else
             {
-                // Enable biometric - require authentication first
+                // Enable biometric - require credentials first
+                if (string.IsNullOrWhiteSpace(Email) || string.IsNullOrWhiteSpace(Password))
+                {
+                    await Shell.Current.DisplayAlert("Credentials Required",
+                        "Please enter your email and password first to enable biometric authentication.",
+                        "OK");
+                    return;
+                }
+
+                // Authenticate with biometrics first
                 var authenticated = await _authService.AuthenticateWithBiometricsAsync(
                     "Authenticate to enable biometric login");
 
                 if (authenticated)
                 {
-                    await _authService.EnableBiometricAuthenticationAsync();
+                    await _authService.EnableBiometricAuthenticationAsync(Email, Password);
                     BiometricEnabled = true;
-                    await Shell.Current.DisplayAlert("Enabled", 
-                        "Biometric authentication has been enabled for future logins.", 
+                    await Shell.Current.DisplayAlert("Enabled",
+                        "Biometric authentication has been enabled. You can now login using biometrics even if your session expires.",
                         "OK");
                 }
                 else
                 {
-                    await Shell.Current.DisplayAlert("Failed", 
-                        "Biometric authentication failed. Please try again.", 
+                    await Shell.Current.DisplayAlert("Failed",
+                        "Biometric authentication failed. Please try again.",
                         "OK");
                 }
             }

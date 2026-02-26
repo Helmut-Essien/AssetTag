@@ -23,7 +23,7 @@
                     <RoundRectangle CornerRadius="30"/>
                 </Border.StrokeShape>
                 <Image 
-                    Source="helmut_logo.png"
+                    Source="methodist_university_logo.png"
                     Aspect="AspectFit"
                     WidthRequest="250"
                     HeightRequest="250"/>
@@ -36,21 +36,21 @@
                 
                 <Ellipse 
                     x:Name="Dot1"
-                    Fill="{StaticResource BrandGreen}"
+                    Fill="{StaticResource Primary}"
                     WidthRequest="12"
                     HeightRequest="12"
                     Opacity="0.3"/>
                 
                 <Ellipse 
                     x:Name="Dot2"
-                    Fill="{StaticResource BrandGreen}"
+                    Fill="{StaticResource Primary}"
                     WidthRequest="12"
                     HeightRequest="12"
                     Opacity="0.3"/>
                 
                 <Ellipse 
                     x:Name="Dot3"
-                    Fill="{StaticResource BrandGreen}"
+                    Fill="{StaticResource Primary}"
                     WidthRequest="12"
                     HeightRequest="12"
                     Opacity="0.3"/>

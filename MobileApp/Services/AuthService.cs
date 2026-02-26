@@ -14,6 +14,8 @@ namespace MobileApp.Services
         private const string ACCESS_TOKEN_KEY = "access_token";
         private const string REFRESH_TOKEN_KEY = "refresh_token";
         private const string BIOMETRIC_ENABLED_KEY = "biometric_enabled";
+        private const string BIOMETRIC_EMAIL_KEY = "biometric_email";
+        private const string BIOMETRIC_PASSWORD_KEY = "biometric_password";
         private string _currentBaseUrl;
         private static readonly SemaphoreSlim _refreshLock = new SemaphoreSlim(1, 1);
 
@@ -180,32 +182,35 @@ namespace MobileApp.Services
             {
                 var (accessToken, refreshToken) = await GetStoredTokensAsync();
 
-                // Always clear local tokens first
+                // Always clear local tokens first - this is the critical part for instant logout
                 ClearTokens();
 
-                // If no tokens or offline, we're done
-                if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
+                // Try to revoke tokens on server in background (best effort, non-blocking)
+                // This ensures the user gets logged out instantly without waiting for network operations
+                if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
                 {
-                    return (true, "Logged out successfully");
-                }
+                    // Fire and forget - don't await this operation
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            // Set a short timeout for the logout request (5 seconds)
+                            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                            
+                            _httpClient.DefaultRequestHeaders.Authorization =
+                                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
-                if (!await IsConnectedToInternet())
-                {
-                    return (true, "Logged out successfully");
-                }
-
-                // Try to revoke tokens on server (best effort)
-                try
-                {
-                    _httpClient.DefaultRequestHeaders.Authorization =
-                        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
-
-                    var tokenDto = new TokenResponseDTO(accessToken, refreshToken);
-                    await _httpClient.PostAsJsonAsync("api/auth/logout", tokenDto);
-                }
-                catch
-                {
-                    // Ignore server errors - local logout already succeeded
+                            var tokenDto = new TokenResponseDTO(accessToken, refreshToken);
+                            await _httpClient.PostAsJsonAsync("api/auth/logout", tokenDto, cts.Token);
+                            
+                            System.Diagnostics.Debug.WriteLine("Server-side logout successful");
+                        }
+                        catch (Exception ex)
+                        {
+                            // Ignore server errors - local logout already succeeded
+                            System.Diagnostics.Debug.WriteLine($"Background server logout failed (non-critical): {ex.Message}");
+                        }
+                    });
                 }
 
                 return (true, "Logged out successfully");
@@ -222,8 +227,10 @@ namespace MobileApp.Services
 
         public void SaveTokens(string accessToken, string refreshToken)
         {
-            SecureStorage.SetAsync(ACCESS_TOKEN_KEY, accessToken);
-            SecureStorage.SetAsync(REFRESH_TOKEN_KEY, refreshToken);
+            // Use synchronous Wait() to ensure tokens are saved before method returns
+            // This prevents race conditions where navigation happens before tokens are stored
+            SecureStorage.SetAsync(ACCESS_TOKEN_KEY, accessToken).Wait();
+            SecureStorage.SetAsync(REFRESH_TOKEN_KEY, refreshToken).Wait();
         }
 
         public async Task<(string? AccessToken, string? RefreshToken)> GetStoredTokensAsync()
@@ -383,15 +390,7 @@ namespace MobileApp.Services
         {
             try
             {
-                // Check if biometric authentication is available
-                var isBiometricAvailable = await SecureStorage.GetAsync(BIOMETRIC_ENABLED_KEY);
-                
-                if (isBiometricAvailable != "true")
-                {
-                    return true; // Biometrics not enabled, allow access
-                }
-
-                // Request biometric authentication
+                // Always request biometric authentication when this method is called
                 var authRequest = new AuthenticationRequest
                 {
                     Title = "Authentication Required",
@@ -404,21 +403,25 @@ namespace MobileApp.Services
             }
             catch (Exception ex)
             {
-                // SECURITY FIX: Do NOT allow access on exception
                 // Log the error for debugging
                 System.Diagnostics.Debug.WriteLine($"Biometric authentication error: {ex.Message}");
                 return false; // Deny access if biometric authentication fails
             }
         }
 
-        public async Task EnableBiometricAuthenticationAsync()
+        public async Task EnableBiometricAuthenticationAsync(string email, string password)
         {
+            // Store credentials securely for biometric re-authentication
             await SecureStorage.SetAsync(BIOMETRIC_ENABLED_KEY, "true");
+            await SecureStorage.SetAsync(BIOMETRIC_EMAIL_KEY, email);
+            await SecureStorage.SetAsync(BIOMETRIC_PASSWORD_KEY, password);
         }
 
         public Task DisableBiometricAuthenticationAsync()
         {
             SecureStorage.Remove(BIOMETRIC_ENABLED_KEY);
+            SecureStorage.Remove(BIOMETRIC_EMAIL_KEY);
+            SecureStorage.Remove(BIOMETRIC_PASSWORD_KEY);
             return Task.CompletedTask;
         }
 
@@ -426,6 +429,99 @@ namespace MobileApp.Services
         {
             var enabled = await SecureStorage.GetAsync(BIOMETRIC_ENABLED_KEY);
             return enabled == "true";
+        }
+
+        public async Task<(string? Email, string? Password)> GetStoredCredentialsAsync()
+        {
+            try
+            {
+                var email = await SecureStorage.GetAsync(BIOMETRIC_EMAIL_KEY);
+                var password = await SecureStorage.GetAsync(BIOMETRIC_PASSWORD_KEY);
+                return (email, password);
+            }
+            catch
+            {
+                return (null, null);
+            }
+        }
+
+        public async Task<(bool Success, TokenResponseDTO? Token, string Message)> BiometricLoginAsync()
+        {
+            try
+            {
+                // Check if biometric is enabled
+                if (!await IsBiometricEnabledAsync())
+                {
+                    return (false, null, "Biometric authentication is not enabled.");
+                }
+
+                // Authenticate with biometrics
+                var authenticated = await AuthenticateWithBiometricsAsync("Authenticate to access AssetTag");
+                
+                if (!authenticated)
+                {
+                    return (false, null, "Biometric authentication failed.");
+                }
+
+                // Try to use existing tokens first
+                var (accessToken, refreshToken) = await GetStoredTokensAsync();
+                
+                if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
+                {
+                    // Check if token is still valid
+                    if (!await IsTokenExpiredAsync())
+                    {
+                        return (true, new TokenResponseDTO(accessToken, refreshToken), "Login successful");
+                    }
+
+                    // Try to refresh the token
+                    var (refreshSuccess, newTokens, refreshMessage) = await RefreshTokenAsync();
+                    
+                    if (refreshSuccess && newTokens != null)
+                    {
+                        return (true, newTokens, "Login successful");
+                    }
+                }
+
+                // Token refresh failed or no tokens available - re-authenticate with stored credentials
+                var (email, password) = await GetStoredCredentialsAsync();
+                
+                if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
+                {
+                    return (false, null, "No stored credentials found. Please login with your email and password.");
+                }
+
+                // Re-authenticate with stored credentials
+                var (loginSuccess, token, loginMessage) = await LoginAsync(email, password);
+                
+                if (loginSuccess)
+                {
+                    return (true, token, "Login successful");
+                }
+                else
+                {
+                    // Only disable biometric if credentials are invalid (not network errors)
+                    // Network errors contain "No internet", "Network error", "timeout", etc.
+                    bool isNetworkError = loginMessage.Contains("internet", StringComparison.OrdinalIgnoreCase) ||
+                                         loginMessage.Contains("network", StringComparison.OrdinalIgnoreCase) ||
+                                         loginMessage.Contains("timeout", StringComparison.OrdinalIgnoreCase) ||
+                                         loginMessage.Contains("connection", StringComparison.OrdinalIgnoreCase);
+                    
+                    if (!isNetworkError)
+                    {
+                        // Credentials are likely invalid - disable biometric
+                        await DisableBiometricAuthenticationAsync();
+                        return (false, null, $"Re-authentication failed: {loginMessage}. Biometric login has been disabled. Please login again.");
+                    }
+                    
+                    // Network error - keep biometric enabled
+                    return (false, null, $"Cannot connect to server: {loginMessage}. Please check your internet connection and try again.");
+                }
+            }
+            catch (Exception ex)
+            {
+                return (false, null, $"Biometric login failed: {ex.Message}");
+            }
         }
     }
 }

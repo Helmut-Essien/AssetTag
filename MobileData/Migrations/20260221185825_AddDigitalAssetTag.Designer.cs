@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MobileData.Data;
 
@@ -10,9 +11,11 @@ using MobileData.Data;
 namespace MobileData.Migrations
 {
     [DbContext(typeof(LocalDbContext))]
-    partial class LocalDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260221185825_AddDigitalAssetTag")]
+    partial class AddDigitalAssetTag
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.12");
@@ -339,9 +342,6 @@ namespace MobileData.Migrations
                     b.Property<string>("CategoryId")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime>("DateModified")
-                        .HasColumnType("TEXT");
-
                     b.Property<decimal?>("DepreciationRate")
                         .HasColumnType("TEXT");
 
@@ -360,9 +360,6 @@ namespace MobileData.Migrations
             modelBuilder.Entity("Shared.Models.Department", b =>
                 {
                     b.Property<string>("DepartmentId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("DateModified")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Description")
@@ -390,9 +387,6 @@ namespace MobileData.Migrations
 
                     b.Property<string>("Campus")
                         .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("DateModified")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Description")

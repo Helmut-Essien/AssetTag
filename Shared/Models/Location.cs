@@ -15,6 +15,8 @@ namespace Shared.Models
         public double? Latitude { get; set; }
         [Range(-180.0, 180.0, ErrorMessage = "Longitude must be between -180 and 180 degrees.")]
         public double? Longitude { get; set; }
+        
+        public DateTime DateModified { get; set; } = DateTime.UtcNow;
 
         public required ICollection<Asset> Assets { get; set; } = new List<Asset>();
     }

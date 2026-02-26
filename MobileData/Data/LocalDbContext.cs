@@ -152,14 +152,48 @@ namespace MobileData.Data
         /* ---------------  Optional: Change Tracking --------------- */
         public override int SaveChanges()
         {
+            QueueSyncOperations();
             UpdateSyncMetadata();
             return base.SaveChanges();
         }
 
         public override Task<int> SaveChangesAsync(CancellationToken ct = default)
         {
+            QueueSyncOperations();
             UpdateSyncMetadata();
             return base.SaveChangesAsync(ct);
+        }
+
+        private void QueueSyncOperations()
+        {
+            foreach (var entry in ChangeTracker.Entries())
+            {
+                if (entry.Entity is Asset asset)
+                {
+                    string? operation = entry.State switch
+                    {
+                        EntityState.Added => "CREATE",
+                        EntityState.Modified => "UPDATE",
+                        EntityState.Deleted => "DELETE",
+                        _ => null
+                    };
+
+                    if (operation != null)
+                    {
+                        var queueItem = new SyncQueueItem
+                        {
+                            EntityType = "Asset",
+                            EntityId = asset.AssetId,
+                            Operation = operation,
+                            JsonData = System.Text.Json.JsonSerializer.Serialize(asset),
+                            CreatedAt = DateTime.UtcNow,
+                            RetryCount = 0
+                        };
+
+                        SyncQueue.Add(queueItem);
+                    }
+                }
+            }
         }
 
         private void UpdateSyncMetadata()

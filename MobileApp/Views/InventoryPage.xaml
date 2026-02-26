@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:MobileApp.ViewModels"
+             xmlns:controls="clr-namespace:MobileApp.Controls"
+             x:Class="MobileApp.Views.InventoryPage"
+             x:DataType="viewmodels:InventoryViewModel"
+             Title="Inventory"
+             BackgroundColor="#F8F9FA"
+             Shell.NavBarIsVisible="False">
+
+    <Grid RowDefinitions="56,Auto,*">
+        
+        <!-- Top Header Bar -->
+        <Frame Grid.Row="0" 
+               BackgroundColor="#005A9C" 
+               CornerRadius="0" 
+               Padding="0"
+               HasShadow="True">
+            <Grid ColumnDefinitions="56,*,56" Padding="0">
+                <!-- Back Button -->
+                <Button Grid.Column="0"
+                        Text="←"
+                        FontSize="24"
+                        TextColor="White"
+                        BackgroundColor="Transparent"
+                        Command="{Binding Source={RelativeSource AncestorType={x:Type Shell}}, Path=BackCommand}"
+                        HorizontalOptions="Center"
+                        VerticalOptions="Center"/>
+                
+                <!-- Title -->
+                <Label Grid.Column="1"
+                       Text="Inventory"
+                       FontFamily="OpenSansSemibold"
+                       FontSize="20"
+                       TextColor="White"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"/>
+                
+                <!-- Sort Button -->
+                <Button Grid.Column="2"
+                        Text="⇅"
+                        FontSize="24"
+                        TextColor="White"
+                        BackgroundColor="Transparent"
+                        Command="{Binding ShowSortOptionsCommand}"
+                        HorizontalOptions="Center"
+                        VerticalOptions="Center"/>
+            </Grid>
+        </Frame>
+
+        <!-- Search and Filter Section -->
+        <VerticalStackLayout Grid.Row="1" Padding="16,12" Spacing="12">
+            
+            <!-- Search Bar -->
+            <Frame BackgroundColor="White" 
+                   CornerRadius="24" 
+                   Padding="12,8"
+                   HasShadow="True">
+                <Grid ColumnDefinitions="24,*,24">
+                    <!-- Search Icon -->
+                    <Label Grid.Column="0"
+                           Text="🔍"
+                           FontSize="20"
+                           VerticalOptions="Center"/>
+                    
+                    <!-- Search Entry -->
+                    <Entry Grid.Column="1"
+                           Placeholder="Search by name, tag, or serial..."
+                           PlaceholderColor="#999999"
+                           Text="{Binding SearchText}"
+                           TextColor="#333333"
+                           FontSize="14"
+                           VerticalOptions="Center"
+                           Margin="8,0"/>
+                    
+                    <!-- Clear Button (visible when text exists) -->
+                    <Button Grid.Column="2"
+                            Text="✕"
+                            FontSize="16"
+                            TextColor="#666666"
+                            BackgroundColor="Transparent"
+                            Command="{Binding ClearFiltersCommand}"
+                            IsVisible="{Binding SearchText, Converter={StaticResource StringToBoolConverter}}"
+                            VerticalOptions="Center"
+                            Padding="0"/>
+                </Grid>
+            </Frame>
+
+            <!-- Filter Chips -->
+            <HorizontalStackLayout Spacing="8">
+                <!-- All Chip -->
+                <Frame Padding="12,8"
+                       CornerRadius="16"
+                       HasShadow="False"
+                       BackgroundColor="{Binding IsAllFilterActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#005A9C|#E0E0E0'}">
+                    <Frame.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding ToggleAllFilterCommand}"/>
+                    </Frame.GestureRecognizers>
+                    <Label Text="All"
+                           FontFamily="OpenSansSemibold"
+                           FontSize="14"
+                           TextColor="{Binding IsAllFilterActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter='White|#666666'}"/>
+                </Frame>
+
+                <!-- Filter Chip -->
+                <Frame Padding="12,8"
+                       CornerRadius="16"
+                       HasShadow="False"
+                       BackgroundColor="#E0E0E0">
+                    <Frame.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding ShowAdvancedFiltersCommand}"/>
+                    </Frame.GestureRecognizers>
+                    <HorizontalStackLayout Spacing="4">
+                        <Label Text="🔽"
+                               FontSize="12"
+                               VerticalOptions="Center"/>
+                        <Label Text="Filter"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="14"
+                               TextColor="#666666"
+                               VerticalOptions="Center"/>
+                    </HorizontalStackLayout>
+                </Frame>
+
+                <!-- Pending Sync Chip -->
+                <Frame Padding="12,8"
+                       CornerRadius="16"
+                       HasShadow="False"
+                       BackgroundColor="{Binding IsPendingSyncFilterActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#005A9C|#E0E0E0'}">
+                    <Frame.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding TogglePendingSyncFilterCommand}"/>
+                    </Frame.GestureRecognizers>
+                    <HorizontalStackLayout Spacing="4">
+                        <Label Text="⚠️"
+                               FontSize="12"
+                               VerticalOptions="Center"/>
+                        <Label Text="Pending Sync"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="14"
+                               TextColor="{Binding IsPendingSyncFilterActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter='White|#666666'}"
+                               VerticalOptions="Center"/>
+                    </HorizontalStackLayout>
+                </Frame>
+            </HorizontalStackLayout>
+        </VerticalStackLayout>
+
+        <!-- Asset List / Empty State -->
+        <Grid Grid.Row="2">
+            
+            <!-- Asset List (CollectionView) -->
+            <RefreshView IsRefreshing="{Binding IsBusy}"
+                         Command="{Binding RefreshCommand}"
+                         IsVisible="{Binding ShowEmptyState, Converter={StaticResource InvertedBoolConverter}}">
+                <CollectionView ItemsSource="{Binding FilteredAssets}"
+                                SelectionMode="None"
+                                Margin="16,0">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="viewmodels:AssetItemViewModel">
+                            <!-- Asset Card -->
+                            <Frame Margin="0,8"
+                                   Padding="0"
+                                   CornerRadius="12"
+                                   BackgroundColor="White"
+                                   HasShadow="True">
+                                <Frame.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:InventoryViewModel}}, Path=ViewAssetDetailsCommand}"
+                                                          CommandParameter="{Binding .}"/>
+                                </Frame.GestureRecognizers>
+                                
+                                <Grid ColumnDefinitions="4,56,*,24" 
+                                      Padding="0"
+                                      HeightRequest="80">
+                                    
+                                    <!-- Sync Indicator (Left Edge) -->
+                                    <BoxView Grid.Column="0"
+                                             BackgroundColor="{Binding SyncStatusColor}"
+                                             CornerRadius="12,0,0,12"/>
+                                    
+                                    <!-- Category Icon -->
+                                    <Frame Grid.Column="1"
+                                           WidthRequest="40"
+                                           HeightRequest="40"
+                                           CornerRadius="20"
+                                           BackgroundColor="#E3F2FD"
+                                           Padding="0"
+                                           HasShadow="False"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"
+                                           Margin="8,0">
+                                        <Label Text="{Binding CategoryIcon}"
+                                               FontSize="24"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"/>
+                                    </Frame>
+                                    
+                                    <!-- Content Area -->
+                                    <VerticalStackLayout Grid.Column="2"
+                                                         Padding="12,16"
+                                                         Spacing="4"
+                                                         VerticalOptions="Center">
+                                        <!-- Asset Name -->
+                                        <Label Text="{Binding Name}"
+                                               FontFamily="OpenSansSemibold"
+                                               FontSize="16"
+                                               TextColor="#333333"
+                                               LineBreakMode="TailTruncation"
+                                               MaxLines="1"/>
+                                        
+                                        <!-- Asset Tag & Location -->
+                                        <HorizontalStackLayout Spacing="8">
+                                            <Label Text="{Binding DisplayTag}"
+                                                   FontSize="14"
+                                                   TextColor="#666666"
+                                                   LineBreakMode="TailTruncation"/>
+                                            <Label Text="•"
+                                                   FontSize="14"
+                                                   TextColor="#666666"/>
+                                            <Label Text="{Binding DisplayLocation}"
+                                                   FontSize="14"
+                                                   TextColor="#666666"
+                                                   LineBreakMode="TailTruncation"/>
+                                        </HorizontalStackLayout>
+                                    </VerticalStackLayout>
+                                    
+                                    <!-- Chevron Icon -->
+                                    <Label Grid.Column="3"
+                                           Text="›"
+                                           FontSize="24"
+                                           TextColor="#999999"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"
+                                           Margin="0,0,8,0"/>
+                                </Grid>
+                            </Frame>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </RefreshView>
+
+            <!-- Empty State -->
+            <VerticalStackLayout IsVisible="{Binding ShowEmptyState}"
+                                 HorizontalOptions="Center"
+                                 VerticalOptions="Center"
+                                 Spacing="16"
+                                 Padding="32">
+                <!-- Empty Icon -->
+                <Label Text="🔍"
+                       FontSize="64"
+                       HorizontalOptions="Center"/>
+                
+                <!-- Empty Title -->
+                <Label Text="No Assets Found"
+                       FontFamily="OpenSansSemibold"
+                       FontSize="18"
+                       TextColor="#666666"
+                       HorizontalOptions="Center"/>
+                
+                <!-- Empty Description -->
+                <Label Text="{Binding EmptyStateMessage}"
+                       FontSize="14"
+                       TextColor="#999999"
+                       HorizontalOptions="Center"
+                       HorizontalTextAlignment="Center"/>
+            </VerticalStackLayout>
+
+            <!-- Loading Indicator -->
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                              IsVisible="{Binding IsBusy}"
+                              Color="#005A9C"
+                              HorizontalOptions="Center"
+                              VerticalOptions="Center"/>
+        </Grid>
+
+        <!-- Floating Action Button (FAB) -->
+        <Button Grid.Row="2"
+                Text="+"
+                FontSize="24"
+                TextColor="White"
+                BackgroundColor="#005A9C"
+                CornerRadius="28"
+                WidthRequest="56"
+                HeightRequest="56"
+                HorizontalOptions="End"
+                VerticalOptions="End"
+                Margin="16"
+                Command="{Binding AddAssetCommand}"
+                Shadow="{StaticResource FABShadow}"/>
+
+    </Grid>
+</ContentPage>

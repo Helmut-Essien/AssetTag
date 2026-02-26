@@ -3,6 +3,7 @@ using Android.Content.PM;
 using Android.OS;
 using Android.Views;
 using AndroidX.Core.View;
+using Plugin.Fingerprint;
 
 namespace MobileApp
 {
@@ -12,6 +13,9 @@ namespace MobileApp
         protected override void OnCreate(Bundle? savedInstanceState)
         {
             base.OnCreate(savedInstanceState);
+            
+            // Initialize Plugin.Fingerprint for biometric authentication
+            CrossFingerprint.SetCurrentActivityResolver(() => this);
             
             // Set status bar color to match splash screen dark background (#1a1a1a)
             if (Window != null)

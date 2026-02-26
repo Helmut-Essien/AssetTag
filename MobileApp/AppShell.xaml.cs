@@ -15,20 +15,51 @@ namespace MobileApp
             _serviceProvider = serviceProvider;
             _authService = authService;
             
+            // Register LoginPage route for Shell navigation
+            Routing.RegisterRoute(nameof(LoginPage), typeof(LoginPage));
+            
             // Set initial content to DI-resolved SplashScreen
             var splashScreen = _serviceProvider.GetRequiredService<SplashScreen>();
             InitialContent.Content = splashScreen;
-            
-            // Register routes for navigation with factory methods for DI
-            Routing.RegisterRoute(nameof(SplashScreen), typeof(SplashScreen));
-            Routing.RegisterRoute(nameof(LoginPage), typeof(LoginPage));
-            Routing.RegisterRoute(nameof(MainPage), typeof(MainPage));
 
             // Subscribe to navigation events for token validation
             this.Navigating += OnNavigating;
         }
 
-        private async void OnNavigating(object? sender, ShellNavigatingEventArgs e)
+        /// <summary>
+        /// Show the main tab bar after successful login
+        /// </summary>
+        public async Task ShowMainTabsAsync()
+        {
+            // Hide the initial splash/login content
+            InitialContent.IsVisible = false;
+            
+            // Show the main tab bar
+            MainTabBar.IsVisible = true;
+            
+            // Navigate to the Home tab using absolute routing
+            await Shell.Current.GoToAsync("///MainTabs/Home");
+        }
+
+        /// <summary>
+        /// Show the login page (hide tabs)
+        /// </summary>
+        public Task ShowLoginAsync()
+        {
+            // Hide the tab bar
+            MainTabBar.IsVisible = false;
+            
+            // Show the initial content
+            InitialContent.IsVisible = true;
+            
+            // Set the login page as the current content
+            var loginPage = _serviceProvider.GetRequiredService<LoginPage>();
+            InitialContent.Content = loginPage;
+            
+            return Task.CompletedTask;
+        }
+
+        private void OnNavigating(object? sender, ShellNavigatingEventArgs e)
         {
             // Skip validation for navigation to LoginPage or SplashScreen
             var targetRoute = e.Target.Location.OriginalString;
@@ -39,16 +70,18 @@ namespace MobileApp
                 return;
             }
 
-            // Only check if tokens exist (not expired)
-            // TokenRefreshHandler will handle token expiration and refresh for API calls
-            var (accessToken, refreshToken) = await _authService.GetStoredTokensAsync();
-            
-            if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
-            {
-                // No tokens at all - redirect to login
-                e.Cancel();
-                await GoToAsync($"/{nameof(LoginPage)}");
-            }
+            // FIXED: Removed token check during navigation to prevent race condition
+            // The issue was that after login, tokens are saved asynchronously to SecureStorage,
+            // but navigation happens immediately. This caused a race condition where sometimes
+            // the tokens weren't available yet, causing navigation to be canceled and redirected
+            // back to login page.
+            //
+            // Token validation is now handled by:
+            // 1. SplashScreen - checks tokens on app startup
+            // 2. TokenRefreshHandler - handles token refresh for API calls
+            // 3. MainPage - will fail gracefully if tokens are missing
+            //
+            // This allows smooth navigation after login without the double-login issue.
         }
     }
 }

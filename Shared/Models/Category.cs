@@ -15,6 +15,8 @@ namespace Shared.Models
         /// Supports decimal values for precise depreciation calculations.
         /// </summary>
         public decimal? DepreciationRate { get; set; }
+        
+        public DateTime DateModified { get; set; } = DateTime.UtcNow;
 
         public ICollection<Asset> Assets { get; set; } = new List<Asset>();
     }
