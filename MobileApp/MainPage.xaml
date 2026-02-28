@@ -24,7 +24,7 @@
             <!-- Title -->
             <Label Grid.Row="0" Grid.Column="0"
                    Text="Asset Management"
-                   FontFamily="Roboto"
+                   FontFamily="OpenSansRegular"
                    FontSize="22"
                    FontAttributes="Bold"
                    TextColor="White"
@@ -76,13 +76,13 @@
                                        FontSize="28"
                                        HorizontalOptions="Center"/>
                                 <Label Text="{Binding TotalAssets}"
-                                       FontFamily="Roboto"
+                                       FontFamily="OpenSansRegular"
                                        FontSize="24"
                                        FontAttributes="Bold"
                                        HorizontalOptions="Center"
                                        TextColor="#333333"/>
                                 <Label Text="Total Assets"
-                                       FontFamily="Roboto"
+                                       FontFamily="OpenSansRegular"
                                        FontSize="11"
                                        HorizontalOptions="Center"
                                        TextColor="#666666"/>
@@ -103,13 +103,13 @@
                                        FontSize="28"
                                        HorizontalOptions="Center"/>
                                 <Label Text="{Binding ScannedToday}"
-                                       FontFamily="Roboto"
+                                       FontFamily="OpenSansRegular"
                                        FontSize="24"
                                        FontAttributes="Bold"
                                        HorizontalOptions="Center"
                                        TextColor="#333333"/>
                                 <Label Text="Scanned Today"
-                                       FontFamily="Roboto"
+                                       FontFamily="OpenSansRegular"
                                        FontSize="11"
                                        HorizontalOptions="Center"
                                        TextColor="#666666"/>
@@ -130,13 +130,13 @@
                                        FontSize="28"
                                        HorizontalOptions="Center"/>
                                 <Label Text="{Binding PendingSync}"
-                                       FontFamily="Roboto"
+                                       FontFamily="OpenSansRegular"
                                        FontSize="24"
                                        FontAttributes="Bold"
                                        HorizontalOptions="Center"
                                        TextColor="#FFC107"/>
                                 <Label Text="Pending Sync"
-                                       FontFamily="Roboto"
+                                       FontFamily="OpenSansRegular"
                                        FontSize="11"
                                        HorizontalOptions="Center"
                                        TextColor="#666666"/>
@@ -154,7 +154,7 @@
                         </Border.StrokeShape>
                         <VerticalStackLayout Spacing="16" HorizontalOptions="Center">
                             <Label Text="{Binding LastSync, StringFormat='Last Sync: {0}'}"
-                                   FontFamily="Roboto"
+                                   FontFamily="OpenSansRegular"
                                    FontSize="14"
                                    HorizontalOptions="Center"
                                    TextColor="#666666"/>
@@ -179,7 +179,7 @@
                                                      VerticalOptions="Center"/>
                                     <Label Grid.Column="1"
                                            Text="Sync Data"
-                                           FontFamily="Roboto"
+                                           FontFamily="OpenSansRegular"
                                            FontSize="16"
                                            FontAttributes="Bold"
                                            TextColor="White"
@@ -206,7 +206,7 @@
                                            VerticalOptions="Center"/>
                                     <Label Grid.Column="1"
                                            Text="Reset Sync State"
-                                           FontFamily="Roboto"
+                                           FontFamily="OpenSansRegular"
                                            FontSize="14"
                                            FontAttributes="Bold"
                                            TextColor="White"
@@ -222,7 +222,7 @@
                     <!-- Quick Actions Section -->
                     <VerticalStackLayout Spacing="16">
                         <Label Text="Quick Actions"
-                               FontFamily="Roboto"
+                               FontFamily="OpenSansRegular"
                                FontSize="18"
                                FontAttributes="Bold"
                                TextColor="#333333"
@@ -255,12 +255,12 @@
                                                    VerticalOptions="Center"
                                                    Spacing="2">
                                     <Label Text="Add New Asset"
-                                           FontFamily="Roboto"
+                                           FontFamily="OpenSansRegular"
                                            FontSize="16"
                                            FontAttributes="Bold"
                                            TextColor="#333333"/>
                                     <Label Text="Register a new item into the inventory"
-                                           FontFamily="Roboto"
+                                           FontFamily="OpenSansRegular"
                                            FontSize="13"
                                            TextColor="#666666"/>
                                 </VerticalStackLayout>
@@ -303,12 +303,12 @@
                                                    VerticalOptions="Center"
                                                    Spacing="2">
                                     <Label Text="View Asset List"
-                                           FontFamily="Roboto"
+                                           FontFamily="OpenSansRegular"
                                            FontSize="16"
                                            FontAttributes="Bold"
                                            TextColor="#333333"/>
                                     <Label Text="Browse and filter existing inventory"
-                                           FontFamily="Roboto"
+                                           FontFamily="OpenSansRegular"
                                            FontSize="13"
                                            TextColor="#666666"/>
                                 </VerticalStackLayout>
@@ -351,12 +351,12 @@
                                                    VerticalOptions="Center"
                                                    Spacing="2">
                                     <Label Text="Scan Asset"
-                                           FontFamily="Roboto"
+                                           FontFamily="OpenSansRegular"
                                            FontSize="16"
                                            FontAttributes="Bold"
                                            TextColor="#333333"/>
                                     <Label Text="Quick lookup via barcode or QR"
-                                           FontFamily="Roboto"
+                                           FontFamily="OpenSansRegular"
                                            FontSize="13"
                                            TextColor="#666666"/>
                                 </VerticalStackLayout>

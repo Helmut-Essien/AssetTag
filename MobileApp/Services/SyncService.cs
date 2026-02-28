@@ -496,4 +496,41 @@ public class SyncService : ISyncService
             _logger.LogInformation("Sync state reset. LastSync set to {LastSync}", deviceInfo.LastSync);
         }
     }
+
+    /// <summary>
+    /// Clear all local data from the mobile database.
+    /// This will delete all assets, categories, locations, departments, and sync queue items.
+    /// Does NOT sync with server - just clears local storage.
+    /// </summary>
+    public async Task ClearAllLocalDataAsync()
+    {
+        _logger.LogWarning("Clearing all local data from mobile database");
+        
+        try
+        {
+            // Delete data (this may create SyncQueue operations due to change tracking)
+            _dbContext.AssetHistories.RemoveRange(_dbContext.AssetHistories);
+            _dbContext.Assets.RemoveRange(_dbContext.Assets);
+            _dbContext.Categories.RemoveRange(_dbContext.Categories);
+            _dbContext.Locations.RemoveRange(_dbContext.Locations);
+            _dbContext.Departments.RemoveRange(_dbContext.Departments);
+            
+            await _dbContext.SaveChangesAsync();
+            
+            // NOW clear the SyncQueue (removes any operations created above)
+            // This ensures we don't try to sync deletions of data we're clearing locally
+            _dbContext.SyncQueue.RemoveRange(_dbContext.SyncQueue);
+            await _dbContext.SaveChangesAsync();
+            
+            // Reset sync state so next pull will fetch all data from server
+            await ResetSyncStateAsync();
+            
+            _logger.LogInformation("All local data cleared successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error clearing local data");
+            throw;
+        }
+    }
 }

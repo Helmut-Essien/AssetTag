@@ -15,8 +15,10 @@ namespace MobileApp
             _serviceProvider = serviceProvider;
             _authService = authService;
             
-            // Register LoginPage route for Shell navigation
+            // Register routes for Shell navigation
             Routing.RegisterRoute(nameof(LoginPage), typeof(LoginPage));
+            Routing.RegisterRoute(nameof(SettingsPage), typeof(SettingsPage));
+            Routing.RegisterRoute(nameof(InventoryPage), typeof(InventoryPage));
             
             // Set initial content to DI-resolved SplashScreen
             var splashScreen = _serviceProvider.GetRequiredService<SplashScreen>();

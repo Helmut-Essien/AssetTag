@@ -100,12 +100,12 @@ public class SyncController : ControllerBase
             // Note: Don't use .Include() to avoid circular reference issues
             // DTOs will map the foreign key IDs without loading navigation properties
             var assets = await _context.Assets
-                .Where(a => a.DateModified > lastSync)
+                .Where(a => a.DateModified >= lastSync)
                 .ToListAsync();
 
             // Get categories that were modified OR are referenced by the assets being synced
             var modifiedCategories = await _context.Categories
-                .Where(c => c.DateModified > lastSync)
+                .Where(c => c.DateModified >= lastSync)
                 .ToListAsync();
 
             var referencedCategoryIds = assets
@@ -132,7 +132,7 @@ public class SyncController : ControllerBase
 
             // Get locations that were modified OR are referenced by the assets being synced
             var modifiedLocations = await _context.Locations
-                .Where(l => l.DateModified > lastSync)
+                .Where(l => l.DateModified >= lastSync)
                 .ToListAsync();
 
             var referencedLocationIds = assets
@@ -151,7 +151,7 @@ public class SyncController : ControllerBase
 
             // Get departments that were modified OR are referenced by the assets being synced
             var modifiedDepartments = await _context.Departments
-                .Where(d => d.DateModified > lastSync)
+                .Where(d => d.DateModified >= lastSync)
                 .ToListAsync();
 
             var referencedDepartmentIds = assets
