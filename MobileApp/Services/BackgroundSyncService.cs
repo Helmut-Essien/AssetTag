@@ -133,18 +133,21 @@ namespace MobileApp.Services
                     return;
                 }
 
-                // Performance check: Only sync if there are pending changes
+                // BUG FIX #3: Always perform sync to pull server changes, not just when we have local changes
+                // Background sync should keep the device up-to-date with server-side changes from other users
                 using var scope = _serviceProvider.CreateScope();
                 var syncService = scope.ServiceProvider.GetRequiredService<ISyncService>();
                 
                 var pendingCount = await syncService.GetPendingSyncCountAsync();
-                if (pendingCount == 0)
+                
+                if (pendingCount > 0)
                 {
-                    _logger.LogDebug("No pending changes, skipping background sync");
-                    return;
+                    _logger.LogInformation("Background sync starting ({Count} pending operations to push)...", pendingCount);
                 }
-
-                _logger.LogInformation("Background sync starting ({Count} pending operations)...", pendingCount);
+                else
+                {
+                    _logger.LogDebug("Background sync starting (pull only - no local changes to push)...");
+                }
                 
                 var (success, message) = await syncService.FullSyncAsync();
                 

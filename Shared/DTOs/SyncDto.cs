@@ -17,6 +17,10 @@ public record SyncPushRequestDTO
 /// </summary>
 public record SyncOperationDTO
 {
+    /// <summary>
+    /// Local queue item ID (used to track which operations succeeded)
+    /// </summary>
+    public int QueueItemId { get; init; }
     public string EntityType { get; init; } = string.Empty; // "Asset", "AssetHistory"
     public string EntityId { get; init; } = string.Empty;
     public string Operation { get; init; } = string.Empty; // "CREATE", "UPDATE", "DELETE"
@@ -32,6 +36,10 @@ public record SyncPushResponseDTO
     public int SuccessCount { get; init; }
     public int FailureCount { get; init; }
     public List<SyncErrorDTO> Errors { get; init; } = new();
+    /// <summary>
+    /// IDs of operations that were successfully processed (to be removed from mobile queue)
+    /// </summary>
+    public List<int> SuccessfulOperationIds { get; init; } = new();
 }
 
 /// <summary>

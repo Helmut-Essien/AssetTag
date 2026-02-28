@@ -30,8 +30,9 @@ public class SyncController : ControllerBase
     {
         var successCount = 0;
         var errors = new List<SyncErrorDTO>();
+        var successfulOperationIds = new List<int>();
 
-        _logger.LogInformation("Processing push sync from device {DeviceId} with {Count} operations", 
+        _logger.LogInformation("Processing push sync from device {DeviceId} with {Count} operations",
             request.DeviceId, request.Operations.Count);
 
         foreach (var operation in request.Operations.OrderBy(o => o.CreatedAt))
@@ -43,6 +44,7 @@ public class SyncController : ControllerBase
                     case "asset":
                         await ProcessAssetOperation(operation);
                         successCount++;
+                        successfulOperationIds.Add(operation.QueueItemId);
                         break;
                     
                     default:
@@ -57,7 +59,7 @@ public class SyncController : ControllerBase
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing sync operation for {EntityType} {EntityId}", 
+                _logger.LogError(ex, "Error processing sync operation for {EntityType} {EntityId}",
                     operation.EntityType, operation.EntityId);
                 
                 errors.Add(new SyncErrorDTO
@@ -69,14 +71,15 @@ public class SyncController : ControllerBase
             }
         }
 
-        _logger.LogInformation("Push sync completed: {SuccessCount} successful, {FailureCount} failed", 
+        _logger.LogInformation("Push sync completed: {SuccessCount} successful, {FailureCount} failed",
             successCount, errors.Count);
 
         return Ok(new SyncPushResponseDTO
         {
             SuccessCount = successCount,
             FailureCount = errors.Count,
-            Errors = errors
+            Errors = errors,
+            SuccessfulOperationIds = successfulOperationIds
         });
     }
 
