@@ -171,9 +171,6 @@ namespace MobileApp.ViewModels
                 // Perform full bidirectional sync
                 var (success, message) = await _syncService.FullSyncAsync();
 
-                // Reload dashboard data to reflect sync changes
-                await LoadDashboardDataAsync();
-
                 // Show result to user
                 await Shell.Current.DisplayAlert(
                     success ? "Success" : "Sync Error",
@@ -187,6 +184,10 @@ namespace MobileApp.ViewModels
             finally
             {
                 IsBusy = false;
+                
+                // Reload dashboard data AFTER IsBusy is set to false and dialog is dismissed
+                // This ensures the pending count is refreshed after successful sync
+                await LoadDashboardDataAsync();
             }
         }
 
@@ -226,9 +227,6 @@ namespace MobileApp.ViewModels
                 // Perform full sync immediately
                 var (success, message) = await _syncService.FullSyncAsync();
 
-                // Reload dashboard data
-                await LoadDashboardDataAsync();
-
                 // Show result
                 await Shell.Current.DisplayAlert(
                     success ? "Success" : "Sync Error",
@@ -242,6 +240,10 @@ namespace MobileApp.ViewModels
             finally
             {
                 IsBusy = false;
+                
+                // Reload dashboard data AFTER IsBusy is set to false and dialog is dismissed
+                // This ensures the pending count is refreshed after successful sync
+                await LoadDashboardDataAsync();
             }
         }
 
@@ -280,36 +282,14 @@ namespace MobileApp.ViewModels
         }
 
         /// <summary>
-        /// Navigate to settings page (bottom nav)
+        /// Navigate to settings page
         /// </summary>
         [RelayCommand]
         private async Task NavigateToSettingsAsync()
         {
             try
             {
-                // Check if biometric is available
-                var biometricAvailable = await BiometricAuthentication.IsBiometricAvailableAsync();
-                var biometricEnabled = await _authService.IsBiometricEnabledAsync();
-
-                string biometricStatus = biometricAvailable
-                    ? (biometricEnabled ? "✅ Enabled" : "❌ Disabled")
-                    : "⚠️ Not Available";
-
-                var action = await Shell.Current.DisplayActionSheet(
-                    "Settings",
-                    "Cancel",
-                    null,
-                    biometricAvailable ? $"Biometric Login: {biometricStatus}" : null,
-                    "Logout");
-
-                if (action == "Logout")
-                {
-                    await LogoutAsync();
-                }
-                else if (action != null && action.StartsWith("Biometric"))
-                {
-                    await ToggleBiometricAsync();
-                }
+                await Shell.Current.GoToAsync(nameof(SettingsPage));
             }
             catch (Exception ex)
             {

@@ -30,8 +30,9 @@ public class SyncController : ControllerBase
     {
         var successCount = 0;
         var errors = new List<SyncErrorDTO>();
+        var successfulOperationIds = new List<int>();
 
-        _logger.LogInformation("Processing push sync from device {DeviceId} with {Count} operations", 
+        _logger.LogInformation("Processing push sync from device {DeviceId} with {Count} operations",
             request.DeviceId, request.Operations.Count);
 
         foreach (var operation in request.Operations.OrderBy(o => o.CreatedAt))
@@ -43,6 +44,7 @@ public class SyncController : ControllerBase
                     case "asset":
                         await ProcessAssetOperation(operation);
                         successCount++;
+                        successfulOperationIds.Add(operation.QueueItemId);
                         break;
                     
                     default:
@@ -57,7 +59,7 @@ public class SyncController : ControllerBase
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing sync operation for {EntityType} {EntityId}", 
+                _logger.LogError(ex, "Error processing sync operation for {EntityType} {EntityId}",
                     operation.EntityType, operation.EntityId);
                 
                 errors.Add(new SyncErrorDTO
@@ -69,14 +71,15 @@ public class SyncController : ControllerBase
             }
         }
 
-        _logger.LogInformation("Push sync completed: {SuccessCount} successful, {FailureCount} failed", 
+        _logger.LogInformation("Push sync completed: {SuccessCount} successful, {FailureCount} failed",
             successCount, errors.Count);
 
         return Ok(new SyncPushResponseDTO
         {
             SuccessCount = successCount,
             FailureCount = errors.Count,
-            Errors = errors
+            Errors = errors,
+            SuccessfulOperationIds = successfulOperationIds
         });
     }
 
@@ -97,12 +100,12 @@ public class SyncController : ControllerBase
             // Note: Don't use .Include() to avoid circular reference issues
             // DTOs will map the foreign key IDs without loading navigation properties
             var assets = await _context.Assets
-                .Where(a => a.DateModified > lastSync)
+                .Where(a => a.DateModified >= lastSync)
                 .ToListAsync();
 
             // Get categories that were modified OR are referenced by the assets being synced
             var modifiedCategories = await _context.Categories
-                .Where(c => c.DateModified > lastSync)
+                .Where(c => c.DateModified >= lastSync)
                 .ToListAsync();
 
             var referencedCategoryIds = assets
@@ -129,7 +132,7 @@ public class SyncController : ControllerBase
 
             // Get locations that were modified OR are referenced by the assets being synced
             var modifiedLocations = await _context.Locations
-                .Where(l => l.DateModified > lastSync)
+                .Where(l => l.DateModified >= lastSync)
                 .ToListAsync();
 
             var referencedLocationIds = assets
@@ -148,7 +151,7 @@ public class SyncController : ControllerBase
 
             // Get departments that were modified OR are referenced by the assets being synced
             var modifiedDepartments = await _context.Departments
-                .Where(d => d.DateModified > lastSync)
+                .Where(d => d.DateModified >= lastSync)
                 .ToListAsync();
 
             var referencedDepartmentIds = assets

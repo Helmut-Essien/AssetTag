@@ -28,5 +28,10 @@ public interface ISyncService
     /// <summary>
     /// Reset sync state to force full re-sync from server
     /// </summary>
+    
+    /// <summary>
+    /// Clear all local data (assets, categories, locations, departments, sync queue)
+    /// </summary>
+    Task ClearAllLocalDataAsync();
     Task ResetSyncStateAsync();
 }

@@ -1,6 +1,7 @@
 ﻿using NUlid;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace Shared.Models
 {
@@ -44,6 +45,7 @@ namespace Shared.Models
         /// Returns user-specified UsefulLifeYears if set, otherwise calculates from depreciation rate.
         /// </summary>
         [NotMapped]
+        [JsonIgnore]
         public int? CalculatedUsefulLifeYears
         {
             get
@@ -64,6 +66,7 @@ namespace Shared.Models
         /// Total Cost = Cost Per Unit × Quantity
         /// </summary>
         [NotMapped]
+        [JsonIgnore]
         public decimal? TotalCost => CostPerUnit.HasValue ? CostPerUnit.Value * Quantity : null;
 
         /// <summary>
@@ -74,6 +77,7 @@ namespace Shared.Models
         /// Depreciation stops at DisposalDate if asset has been disposed (accounting principle).
         /// </summary>
         [NotMapped]
+        [JsonIgnore]
         public decimal? AccumulatedDepreciation
         {
             get
@@ -109,6 +113,7 @@ namespace Shared.Models
         /// Minimum value is 0 (cannot be negative)
         /// </summary>
         [NotMapped]
+        [JsonIgnore]
         public decimal? NetBookValue
         {
             get
@@ -127,6 +132,7 @@ namespace Shared.Models
         /// Only calculated if asset has been disposed (DisposalDate and DisposalValue are set)
         /// </summary>
         [NotMapped]
+        [JsonIgnore]
         public decimal? GainLossOnDisposal
         {
             get

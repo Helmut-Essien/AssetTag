@@ -106,15 +106,8 @@ namespace MobileData.Data
               .HasForeignKey(h => h.AssetId)
               .OnDelete(DeleteBehavior.Cascade);
 
-            /* ---- Minimal sync tracking ---- */
-            // Add only if you need basic sync
-            mb.Entity<Asset>()
-              .Property<DateTime?>("LastSyncedUtc")
-              .HasDefaultValue(null);
-
-            mb.Entity<Asset>()
-              .Property<bool>("IsPendingSync")
-              .HasDefaultValue(false);
+            // BUG FIX #4: Removed redundant IsPendingSync and LastSyncedUtc shadow properties
+            // Sync state is already tracked in SyncQueue table, no need to duplicate it here
         }
 
         private void ConfigureSyncEntities(ModelBuilder mb)
@@ -155,14 +148,14 @@ namespace MobileData.Data
         public override int SaveChanges()
         {
             QueueSyncOperations();
-            UpdateSyncMetadata();
+            // BUG FIX #4: Removed UpdateSyncMetadata() - no longer needed
             return base.SaveChanges();
         }
 
         public override Task<int> SaveChangesAsync(CancellationToken ct = default)
         {
             QueueSyncOperations();
-            UpdateSyncMetadata();
+            // BUG FIX #4: Removed UpdateSyncMetadata() - no longer needed
             return base.SaveChangesAsync(ct);
         }
 
@@ -182,51 +175,52 @@ namespace MobileData.Data
             
             foreach (var entry in entries)
             {
+                string? operation = entry.State switch
+                {
+                    EntityState.Added => "CREATE",
+                    EntityState.Modified => "UPDATE",
+                    EntityState.Deleted => "DELETE",
+                    _ => null
+                };
+
+                if (operation == null) continue;
+
+                SyncQueueItem? queueItem = null;
+
                 if (entry.Entity is Asset asset)
                 {
-                    string? operation = entry.State switch
+                    queueItem = new SyncQueueItem
                     {
-                        EntityState.Added => "CREATE",
-                        EntityState.Modified => "UPDATE",
-                        EntityState.Deleted => "DELETE",
-                        _ => null
+                        EntityType = "Asset",
+                        EntityId = asset.AssetId,
+                        Operation = operation,
+                        JsonData = JsonSerializer.Serialize(asset, jsonOptions),
+                        CreatedAt = DateTime.UtcNow,
+                        RetryCount = 0
                     };
-
-                    if (operation != null)
-                    {
-                        var queueItem = new SyncQueueItem
-                        {
-                            EntityType = "Asset",
-                            EntityId = asset.AssetId,
-                            Operation = operation,
-                            JsonData = JsonSerializer.Serialize(asset, jsonOptions),
-                            CreatedAt = DateTime.UtcNow,
-                            RetryCount = 0
-                        };
-
-                        SyncQueue.Add(queueItem);
-                    }
                 }
-            }
-        }
-
-        private void UpdateSyncMetadata()
-        {
-            foreach (var entry in ChangeTracker.Entries())
-            {
-                if (entry.State == EntityState.Modified ||
-                    entry.State == EntityState.Added)
+                else if (entry.Entity is AssetHistory history)
                 {
-                    // Mark as needing sync
-                    if (entry.Metadata.ClrType == typeof(Asset) ||
-                        entry.Metadata.ClrType == typeof(AssetHistory))
+                    queueItem = new SyncQueueItem
                     {
-                        entry.Property("IsPendingSync").CurrentValue = true;
-                        entry.Property("LastSyncedUtc").CurrentValue = null;
-                    }
+                        EntityType = "AssetHistory",
+                        EntityId = history.HistoryId.ToString(),
+                        Operation = operation,
+                        JsonData = JsonSerializer.Serialize(history, jsonOptions),
+                        CreatedAt = DateTime.UtcNow,
+                        RetryCount = 0
+                    };
+                }
+
+                if (queueItem != null)
+                {
+                    SyncQueue.Add(queueItem);
                 }
             }
         }
+        
+        // BUG FIX #4: Removed UpdateSyncMetadata() method entirely
+        // Sync state is tracked in SyncQueue table only, no need for shadow properties
     }
 
     /* ---------------  Optional Sync Classes --------------- */

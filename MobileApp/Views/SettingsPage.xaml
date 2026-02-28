@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:MobileApp.ViewModels"
+             x:Class="MobileApp.Views.SettingsPage"
+             x:DataType="vm:SettingsViewModel"
+             Title="Settings"
+             BackgroundColor="#F8F9FA">
+
+    <Grid RowDefinitions="Auto,*">
+        
+        <!-- Header Section -->
+        <Grid Grid.Row="0"
+              BackgroundColor="#005A9C"
+              Padding="20,15,20,20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            
+            <!-- Back Button -->
+            <Border Grid.Column="0"
+                    BackgroundColor="Transparent"
+                    Stroke="Transparent"
+                    Padding="8"
+                    VerticalOptions="Center"
+                    HorizontalOptions="Start">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="20"/>
+                </Border.StrokeShape>
+                <Label Text="←"
+                       FontSize="28"
+                       TextColor="White"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"/>
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding GoBackCommand}"/>
+                </Border.GestureRecognizers>
+            </Border>
+            
+            <!-- Title -->
+            <Label Grid.Column="1"
+                   Text="Settings"
+                   FontFamily="OpenSansRegular"
+                   FontSize="22"
+                   FontAttributes="Bold"
+                   TextColor="White"
+                   VerticalOptions="Center"
+                   Margin="12,0,0,0"/>
+        </Grid>
+
+        <!-- Settings Content -->
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="24" Padding="20,20,20,20">
+                
+                <!-- Security Section -->
+                <VerticalStackLayout Spacing="12" IsVisible="{Binding BiometricAvailable}">
+                    <Label Text="Security"
+                           FontFamily="OpenSansRegular"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           TextColor="#333333"
+                           Margin="0,0,0,4"/>
+                    
+                    <!-- Biometric Login Toggle -->
+                    <Border BackgroundColor="White"
+                            Stroke="Transparent"
+                            Padding="20,18"
+                            Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="12"/>
+                        </Border.StrokeShape>
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                            <Border Grid.Column="0"
+                                    BackgroundColor="#E8F5E9"
+                                    WidthRequest="48"
+                                    HeightRequest="48"
+                                    Stroke="Transparent">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="24"/>
+                                </Border.StrokeShape>
+                                <Label Text="🔐"
+                                       FontSize="24"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center"/>
+                            </Border>
+                            
+                            <VerticalStackLayout Grid.Column="1"
+                                               VerticalOptions="Center"
+                                               Spacing="2">
+                                <Label Text="Biometric Login"
+                                       FontFamily="OpenSansRegular"
+                                       FontSize="16"
+                                       FontAttributes="Bold"
+                                       TextColor="#333333"/>
+                                <Label Text="{Binding BiometricStatusText}"
+                                       FontFamily="OpenSansRegular"
+                                       FontSize="13"
+                                       TextColor="#666666"/>
+                            </VerticalStackLayout>
+                            
+                            <Switch Grid.Column="2"
+                                    IsToggled="{Binding BiometricEnabled}"
+                                    OnColor="#4CAF50"
+                                    ThumbColor="White"
+                                    VerticalOptions="Center"/>
+                        </Grid>
+                    </Border>
+                </VerticalStackLayout>
+                
+                <!-- Data Management Section -->
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Data Management"
+                           FontFamily="OpenSansRegular"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           TextColor="#333333"
+                           Margin="0,0,0,4"/>
+                    
+                    <!-- Clear Local Data Button -->
+                    <Border BackgroundColor="White"
+                            Stroke="Transparent"
+                            Padding="20,18"
+                            Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="12"/>
+                        </Border.StrokeShape>
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                            <Border Grid.Column="0"
+                                    BackgroundColor="#FFEBEE"
+                                    WidthRequest="48"
+                                    HeightRequest="48"
+                                    Stroke="Transparent">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="24"/>
+                                </Border.StrokeShape>
+                                <Label Text="🗑️"
+                                       FontSize="24"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center"/>
+                            </Border>
+                            
+                            <VerticalStackLayout Grid.Column="1"
+                                               VerticalOptions="Center"
+                                               Spacing="2">
+                                <Label Text="Clear Local Data"
+                                       FontFamily="OpenSansRegular"
+                                       FontSize="16"
+                                       FontAttributes="Bold"
+                                       TextColor="#333333"/>
+                                <Label Text="Delete all locally stored assets and sync queue"
+                                       FontFamily="OpenSansRegular"
+                                       FontSize="13"
+                                       TextColor="#666666"/>
+                            </VerticalStackLayout>
+                            
+                            <Label Grid.Column="2"
+                                   Text="›"
+                                   FontSize="28"
+                                   TextColor="#CCCCCC"
+                                   VerticalOptions="Center"/>
+                        </Grid>
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding ClearLocalDataCommand}"/>
+                        </Border.GestureRecognizers>
+                    </Border>
+                    
+                    <!-- Reset Sync State Button -->
+                    <Border BackgroundColor="White"
+                            Stroke="Transparent"
+                            Padding="20,18"
+                            Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="12"/>
+                        </Border.StrokeShape>
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                            <Border Grid.Column="0"
+                                    BackgroundColor="#FFF3E0"
+                                    WidthRequest="48"
+                                    HeightRequest="48"
+                                    Stroke="Transparent">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="24"/>
+                                </Border.StrokeShape>
+                                <Label Text="🔄"
+                                       FontSize="24"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center"/>
+                            </Border>
+                            
+                            <VerticalStackLayout Grid.Column="1"
+                                               VerticalOptions="Center"
+                                               Spacing="2">
+                                <Label Text="Reset Sync State"
+                                       FontFamily="OpenSansRegular"
+                                       FontSize="16"
+                                       FontAttributes="Bold"
+                                       TextColor="#333333"/>
+                                <Label Text="Force full re-sync from server on next pull"
+                                       FontFamily="OpenSansRegular"
+                                       FontSize="13"
+                                       TextColor="#666666"/>
+                            </VerticalStackLayout>
+                            
+                            <Label Grid.Column="2"
+                                   Text="›"
+                                   FontSize="28"
+                                   TextColor="#CCCCCC"
+                                   VerticalOptions="Center"/>
+                        </Grid>
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding ResetSyncStateCommand}"/>
+                        </Border.GestureRecognizers>
+                    </Border>
+                </VerticalStackLayout>
+                
+                <!-- Account Section -->
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Account"
+                           FontFamily="OpenSansRegular"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           TextColor="#333333"
+                           Margin="0,0,0,4"/>
+                    
+                    <!-- Logout Button -->
+                    <Border BackgroundColor="White"
+                            Stroke="Transparent"
+                            Padding="20,18"
+                            Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="12"/>
+                        </Border.StrokeShape>
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                            <Border Grid.Column="0"
+                                    BackgroundColor="#E8EAF6"
+                                    WidthRequest="48"
+                                    HeightRequest="48"
+                                    Stroke="Transparent">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="24"/>
+                                </Border.StrokeShape>
+                                <Label Text="🚪"
+                                       FontSize="24"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center"/>
+                            </Border>
+                            
+                            <VerticalStackLayout Grid.Column="1"
+                                               VerticalOptions="Center"
+                                               Spacing="2">
+                                <Label Text="Logout"
+                                       FontFamily="OpenSansRegular"
+                                       FontSize="16"
+                                       FontAttributes="Bold"
+                                       TextColor="#333333"/>
+                                <Label Text="Sign out of your account"
+                                       FontFamily="OpenSansRegular"
+                                       FontSize="13"
+                                       TextColor="#666666"/>
+                            </VerticalStackLayout>
+                            
+                            <Label Grid.Column="2"
+                                   Text="›"
+                                   FontSize="28"
+                                   TextColor="#CCCCCC"
+                                   VerticalOptions="Center"/>
+                        </Grid>
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding LogoutCommand}"/>
+                        </Border.GestureRecognizers>
+                    </Border>
+                </VerticalStackLayout>
+                
+                <!-- App Info Section -->
+                <VerticalStackLayout Spacing="8" Margin="0,12,0,0">
+                    <Label Text="Asset Management Mobile"
+                           FontFamily="OpenSansRegular"
+                           FontSize="14"
+                           FontAttributes="Bold"
+                           HorizontalOptions="Center"
+                           TextColor="#666666"/>
+                    <Label Text="Version 1.0.0"
+                           FontFamily="OpenSansRegular"
+                           FontSize="12"
+                           HorizontalOptions="Center"
+                           TextColor="#999999"/>
+                </VerticalStackLayout>
+                
+            </VerticalStackLayout>
+        </ScrollView>
+
+    </Grid>
+
+</ContentPage>

@@ -121,6 +121,7 @@ namespace MobileApp
             builder.Services.AddTransient<LoginViewModel>();
             builder.Services.AddTransient<SplashScreenViewModel>();
             builder.Services.AddTransient<InventoryViewModel>();
+            builder.Services.AddTransient<SettingsViewModel>();
 
             // ────────────────────────────────────────────────────────────────
             // Register Pages for dependency injection
@@ -129,6 +130,7 @@ namespace MobileApp
             builder.Services.AddTransient<LoginPage>();
             builder.Services.AddTransient<SplashScreen>();
             builder.Services.AddTransient<InventoryPage>();
+            builder.Services.AddTransient<SettingsPage>();
             
             // Register AppShell for dependency injection
             builder.Services.AddSingleton<AppShell>();

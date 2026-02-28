@@ -57,6 +57,7 @@ public class SyncService : ISyncService
                 DeviceId = deviceInfo.DeviceId,
                 Operations = pendingItems.Select(item => new SyncOperationDTO
                 {
+                    QueueItemId = item.Id, // Include queue item ID for tracking
                     EntityType = item.EntityType,
                     EntityId = item.EntityId,
                     Operation = item.Operation,
@@ -75,23 +76,41 @@ public class SyncService : ISyncService
                 
                 if (result != null)
                 {
-                    // Remove successfully synced items
-                    _dbContext.SyncQueue.RemoveRange(pendingItems);
+                    // BUG FIX #1: Only remove items that were successfully synced
+                    // Get the items that succeeded based on the IDs returned from server
+                    var successfulItems = pendingItems
+                        .Where(item => result.SuccessfulOperationIds.Contains(item.Id))
+                        .ToList();
+                    
+                    _dbContext.SyncQueue.RemoveRange(successfulItems);
+                    
+                    // Increment retry count for failed items
+                    var failedItems = pendingItems
+                        .Where(item => !result.SuccessfulOperationIds.Contains(item.Id))
+                        .ToList();
+                    
+                    foreach (var failedItem in failedItems)
+                    {
+                        failedItem.RetryCount++;
+                        _logger.LogWarning("Sync failed for {EntityType} {EntityId}, retry count: {RetryCount}",
+                            failedItem.EntityType, failedItem.EntityId, failedItem.RetryCount);
+                    }
+                    
                     await _dbContext.SaveChangesAsync();
 
-                    _logger.LogInformation("Push sync completed: {SuccessCount} synced, {FailureCount} failed", 
+                    _logger.LogInformation("Push sync completed: {SuccessCount} synced, {FailureCount} failed",
                         result.SuccessCount, result.FailureCount);
 
                     if (result.Errors.Any())
                     {
                         foreach (var error in result.Errors)
                         {
-                            _logger.LogError("Sync error for {EntityId}: {Message}", 
+                            _logger.LogError("Sync error for {EntityId}: {Message}",
                                 error.EntityId, error.ErrorMessage);
                         }
                     }
 
-                    return (true, $"Synced {result.SuccessCount} changes");
+                    return (true, $"Synced {result.SuccessCount} changes, {result.FailureCount} failed");
                 }
             }
 
@@ -141,6 +160,7 @@ public class SyncService : ISyncService
             }
 
             var totalChanges = 0;
+            var skippedAssetIds = new List<string>(); // BUG FIX #2: Track skipped assets
 
             // ═══════════════════════════════════════════════════════════
             // STEP 1: Sync Categories FIRST (Assets depend on them)
@@ -278,7 +298,10 @@ public class SyncService : ISyncService
                     _logger.LogWarning(
                         "Skipping asset {AssetId} ({AssetTag}) - missing references: Category={CategoryExists}, Location={LocationExists}, Department={DepartmentExists}",
                         assetDto.AssetId, assetDto.AssetTag, categoryExists, locationExists, departmentExists);
-                    continue; // Skip this asset for now, it will sync on next pull when references are available
+                    
+                    // BUG FIX #2: Track skipped assets so we don't update LastSync past them
+                    skippedAssetIds.Add(assetDto.AssetId);
+                    continue;
                 }
                 
                 var existing = await _dbContext.Assets.FindAsync(assetDto.AssetId);
@@ -360,19 +383,40 @@ public class SyncService : ISyncService
 
             // ═══════════════════════════════════════════════════════════
             // STEP 5: Update last sync timestamp ONLY after successful sync
+            // BUG FIX #2: Don't update LastSync if there are skipped assets
             // ═══════════════════════════════════════════════════════════
-            deviceInfo.LastSync = result.ServerTimestamp;
-            await _dbContext.SaveChangesAsync();
+            if (skippedAssetIds.Any())
+            {
+                _logger.LogWarning(
+                    "Skipped {Count} assets due to missing references. LastSync NOT updated to prevent data loss. " +
+                    "Skipped asset IDs: {AssetIds}",
+                    skippedAssetIds.Count,
+                    string.Join(", ", skippedAssetIds));
+                
+                var message = $"Synced {totalChanges} changes: " +
+                             $"{result.Categories.Count} categories, " +
+                             $"{result.Locations.Count} locations, " +
+                             $"{result.Departments.Count} departments, " +
+                             $"{result.Assets.Count - skippedAssetIds.Count} assets " +
+                             $"({skippedAssetIds.Count} skipped - will retry on next sync)";
+                
+                return (true, message);
+            }
+            else
+            {
+                deviceInfo.LastSync = result.ServerTimestamp;
+                await _dbContext.SaveChangesAsync();
 
-            var message = $"Synced {totalChanges} changes: " +
-                         $"{result.Categories.Count} categories, " +
-                         $"{result.Locations.Count} locations, " +
-                         $"{result.Departments.Count} departments, " +
-                         $"{result.Assets.Count} assets";
+                var message = $"Synced {totalChanges} changes: " +
+                             $"{result.Categories.Count} categories, " +
+                             $"{result.Locations.Count} locations, " +
+                             $"{result.Departments.Count} departments, " +
+                             $"{result.Assets.Count} assets";
 
-            _logger.LogInformation("Pull sync completed successfully: {Message}", message);
-            
-            return (true, message);
+                _logger.LogInformation("Pull sync completed successfully: {Message}", message);
+                
+                return (true, message);
+            }
         }
         catch (Exception ex)
         {
@@ -450,6 +494,43 @@ public class SyncService : ISyncService
             await _dbContext.SaveChangesAsync();
             
             _logger.LogInformation("Sync state reset. LastSync set to {LastSync}", deviceInfo.LastSync);
+        }
+    }
+
+    /// <summary>
+    /// Clear all local data from the mobile database.
+    /// This will delete all assets, categories, locations, departments, and sync queue items.
+    /// Does NOT sync with server - just clears local storage.
+    /// </summary>
+    public async Task ClearAllLocalDataAsync()
+    {
+        _logger.LogWarning("Clearing all local data from mobile database");
+        
+        try
+        {
+            // Delete data (this may create SyncQueue operations due to change tracking)
+            _dbContext.AssetHistories.RemoveRange(_dbContext.AssetHistories);
+            _dbContext.Assets.RemoveRange(_dbContext.Assets);
+            _dbContext.Categories.RemoveRange(_dbContext.Categories);
+            _dbContext.Locations.RemoveRange(_dbContext.Locations);
+            _dbContext.Departments.RemoveRange(_dbContext.Departments);
+            
+            await _dbContext.SaveChangesAsync();
+            
+            // NOW clear the SyncQueue (removes any operations created above)
+            // This ensures we don't try to sync deletions of data we're clearing locally
+            _dbContext.SyncQueue.RemoveRange(_dbContext.SyncQueue);
+            await _dbContext.SaveChangesAsync();
+            
+            // Reset sync state so next pull will fetch all data from server
+            await ResetSyncStateAsync();
+            
+            _logger.LogInformation("All local data cleared successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error clearing local data");
+            throw;
         }
     }
 }
