@@ -159,264 +159,284 @@ public class SyncService : ISyncService
                 return (false, "Invalid response from server");
             }
 
-            var totalChanges = 0;
-            var skippedAssetIds = new List<string>(); // BUG FIX #2: Track skipped assets
-
             // ═══════════════════════════════════════════════════════════
-            // STEP 1: Sync Categories FIRST (Assets depend on them)
+            // BUG FIX #5: Disable change tracking during pull sync
+            // This prevents creating SyncQueue entries for data pulled FROM server
+            // CRITICAL: Must remain disabled until ALL SaveChangesAsync() calls complete
             // ═══════════════════════════════════════════════════════════
-            foreach (var categoryDto in result.Categories)
+            try
             {
-                var existing = await _dbContext.Categories.FindAsync(categoryDto.CategoryId);
+                _dbContext.ChangeTracker.AutoDetectChangesEnabled = false;
                 
-                if (existing != null)
-                {
-                    // UPDATE existing category
-                    existing.Name = categoryDto.Name;
-                    existing.Description = categoryDto.Description;
-                    existing.DepreciationRate = categoryDto.DepreciationRate;
-                    existing.DateModified = DateTime.UtcNow;
-                    
-                    _logger.LogDebug("Updated category: {CategoryName}", categoryDto.Name);
-                }
-                else
-                {
-                    // INSERT new category
-                    var newCategory = new Category
-                    {
-                        CategoryId = categoryDto.CategoryId,
-                        Name = categoryDto.Name,
-                        Description = categoryDto.Description,
-                        DepreciationRate = categoryDto.DepreciationRate,
-                        DateModified = DateTime.UtcNow
-                    };
-                    
-                    _dbContext.Categories.Add(newCategory);
-                    _logger.LogDebug("Added new category: {CategoryName}", categoryDto.Name);
-                }
-                
-                totalChanges++;
-            }
+                var totalChanges = 0;
+                var skippedAssetIds = new List<string>(); // BUG FIX #2: Track skipped assets
 
-            // ═══════════════════════════════════════════════════════════
-            // STEP 2: Sync Locations (Assets depend on them)
-            // ═══════════════════════════════════════════════════════════
-            foreach (var locationDto in result.Locations)
-            {
-                var existing = await _dbContext.Locations.FindAsync(locationDto.LocationId);
-                
-                if (existing != null)
-                {
-                    // UPDATE existing location
-                    existing.Name = locationDto.Name;
-                    existing.Description = locationDto.Description;
-                    existing.Campus = locationDto.Campus;
-                    existing.Building = locationDto.Building;
-                    existing.Room = locationDto.Room;
-                    existing.Latitude = locationDto.Latitude;
-                    existing.Longitude = locationDto.Longitude;
-                    existing.DateModified = DateTime.UtcNow;
-                    
-                    _logger.LogDebug("Updated location: {LocationName}", locationDto.Name);
-                }
-                else
-                {
-                    // INSERT new location
-                    var newLocation = new Shared.Models.Location
-                    {
-                        LocationId = locationDto.LocationId,
-                        Name = locationDto.Name,
-                        Description = locationDto.Description,
-                        Campus = locationDto.Campus,
-                        Building = locationDto.Building,
-                        Room = locationDto.Room,
-                        Latitude = locationDto.Latitude,
-                        Longitude = locationDto.Longitude,
-                        DateModified = DateTime.UtcNow,
-                        Assets = new List<Asset>()
-                    };
-                    
-                    _dbContext.Locations.Add(newLocation);
-                    _logger.LogDebug("Added new location: {LocationName}", locationDto.Name);
-                }
-                
-                totalChanges++;
-            }
-
-            // ═══════════════════════════════════════════════════════════
-            // STEP 3: Sync Departments (Assets depend on them)
-            // ═══════════════════════════════════════════════════════════
-            foreach (var departmentDto in result.Departments)
-            {
-                var existing = await _dbContext.Departments.FindAsync(departmentDto.DepartmentId);
-                
-                if (existing != null)
-                {
-                    // UPDATE existing department
-                    existing.Name = departmentDto.Name;
-                    existing.Description = departmentDto.Description;
-                    existing.DateModified = DateTime.UtcNow;
-                    
-                    _logger.LogDebug("Updated department: {DepartmentName}", departmentDto.Name);
-                }
-                else
-                {
-                    // INSERT new department
-                    var newDepartment = new Department
-                    {
-                        DepartmentId = departmentDto.DepartmentId,
-                        Name = departmentDto.Name,
-                        Description = departmentDto.Description,
-                        DateModified = DateTime.UtcNow,
-                        Users = new List<ApplicationUser>()
-                    };
-                    
-                    _dbContext.Departments.Add(newDepartment);
-                    _logger.LogDebug("Added new department: {DepartmentName}", departmentDto.Name);
-                }
-                
-                totalChanges++;
-            }
-
-            // Save reference data changes before processing assets
-            await _dbContext.SaveChangesAsync();
-
-            // ═══════════════════════════════════════════════════════════
-            // STEP 4: Sync Assets LAST (after all dependencies exist)
-            // ═══════════════════════════════════════════════════════════
-            foreach (var assetDto in result.Assets)
-            {
                 // ═══════════════════════════════════════════════════════════
-                // Ensure all referenced entities exist before inserting/updating asset
+                // STEP 1: Sync Categories FIRST (Assets depend on them)
                 // ═══════════════════════════════════════════════════════════
-                var categoryExists = await _dbContext.Categories.AnyAsync(c => c.CategoryId == assetDto.CategoryId);
-                var locationExists = await _dbContext.Locations.AnyAsync(l => l.LocationId == assetDto.LocationId);
-                var departmentExists = await _dbContext.Departments.AnyAsync(d => d.DepartmentId == assetDto.DepartmentId);
-                
-                if (!categoryExists || !locationExists || !departmentExists)
+                foreach (var categoryDto in result.Categories)
                 {
-                    _logger.LogWarning(
-                        "Skipping asset {AssetId} ({AssetTag}) - missing references: Category={CategoryExists}, Location={LocationExists}, Department={DepartmentExists}",
-                        assetDto.AssetId, assetDto.AssetTag, categoryExists, locationExists, departmentExists);
+                    var existing = await _dbContext.Categories.FindAsync(categoryDto.CategoryId);
                     
-                    // BUG FIX #2: Track skipped assets so we don't update LastSync past them
-                    skippedAssetIds.Add(assetDto.AssetId);
-                    continue;
-                }
-                
-                var existing = await _dbContext.Assets.FindAsync(assetDto.AssetId);
-                
-                if (existing != null)
-                {
-                    // UPDATE existing asset
-                    existing.AssetTag = assetDto.AssetTag;
-                    existing.Name = assetDto.Name;
-                    existing.Description = assetDto.Description;
-                    existing.CategoryId = assetDto.CategoryId;
-                    existing.LocationId = assetDto.LocationId;
-                    existing.DepartmentId = assetDto.DepartmentId;
-                    existing.PurchaseDate = assetDto.PurchaseDate;
-                    existing.PurchasePrice = assetDto.PurchasePrice;
-                    existing.CurrentValue = assetDto.CurrentValue;
-                    existing.Status = assetDto.Status;
-                    existing.AssignedToUserId = assetDto.AssignedToUserId;
-                    existing.SerialNumber = assetDto.SerialNumber;
-                    existing.DigitalAssetTag = assetDto.DigitalAssetTag;
-                    existing.Condition = assetDto.Condition;
-                    existing.VendorName = assetDto.VendorName;
-                    existing.InvoiceNumber = assetDto.InvoiceNumber;
-                    existing.Quantity = assetDto.Quantity;
-                    existing.CostPerUnit = assetDto.CostPerUnit;
-                    existing.UsefulLifeYears = assetDto.UsefulLifeYears;
-                    existing.WarrantyExpiry = assetDto.WarrantyExpiry;
-                    existing.DisposalDate = assetDto.DisposalDate;
-                    existing.DisposalValue = assetDto.DisposalValue;
-                    existing.Remarks = assetDto.Remarks;
-                    existing.DateModified = assetDto.DateModified;
-                    
-                    _logger.LogDebug("Updated asset: {AssetName} ({AssetTag})", 
-                        assetDto.Name, assetDto.AssetTag);
-                }
-                else
-                {
-                    // INSERT new asset
-                    var newAsset = new Asset
+                    if (existing != null)
                     {
-                        AssetId = assetDto.AssetId,
-                        AssetTag = assetDto.AssetTag,
-                        Name = assetDto.Name,
-                        Description = assetDto.Description,
-                        CategoryId = assetDto.CategoryId,
-                        LocationId = assetDto.LocationId,
-                        DepartmentId = assetDto.DepartmentId,
-                        PurchaseDate = assetDto.PurchaseDate,
-                        PurchasePrice = assetDto.PurchasePrice,
-                        CurrentValue = assetDto.CurrentValue,
-                        Status = assetDto.Status,
-                        AssignedToUserId = assetDto.AssignedToUserId,
-                        CreatedAt = assetDto.CreatedAt,
-                        DateModified = assetDto.DateModified,
-                        SerialNumber = assetDto.SerialNumber,
-                        DigitalAssetTag = assetDto.DigitalAssetTag,
-                        Condition = assetDto.Condition,
-                        VendorName = assetDto.VendorName,
-                        InvoiceNumber = assetDto.InvoiceNumber,
-                        Quantity = assetDto.Quantity,
-                        CostPerUnit = assetDto.CostPerUnit,
-                        UsefulLifeYears = assetDto.UsefulLifeYears,
-                        WarrantyExpiry = assetDto.WarrantyExpiry,
-                        DisposalDate = assetDto.DisposalDate,
-                        DisposalValue = assetDto.DisposalValue,
-                        Remarks = assetDto.Remarks
-                    };
+                        // UPDATE existing category
+                        existing.Name = categoryDto.Name;
+                        existing.Description = categoryDto.Description;
+                        existing.DepreciationRate = categoryDto.DepreciationRate;
+                        existing.DateModified = DateTime.UtcNow;
+                        
+                        _logger.LogDebug("Updated category: {CategoryName}", categoryDto.Name);
+                    }
+                    else
+                    {
+                        // INSERT new category
+                        var newCategory = new Category
+                        {
+                            CategoryId = categoryDto.CategoryId,
+                            Name = categoryDto.Name,
+                            Description = categoryDto.Description,
+                            DepreciationRate = categoryDto.DepreciationRate,
+                            DateModified = DateTime.UtcNow
+                        };
+                        
+                        _dbContext.Categories.Add(newCategory);
+                        _logger.LogDebug("Added new category: {CategoryName}", categoryDto.Name);
+                    }
                     
-                    _dbContext.Assets.Add(newAsset);
-                    _logger.LogDebug("Added new asset: {AssetName} ({AssetTag})", 
-                        assetDto.Name, assetDto.AssetTag);
+                    totalChanges++;
                 }
-                
-                totalChanges++;
-            }
 
-            // Save all asset changes
-            await _dbContext.SaveChangesAsync();
+                // ═══════════════════════════════════════════════════════════
+                // STEP 2: Sync Locations (Assets depend on them)
+                // ═══════════════════════════════════════════════════════════
+                foreach (var locationDto in result.Locations)
+                {
+                    var existing = await _dbContext.Locations.FindAsync(locationDto.LocationId);
+                    
+                    if (existing != null)
+                    {
+                        // UPDATE existing location
+                        existing.Name = locationDto.Name;
+                        existing.Description = locationDto.Description;
+                        existing.Campus = locationDto.Campus;
+                        existing.Building = locationDto.Building;
+                        existing.Room = locationDto.Room;
+                        existing.Latitude = locationDto.Latitude;
+                        existing.Longitude = locationDto.Longitude;
+                        existing.DateModified = DateTime.UtcNow;
+                        
+                        _logger.LogDebug("Updated location: {LocationName}", locationDto.Name);
+                    }
+                    else
+                    {
+                        // INSERT new location
+                        var newLocation = new Shared.Models.Location
+                        {
+                            LocationId = locationDto.LocationId,
+                            Name = locationDto.Name,
+                            Description = locationDto.Description,
+                            Campus = locationDto.Campus,
+                            Building = locationDto.Building,
+                            Room = locationDto.Room,
+                            Latitude = locationDto.Latitude,
+                            Longitude = locationDto.Longitude,
+                            DateModified = DateTime.UtcNow,
+                            Assets = new List<Asset>()
+                        };
+                        
+                        _dbContext.Locations.Add(newLocation);
+                        _logger.LogDebug("Added new location: {LocationName}", locationDto.Name);
+                    }
+                    
+                    totalChanges++;
+                }
 
-            // ═══════════════════════════════════════════════════════════
-            // STEP 5: Update last sync timestamp ONLY after successful sync
-            // BUG FIX #2: Don't update LastSync if there are skipped assets
-            // ═══════════════════════════════════════════════════════════
-            if (skippedAssetIds.Any())
-            {
-                _logger.LogWarning(
-                    "Skipped {Count} assets due to missing references. LastSync NOT updated to prevent data loss. " +
-                    "Skipped asset IDs: {AssetIds}",
-                    skippedAssetIds.Count,
-                    string.Join(", ", skippedAssetIds));
-                
-                var message = $"Synced {totalChanges} changes: " +
-                             $"{result.Categories.Count} categories, " +
-                             $"{result.Locations.Count} locations, " +
-                             $"{result.Departments.Count} departments, " +
-                             $"{result.Assets.Count - skippedAssetIds.Count} assets " +
-                             $"({skippedAssetIds.Count} skipped - will retry on next sync)";
-                
-                return (true, message);
-            }
-            else
-            {
-                deviceInfo.LastSync = result.ServerTimestamp;
+                // ═══════════════════════════════════════════════════════════
+                // STEP 3: Sync Departments (Assets depend on them)
+                // ═══════════════════════════════════════════════════════════
+                foreach (var departmentDto in result.Departments)
+                {
+                    var existing = await _dbContext.Departments.FindAsync(departmentDto.DepartmentId);
+                    
+                    if (existing != null)
+                    {
+                        // UPDATE existing department
+                        existing.Name = departmentDto.Name;
+                        existing.Description = departmentDto.Description;
+                        existing.DateModified = DateTime.UtcNow;
+                        
+                        _logger.LogDebug("Updated department: {DepartmentName}", departmentDto.Name);
+                    }
+                    else
+                    {
+                        // INSERT new department
+                        var newDepartment = new Department
+                        {
+                            DepartmentId = departmentDto.DepartmentId,
+                            Name = departmentDto.Name,
+                            Description = departmentDto.Description,
+                            DateModified = DateTime.UtcNow,
+                            Users = new List<ApplicationUser>()
+                        };
+                        
+                        _dbContext.Departments.Add(newDepartment);
+                        _logger.LogDebug("Added new department: {DepartmentName}", departmentDto.Name);
+                    }
+                    
+                    totalChanges++;
+                }
+
+                // Save reference data changes before processing assets
+                // IMPORTANT: Change tracking is DISABLED - no SyncQueue entries will be created
                 await _dbContext.SaveChangesAsync();
 
-                var message = $"Synced {totalChanges} changes: " +
-                             $"{result.Categories.Count} categories, " +
-                             $"{result.Locations.Count} locations, " +
-                             $"{result.Departments.Count} departments, " +
-                             $"{result.Assets.Count} assets";
+                // ═══════════════════════════════════════════════════════════
+                // STEP 4: Sync Assets LAST (after all dependencies exist)
+                // ═══════════════════════════════════════════════════════════
+                foreach (var assetDto in result.Assets)
+                {
+                    // ═══════════════════════════════════════════════════════════
+                    // Ensure all referenced entities exist before inserting/updating asset
+                    // ═══════════════════════════════════════════════════════════
+                    var categoryExists = await _dbContext.Categories.AnyAsync(c => c.CategoryId == assetDto.CategoryId);
+                    var locationExists = await _dbContext.Locations.AnyAsync(l => l.LocationId == assetDto.LocationId);
+                    var departmentExists = await _dbContext.Departments.AnyAsync(d => d.DepartmentId == assetDto.DepartmentId);
+                    
+                    if (!categoryExists || !locationExists || !departmentExists)
+                    {
+                        _logger.LogWarning(
+                            "Skipping asset {AssetId} ({AssetTag}) - missing references: Category={CategoryExists}, Location={LocationExists}, Department={DepartmentExists}",
+                            assetDto.AssetId, assetDto.AssetTag, categoryExists, locationExists, departmentExists);
+                        
+                        // BUG FIX #2: Track skipped assets so we don't update LastSync past them
+                        skippedAssetIds.Add(assetDto.AssetId);
+                        continue;
+                    }
+                    
+                    var existing = await _dbContext.Assets.FindAsync(assetDto.AssetId);
+                    
+                    if (existing != null)
+                    {
+                        // UPDATE existing asset
+                        existing.AssetTag = assetDto.AssetTag;
+                        existing.Name = assetDto.Name;
+                        existing.Description = assetDto.Description;
+                        existing.CategoryId = assetDto.CategoryId;
+                        existing.LocationId = assetDto.LocationId;
+                        existing.DepartmentId = assetDto.DepartmentId;
+                        existing.PurchaseDate = assetDto.PurchaseDate;
+                        existing.PurchasePrice = assetDto.PurchasePrice;
+                        existing.CurrentValue = assetDto.CurrentValue;
+                        existing.Status = assetDto.Status;
+                        existing.AssignedToUserId = assetDto.AssignedToUserId;
+                        existing.SerialNumber = assetDto.SerialNumber;
+                        existing.DigitalAssetTag = assetDto.DigitalAssetTag;
+                        existing.Condition = assetDto.Condition;
+                        existing.VendorName = assetDto.VendorName;
+                        existing.InvoiceNumber = assetDto.InvoiceNumber;
+                        existing.Quantity = assetDto.Quantity;
+                        existing.CostPerUnit = assetDto.CostPerUnit;
+                        existing.UsefulLifeYears = assetDto.UsefulLifeYears;
+                        existing.WarrantyExpiry = assetDto.WarrantyExpiry;
+                        existing.DisposalDate = assetDto.DisposalDate;
+                        existing.DisposalValue = assetDto.DisposalValue;
+                        existing.Remarks = assetDto.Remarks;
+                        existing.DateModified = assetDto.DateModified;
+                        
+                        _logger.LogDebug("Updated asset: {AssetName} ({AssetTag})",
+                            assetDto.Name, assetDto.AssetTag);
+                    }
+                    else
+                    {
+                        // INSERT new asset
+                        var newAsset = new Asset
+                        {
+                            AssetId = assetDto.AssetId,
+                            AssetTag = assetDto.AssetTag,
+                            Name = assetDto.Name,
+                            Description = assetDto.Description,
+                            CategoryId = assetDto.CategoryId,
+                            LocationId = assetDto.LocationId,
+                            DepartmentId = assetDto.DepartmentId,
+                            PurchaseDate = assetDto.PurchaseDate,
+                            PurchasePrice = assetDto.PurchasePrice,
+                            CurrentValue = assetDto.CurrentValue,
+                            Status = assetDto.Status,
+                            AssignedToUserId = assetDto.AssignedToUserId,
+                            CreatedAt = assetDto.CreatedAt,
+                            DateModified = assetDto.DateModified,
+                            SerialNumber = assetDto.SerialNumber,
+                            DigitalAssetTag = assetDto.DigitalAssetTag,
+                            Condition = assetDto.Condition,
+                            VendorName = assetDto.VendorName,
+                            InvoiceNumber = assetDto.InvoiceNumber,
+                            Quantity = assetDto.Quantity,
+                            CostPerUnit = assetDto.CostPerUnit,
+                            UsefulLifeYears = assetDto.UsefulLifeYears,
+                            WarrantyExpiry = assetDto.WarrantyExpiry,
+                            DisposalDate = assetDto.DisposalDate,
+                            DisposalValue = assetDto.DisposalValue,
+                            Remarks = assetDto.Remarks
+                        };
+                        
+                        _dbContext.Assets.Add(newAsset);
+                        _logger.LogDebug("Added new asset: {AssetName} ({AssetTag})",
+                            assetDto.Name, assetDto.AssetTag);
+                    }
+                    
+                    totalChanges++;
+                }
 
-                _logger.LogInformation("Pull sync completed successfully: {Message}", message);
-                
-                return (true, message);
-            }
+                // Save all asset changes
+                await _dbContext.SaveChangesAsync();
+
+                // ═══════════════════════════════════════════════════════════
+                // STEP 5: Update last sync timestamp ONLY after successful sync
+                // BUG FIX #2: Don't update LastSync if there are skipped assets
+                // ═══════════════════════════════════════════════════════════
+                if (skippedAssetIds.Any())
+                {
+                    _logger.LogWarning(
+                        "Skipped {Count} assets due to missing references. LastSync NOT updated to prevent data loss. " +
+                        "Skipped asset IDs: {AssetIds}",
+                        skippedAssetIds.Count,
+                        string.Join(", ", skippedAssetIds));
+                    
+                    var message = $"Synced {totalChanges} changes: " +
+                                 $"{result.Categories.Count} categories, " +
+                                 $"{result.Locations.Count} locations, " +
+                                 $"{result.Departments.Count} departments, " +
+                                 $"{result.Assets.Count - skippedAssetIds.Count} assets " +
+                                              $"({skippedAssetIds.Count} skipped - will retry on next sync)";
+                                 
+                                 return (true, message);
+                             }
+                             else
+                             {
+                                 // Update LastSync timestamp BEFORE re-enabling change tracking
+                                 deviceInfo.LastSync = result.ServerTimestamp;
+                                 await _dbContext.SaveChangesAsync();
+             
+                                 var message = $"Synced {totalChanges} changes: " +
+                                              $"{result.Categories.Count} categories, " +
+                                              $"{result.Locations.Count} locations, " +
+                                              $"{result.Departments.Count} departments, " +
+                                              $"{result.Assets.Count} assets";
+             
+                                 _logger.LogInformation("Pull sync completed successfully: {Message}", message);
+                                 
+                                 return (true, message);
+                             }
+                         }
+                         finally
+                         {
+                             // ═══════════════════════════════════════════════════════════
+                             // BUG FIX #5: ALWAYS re-enable change tracking after pull sync
+                             // This ensures normal operation resumes even if errors occur
+                             // ═══════════════════════════════════════════════════════════
+                             _dbContext.ChangeTracker.AutoDetectChangesEnabled = true;
+                         }
         }
         catch (Exception ex)
         {

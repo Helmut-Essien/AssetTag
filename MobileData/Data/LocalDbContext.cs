@@ -147,14 +147,30 @@ namespace MobileData.Data
         /* ---------------  Optional: Change Tracking --------------- */
         public override int SaveChanges()
         {
-            QueueSyncOperations();
+            // ═══════════════════════════════════════════════════════════
+            // BUG FIX #6: Only queue sync operations when change tracking is enabled
+            // When AutoDetectChangesEnabled is false (during pull sync), skip queuing
+            // to prevent creating SyncQueue entries for data pulled FROM the server
+            // ═══════════════════════════════════════════════════════════
+            if (ChangeTracker.AutoDetectChangesEnabled)
+            {
+                QueueSyncOperations();
+            }
             // BUG FIX #4: Removed UpdateSyncMetadata() - no longer needed
             return base.SaveChanges();
         }
 
         public override Task<int> SaveChangesAsync(CancellationToken ct = default)
         {
-            QueueSyncOperations();
+            // ═══════════════════════════════════════════════════════════
+            // BUG FIX #6: Only queue sync operations when change tracking is enabled
+            // When AutoDetectChangesEnabled is false (during pull sync), skip queuing
+            // to prevent creating SyncQueue entries for data pulled FROM the server
+            // ═══════════════════════════════════════════════════════════
+            if (ChangeTracker.AutoDetectChangesEnabled)
+            {
+                QueueSyncOperations();
+            }
             // BUG FIX #4: Removed UpdateSyncMetadata() - no longer needed
             return base.SaveChangesAsync(ct);
         }
