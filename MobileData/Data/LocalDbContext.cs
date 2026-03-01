@@ -124,8 +124,10 @@ namespace MobileData.Data
             mb.Entity<DeviceInfo>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.LastSync)
-                      .HasDefaultValueSql("CURRENT_TIMESTAMP");
+                // REMOVED: .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                // This was causing LastSync to reset on app restart.
+                // LastSync should be explicitly managed by the application code,
+                // not automatically set by the database.
             });
         }
 
