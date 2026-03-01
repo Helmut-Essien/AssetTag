@@ -415,7 +415,10 @@ public class SyncService : ISyncService
                              else
                              {
                                  // Update LastSync timestamp BEFORE re-enabling change tracking
+                                 // CRITICAL FIX: Must explicitly mark entity as modified because AutoDetectChangesEnabled is false
+                                 // Without this, EF Core won't detect the change and won't save it to the database
                                  deviceInfo.LastSync = result.ServerTimestamp;
+                                 _dbContext.Entry(deviceInfo).Property(d => d.LastSync).IsModified = true;
                                  await _dbContext.SaveChangesAsync();
              
                                  var message = $"Synced {totalChanges} changes: " +

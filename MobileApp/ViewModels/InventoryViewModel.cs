@@ -93,6 +93,12 @@ namespace MobileApp.ViewModels
                 // Load assets using AssetService
                 var assetsList = await _assetService.GetAllAssetsAsync();
 
+                // OPTIMIZATION: Load all pending sync IDs in one query instead of N queries
+                var pendingSyncIds = await _dbContext.SyncQueue
+                    .Where(s => s.EntityType == "Asset")
+                    .Select(s => s.EntityId)
+                    .ToHashSetAsync();
+
                 Assets.Clear();
                 foreach (var asset in assetsList)
                 {
@@ -104,7 +110,7 @@ namespace MobileApp.ViewModels
                         CategoryName = asset.Category?.Name ?? "Unknown",
                         CategoryIcon = GetCategoryIcon(asset.Category?.Name),
                         LocationName = asset.Location?.Name ?? "Unknown",
-                        IsPendingSync = await IsPendingSyncAsync(asset.AssetId),
+                        IsPendingSync = pendingSyncIds.Contains(asset.AssetId),
                         DateModified = asset.DateModified
                     });
                 }
@@ -133,20 +139,25 @@ namespace MobileApp.ViewModels
                 // Update sync status
                 await UpdateSyncStatusAsync();
 
-                // Try background sync (fire-and-forget)
-                _ = Task.Run(async () =>
+                // OPTIMIZATION: Only run background sync if there are pending items
+                // and not too frequently (avoid on every navigation)
+                if (HasPendingSync)
                 {
-                    try
+                    _ = Task.Run(async () =>
                     {
-                        await _syncService.FullSyncAsync();
-                        // Update sync status after background sync
-                        await MainThread.InvokeOnMainThreadAsync(async () => await UpdateSyncStatusAsync());
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Background sync failed: {ex.Message}");
-                    }
-                });
+                        try
+                        {
+                            await Task.Delay(2000); // Delay to not block UI
+                            await _syncService.FullSyncAsync();
+                            // Update sync status after background sync
+                            await MainThread.InvokeOnMainThreadAsync(async () => await UpdateSyncStatusAsync());
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Background sync failed: {ex.Message}");
+                        }
+                    });
+                }
             }
             catch (Exception ex)
             {

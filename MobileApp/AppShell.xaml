@@ -27,6 +27,7 @@
         Shell.TabBarIsVisible="False" />
 
     <!-- Main Tab Bar (shown after login) -->
+    <!-- Using ContentTemplate for lazy loading - pages are only created when navigated to -->
     <TabBar x:Name="MainTabBar" Route="MainTabs" IsVisible="False">
         
         <!-- Home Tab -->
@@ -34,7 +35,7 @@
             <ShellContent ContentTemplate="{DataTemplate local:MainPage}"/>
         </Tab>
 
-        <!-- Inventory Tab -->
+        <!-- Inventory Tab - Lazy loaded for better performance -->
         <Tab Title="Inventory" Route="Inventory" Icon="tab_inventory.png">
             <ShellContent ContentTemplate="{DataTemplate views:InventoryPage}"/>
         </Tab>
