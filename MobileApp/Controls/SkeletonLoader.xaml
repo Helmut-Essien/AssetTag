@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:MobileApp.Controls"
+             x:Class="MobileApp.Controls.SkeletonLoader"
+             x:Name="this">
+    
+    <ContentView.Resources>
+        <ResourceDictionary>
+            <!-- Shimmer animation for skeleton -->
+            <Color x:Key="SkeletonBase">#E0E0E0</Color>
+            <Color x:Key="SkeletonHighlight">#F5F5F5</Color>
+        </ResourceDictionary>
+    </ContentView.Resources>
+
+    <Grid>
+        <!-- Skeleton content based on type -->
+        <Grid IsVisible="{Binding Source={x:Reference this}, Path=Type, Converter={StaticResource SkeletonTypeConverter}, ConverterParameter='Card'}"
+              x:DataType="controls:SkeletonLoader">
+            <Border BackgroundColor="White"
+                    Padding="20,18"
+                    StrokeThickness="0"
+                    StrokeShape="RoundRectangle 12">
+                <Border.Shadow>
+                    <Shadow Brush="Black" Opacity="0.1" Radius="8" Offset="0,2"/>
+                </Border.Shadow>
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                    <!-- Icon placeholder -->
+                    <Border Grid.Column="0"
+                            BackgroundColor="{StaticResource SkeletonBase}"
+                            WidthRequest="48"
+                            HeightRequest="48"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 24"
+                            x:Name="IconSkeleton"/>
+                    
+                    <!-- Text placeholders -->
+                    <VerticalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                        <Border BackgroundColor="{StaticResource SkeletonBase}"
+                                HeightRequest="16"
+                                WidthRequest="150"
+                                StrokeThickness="0"
+                                StrokeShape="RoundRectangle 4"
+                                x:Name="TitleSkeleton"/>
+                        <Border BackgroundColor="{StaticResource SkeletonBase}"
+                                HeightRequest="12"
+                                WidthRequest="200"
+                                StrokeThickness="0"
+                                StrokeShape="RoundRectangle 4"
+                                Opacity="0.7"
+                                x:Name="SubtitleSkeleton"/>
+                    </VerticalStackLayout>
+                    
+                    <!-- Chevron placeholder -->
+                    <Border Grid.Column="2"
+                            BackgroundColor="{StaticResource SkeletonBase}"
+                            WidthRequest="24"
+                            HeightRequest="24"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 12"
+                            VerticalOptions="Center"
+                            x:Name="ChevronSkeleton"/>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Asset list item skeleton -->
+        <Grid IsVisible="{Binding Source={x:Reference this}, Path=Type, Converter={StaticResource SkeletonTypeConverter}, ConverterParameter='AssetItem'}"
+              x:DataType="controls:SkeletonLoader">
+            <Border Margin="0,8"
+                    BackgroundColor="White"
+                    StrokeThickness="0"
+                    StrokeShape="RoundRectangle 12">
+                <Border.Shadow>
+                    <Shadow Brush="Black" Opacity="0.1" Radius="8" Offset="0,2"/>
+                </Border.Shadow>
+                <Grid ColumnDefinitions="4,56,*,24" 
+                      Padding="0"
+                      HeightRequest="80">
+                    
+                    <!-- Sync indicator placeholder -->
+                    <BoxView Grid.Column="0"
+                             BackgroundColor="{StaticResource SkeletonBase}"/>
+                    
+                    <!-- Category icon placeholder -->
+                    <Border Grid.Column="1"
+                            BackgroundColor="{StaticResource SkeletonBase}"
+                            WidthRequest="40"
+                            HeightRequest="40"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 20"
+                            HorizontalOptions="Center"
+                            VerticalOptions="Center"
+                            x:Name="AssetIconSkeleton"/>
+                    
+                    <!-- Content placeholders -->
+                    <VerticalStackLayout Grid.Column="2"
+                                         Padding="12,16"
+                                         Spacing="8"
+                                         VerticalOptions="Center">
+                        <Border BackgroundColor="{StaticResource SkeletonBase}"
+                                HeightRequest="16"
+                                WidthRequest="180"
+                                StrokeThickness="0"
+                                StrokeShape="RoundRectangle 4"
+                                x:Name="AssetNameSkeleton"/>
+                        <Border BackgroundColor="{StaticResource SkeletonBase}"
+                                HeightRequest="14"
+                                WidthRequest="220"
+                                StrokeThickness="0"
+                                StrokeShape="RoundRectangle 4"
+                                Opacity="0.7"
+                                x:Name="AssetDetailsSkeleton"/>
+                    </VerticalStackLayout>
+                    
+                    <!-- Chevron placeholder -->
+                    <Border Grid.Column="3"
+                            BackgroundColor="{StaticResource SkeletonBase}"
+                            WidthRequest="20"
+                            HeightRequest="20"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 10"
+                            HorizontalOptions="Center"
+                            VerticalOptions="Center"
+                            x:Name="AssetChevronSkeleton"/>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Dashboard stat card skeleton -->
+        <Grid IsVisible="{Binding Source={x:Reference this}, Path=Type, Converter={StaticResource SkeletonTypeConverter}, ConverterParameter='StatCard'}"
+              x:DataType="controls:SkeletonLoader">
+            <Border BackgroundColor="White"
+                    Padding="12,16"
+                    StrokeThickness="0"
+                    StrokeShape="RoundRectangle 12">
+                <Border.Shadow>
+                    <Shadow Brush="Black" Opacity="0.1" Radius="8" Offset="0,2"/>
+                </Border.Shadow>
+                <VerticalStackLayout Spacing="8" HorizontalOptions="Center">
+                    <Border BackgroundColor="{StaticResource SkeletonBase}"
+                            WidthRequest="32"
+                            HeightRequest="32"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 16"
+                            HorizontalOptions="Center"
+                            x:Name="StatIconSkeleton"/>
+                    <Border BackgroundColor="{StaticResource SkeletonBase}"
+                            HeightRequest="24"
+                            WidthRequest="40"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 4"
+                            HorizontalOptions="Center"
+                            x:Name="StatNumberSkeleton"/>
+                    <Border BackgroundColor="{StaticResource SkeletonBase}"
+                            HeightRequest="11"
+                            WidthRequest="60"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 4"
+                            HorizontalOptions="Center"
+                            Opacity="0.7"
+                            x:Name="StatLabelSkeleton"/>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+    </Grid>
+
+</ContentView>

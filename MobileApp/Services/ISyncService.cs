@@ -26,6 +26,17 @@ public interface ISyncService
     Task<int> GetPendingSyncCountAsync();
 
     /// <summary>
+    /// Enqueue a push sync request to be processed by the background sync queue.
+    /// Returns when the request has been queued; caller may choose not to await the task.
+    /// </summary>
+    Task<(bool Success, string Message)> EnqueuePushAsync();
+
+    /// <summary>
+    /// Enqueue a full sync (push then pull) to be processed by the background sync queue.
+    /// </summary>
+    Task<(bool Success, string Message)> EnqueueFullSyncAsync();
+
+    /// <summary>
     /// Reset sync state to force full re-sync from server
     /// </summary>
     

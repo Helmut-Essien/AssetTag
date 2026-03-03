@@ -7,12 +7,14 @@ namespace MobileApp.Views
     {
         private bool _isAnimating = false;
         private readonly IAuthService _authService;
+        private readonly INavigationService _navigationService;
 
         // Constructor injection - proper DI pattern
-        public SplashScreen(IAuthService authService)
+        public SplashScreen(IAuthService authService, INavigationService navigationService)
         {
             InitializeComponent();
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
+            _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             BindingContext = new SplashScreenViewModel();
         }
 
@@ -60,15 +62,7 @@ namespace MobileApp.Views
                             _isAnimating = false;
                             
                             // Token refreshed successfully, navigate to main tabs
-                            if (Shell.Current is AppShell appShell)
-                            {
-                                await appShell.ShowMainTabsAsync();
-                            }
-                            else
-                            {
-                                // Fallback if cast fails
-                                await Shell.Current.GoToAsync($"/{nameof(LoginPage)}");
-                            }
+                            await _navigationService.ShowMainTabsAsync();
                         }
                         else
                         {
@@ -77,7 +71,7 @@ namespace MobileApp.Views
                             
                             // Refresh failed, clear tokens and go to login
                             _authService.ClearTokens();
-                            await Shell.Current.GoToAsync($"/{nameof(LoginPage)}");
+                            await _navigationService.NavigateToAsync($"/{nameof(LoginPage)}");
                         }
                     }
                     else
@@ -86,15 +80,7 @@ namespace MobileApp.Views
                         _isAnimating = false;
                         
                         // Token is still valid, navigate to main tabs
-                        if (Shell.Current is AppShell appShell)
-                        {
-                            await appShell.ShowMainTabsAsync();
-                        }
-                        else
-                        {
-                            // Fallback if cast fails
-                            await Shell.Current.GoToAsync($"/{nameof(LoginPage)}");
-                        }
+                        await _navigationService.ShowMainTabsAsync();
                     }
                 }
                 else
@@ -103,17 +89,16 @@ namespace MobileApp.Views
                     _isAnimating = false;
                     
                     // No tokens, navigate to login page
-                    await Shell.Current.GoToAsync($"/{nameof(LoginPage)}");
+                    await _navigationService.NavigateToAsync($"/{nameof(LoginPage)}");
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Stop animation on error
                 _isAnimating = false;
                 
                 // Log error if you have a logger, for now just navigate to login as fallback
-                // System.Diagnostics.Debug.WriteLine($"Auth check failed: {ex.Message}");
-                await Shell.Current.GoToAsync($"/{nameof(LoginPage)}");
+                await _navigationService.NavigateToAsync($"/{nameof(LoginPage)}");
             }
         }
 

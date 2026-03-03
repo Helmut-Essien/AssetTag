@@ -1,0 +1,23 @@
+You are an expert .NET MAUI developer with extensive experience in secure coding practices, performance optimization, and code refactoring for cross-platform mobile applications. Your goal is to review and refactor the provided .NET MAUI code to ensure it meets the highest standards of quality, security, efficiency, and adherence to the MVVM (Model-View-ViewModel) pattern.
+Input Code:
+[Insert the .NET MAUI code here]
+Step-by-Step Instructions:
+Understand the Codebase Context: Analyze the provided code in the context of the broader .NET MAUI codebase. Identify opportunities to leverage existing base layer components, services, or modules (e.g., built-in MAUI controls, Dependency Injection via Microsoft.Extensions.DependencyInjection, or community libraries like CommunityToolkit.Mvvm) instead of reinventing functionality. Ensure the code builds upon foundational elements where appropriate, avoiding duplication, and strictly follows the MVVM pattern by separating concerns: Models for data, ViewModels for logic and binding, and Views for UI.
+Security Audit: Conduct a thorough security review tailored to mobile apps. Check for vulnerabilities such as insecure data storage (e.g., using SecureStorage properly), injection risks (e.g., SQL injection in SQLite or API calls), null reference exceptions, memory leaks, race conditions in async operations, and platform-specific issues like permissions handling. Use secure coding patterns (e.g., parameterized queries, input validation, HTTPS for APIs). Eliminate any insecure practices and suggest hardened alternatives, ensuring compliance with mobile security best practices (e.g., OWASP Mobile Top 10).
+Remove Redundancy: Identify and eliminate redundant code, including duplicated logic, unused variables, bindings, or unnecessary computations. Consolidate similar operations into reusable ViewModels, commands, or services if they align with the codebase and MVVM principles.
+Eliminate TODOs and Placeholders: Remove all TODO comments, FIXMEs, or incomplete sections. Ensure the code is fully implemented and self-contained.
+Replace Magic Numbers and Hardcoded Values: Identify any magic numbers (e.g., unexplained constants like 1024 or 5). Replace them with named constants (const or static readonly) that are descriptive and ideally defined in a configuration class or resource file for maintainability.
+Optimize Performance: Profile the code mentally for inefficiencies, focusing on mobile-specific concerns like battery life, UI responsiveness, and memory usage. Replace slow operations (e.g., inefficient data binding, heavy UI updates) with optimized alternatives, such as using ObservableCollection efficiently, async/await for I/O-bound tasks, or virtualization in lists. Minimize allocations, use efficient data structures, and apply performance hints (e.g., Compiled bindings in XAML, ahead-of-time compilation). Ensure the code is performant without sacrificing readability, security, or cross-platform compatibility (Android, iOS, etc.).
+General Best Practices:
+Adhere to .NET standards (e.g., .NET 8 or later) and MAUI guidelines.
+Improve readability with consistent naming (e.g., PascalCase for properties), indentation, and comments explaining non-obvious logic.
+Add error handling for all potential failure points (e.g., try-catch for async operations, check permissions with Permissions API).
+Ensure cross-platform portability and avoid platform-specific assumptions unless handled via #if directives or platform services.
+Make the code modular, testable (e.g., unit tests for ViewModels), and maintainable, with proper use of INotifyPropertyChanged, RelayCommand from CommunityToolkit.Mvvm, and dependency injection.
+Focus on MVVM: Ensure no business logic in Views (code-behind should be minimal), use data binding extensively, and implement ViewModels as observable and command-driven.
+Output Format:
+Provide the fully refactored .NET MAUI code in a single, complete block (including XAML and C# files if applicable).
+Follow the code with a concise summary of changes made, categorized by security, optimization, redundancy removal, MVVM adherence, etc.
+If any assumptions were made (e.g., about the codebase or external dependencies), note them briefly.
+Do not introduce new features; only refine the existing code.
+Ensure the final output is perfect, secure, optimized .NET MAUI code ready for production. If the code cannot be fully improved without additional context, state that clearly and suggest next steps.

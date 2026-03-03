@@ -136,7 +136,7 @@ namespace MobileApp.Services
 
                     if (token != null)
                     {
-                        SaveTokens(token.AccessToken, token.RefreshToken);
+                        await SaveTokensAsync(token.AccessToken, token.RefreshToken);
                         return (true, token, "Login successful");
                     }
 
@@ -225,12 +225,11 @@ namespace MobileApp.Services
 
         
 
-        public void SaveTokens(string accessToken, string refreshToken)
+        public async Task SaveTokensAsync(string accessToken, string refreshToken)
         {
-            // Use synchronous Wait() to ensure tokens are saved before method returns
-            // This prevents race conditions where navigation happens before tokens are stored
-            SecureStorage.SetAsync(ACCESS_TOKEN_KEY, accessToken).Wait();
-            SecureStorage.SetAsync(REFRESH_TOKEN_KEY, refreshToken).Wait();
+            // Use asynchronous storage to avoid blocking the calling thread
+            await SecureStorage.SetAsync(ACCESS_TOKEN_KEY, accessToken);
+            await SecureStorage.SetAsync(REFRESH_TOKEN_KEY, refreshToken);
         }
 
         public async Task<(string? AccessToken, string? RefreshToken)> GetStoredTokensAsync()
@@ -363,7 +362,7 @@ namespace MobileApp.Services
                     
                     if (newTokens != null)
                     {
-                        SaveTokens(newTokens.AccessToken, newTokens.RefreshToken);
+                        await SaveTokensAsync(newTokens.AccessToken, newTokens.RefreshToken);
                         return (true, newTokens, "Token refreshed successfully");
                     }
                     

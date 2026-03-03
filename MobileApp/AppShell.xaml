@@ -27,27 +27,37 @@
         Shell.TabBarIsVisible="False" />
 
     <!-- Main Tab Bar (shown after login) -->
-    <!-- Using ContentTemplate for lazy loading - pages are only created when navigated to -->
+    <!-- PERFORMANCE OPTIMIZATION: ContentTemplate with Singleton services provides instant navigation -->
+    <!-- Pages are created once from DI and cached by Shell for instant subsequent access -->
     <TabBar x:Name="MainTabBar" Route="MainTabs" IsVisible="False">
         
         <!-- Home Tab -->
+        <!-- Shell.DataTemplate.RecyclingStrategy="RetainAndRecycle" keeps page in memory -->
         <Tab Title="Home" Route="Home" Icon="tab_home.png">
-            <ShellContent ContentTemplate="{DataTemplate local:MainPage}"/>
+            <ShellContent
+                ContentTemplate="{DataTemplate local:MainPage}"
+                Shell.PresentationMode="NotAnimated" />
         </Tab>
 
-        <!-- Inventory Tab - Lazy loaded for better performance -->
+        <!-- Inventory Tab -->
         <Tab Title="Inventory" Route="Inventory" Icon="tab_inventory.png">
-            <ShellContent ContentTemplate="{DataTemplate views:InventoryPage}"/>
+            <ShellContent
+                ContentTemplate="{DataTemplate views:InventoryPage}"
+                Shell.PresentationMode="NotAnimated" />
         </Tab>
 
         <!-- Categories Tab (Placeholder) -->
         <Tab Title="Categories" Route="Categories" Icon="tab_categories.png">
-            <ShellContent ContentTemplate="{DataTemplate local:MainPage}"/>
+            <ShellContent
+                ContentTemplate="{DataTemplate local:MainPage}"
+                Shell.PresentationMode="NotAnimated" />
         </Tab>
 
         <!-- Locations Tab (Placeholder) -->
         <Tab Title="Locations" Route="Locations" Icon="tab_locations.png">
-            <ShellContent ContentTemplate="{DataTemplate local:MainPage}"/>
+            <ShellContent
+                ContentTemplate="{DataTemplate local:MainPage}"
+                Shell.PresentationMode="NotAnimated" />
         </Tab>
 
     </TabBar>

@@ -108,6 +108,10 @@ namespace MobileApp
             // ────────────────────────────────────────────────────────────────
             // Register Services for dependency injection
             // ────────────────────────────────────────────────────────────────
+            // Register NavigationService as Singleton (single instance for app lifetime)
+            builder.Services.AddSingleton<INavigationService, NavigationService>();
+            
+            // Register services that use DbContext as scoped so each scope gets its own DbContext
             builder.Services.AddScoped<ISyncService, SyncService>();
             builder.Services.AddScoped<IAssetService, AssetService>();
             
@@ -117,20 +121,30 @@ namespace MobileApp
             // ────────────────────────────────────────────────────────────────
             // Register ViewModels for dependency injection
             // ────────────────────────────────────────────────────────────────
-            builder.Services.AddTransient<MainPageViewModel>();
+            // PERFORMANCE OPTIMIZATION: Register ViewModels as Singleton for instant navigation
+            // Singleton ViewModels are created once and reused, eliminating recreation delays
+            // State is managed through proper initialization methods (OnAppearing/InitializeAsync)
+            builder.Services.AddSingleton<MainPageViewModel>();
+            builder.Services.AddSingleton<InventoryViewModel>();
+            builder.Services.AddSingleton<SettingsViewModel>();
+            
+            // Login/Splash are transient as they're only used once per session
             builder.Services.AddTransient<LoginViewModel>();
             builder.Services.AddTransient<SplashScreenViewModel>();
-            builder.Services.AddTransient<InventoryViewModel>();
-            builder.Services.AddTransient<SettingsViewModel>();
 
             // ────────────────────────────────────────────────────────────────
             // Register Pages for dependency injection
             // ────────────────────────────────────────────────────────────────
-            builder.Services.AddTransient<MainPage>();
+            // PERFORMANCE OPTIMIZATION: Register Pages as Singleton for instant navigation
+            // Singleton pages are created once and cached by Shell, providing instant navigation
+            // This is the recommended approach for tab-based navigation in .NET MAUI
+            builder.Services.AddSingleton<MainPage>();
+            builder.Services.AddSingleton<InventoryPage>();
+            builder.Services.AddSingleton<SettingsPage>();
+            
+            // Login/Splash pages are transient as they're used once per session
             builder.Services.AddTransient<LoginPage>();
             builder.Services.AddTransient<SplashScreen>();
-            builder.Services.AddTransient<InventoryPage>();
-            builder.Services.AddTransient<SettingsPage>();
             
             // Register AppShell for dependency injection
             builder.Services.AddSingleton<AppShell>();

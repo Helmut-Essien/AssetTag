@@ -13,6 +13,11 @@ public interface IAssetService
     Task<List<Asset>> GetAllAssetsAsync();
 
     /// <summary>
+    /// Get a page of assets from local database for incremental loading
+    /// </summary>
+    Task<List<Asset>> GetAssetsPageAsync(int pageIndex, int pageSize);
+
+    /// <summary>
     /// Get a single asset by ID
     /// </summary>
     Task<Asset?> GetAssetByIdAsync(string assetId);

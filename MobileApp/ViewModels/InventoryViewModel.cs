@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using MobileData.Data;
 using Microsoft.EntityFrameworkCore;
 using MobileApp.Services;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
 namespace MobileApp.ViewModels
@@ -12,16 +13,15 @@ namespace MobileApp.ViewModels
     /// </summary>
     public partial class InventoryViewModel : BaseViewModel
     {
-        private readonly LocalDbContext _dbContext;
+        private readonly IServiceProvider _serviceProvider;
         private readonly IAuthService _authService;
         private readonly IAssetService _assetService;
         private readonly ISyncService _syncService;
-
         [ObservableProperty]
         private ObservableCollection<AssetItemViewModel> assets = new();
 
         [ObservableProperty]
-        private ObservableCollection<AssetItemViewModel> filteredAssets = new();
+        private IReadOnlyList<AssetItemViewModel> filteredAssets = new List<AssetItemViewModel>();
 
         [ObservableProperty]
         private string searchText = string.Empty;
@@ -59,17 +59,31 @@ namespace MobileApp.ViewModels
         [ObservableProperty]
         private bool hasPendingSync;
 
+        // Separate flag to prevent concurrent loads without blocking the very first call.
+        // IsBusy cannot be used for this because the page sets it to true BEFORE calling
+        // LoadAssetsAsync (so the skeleton shows), which would cause the old guard to bail out.
+        private bool _isLoading = false;
+        private int _pageIndex = 0;
+        private const int PageSize = 50;
+        private bool _hasMoreItems = true;
+        private bool _isLoadingMore = false;
+        private HashSet<string> _pendingSyncIds = new();
+
         public InventoryViewModel(
-            LocalDbContext dbContext,
+            IServiceProvider serviceProvider,
             IAuthService authService,
             IAssetService assetService,
             ISyncService syncService)
         {
-            _dbContext = dbContext;
+            _serviceProvider = serviceProvider;
             _authService = authService;
             _assetService = assetService;
             _syncService = syncService;
             Title = "Inventory";
+            
+            // Start with IsBusy = true so skeleton shows immediately when page appears
+            // This is set in constructor so it's already true when data binding occurs
+            IsBusy = true;
         }
 
         /// <summary>
@@ -78,86 +92,78 @@ namespace MobileApp.ViewModels
         [RelayCommand]
         public async Task LoadAssetsAsync()
         {
-            if (IsBusy) return;
+            // Guard against concurrent loads only. Do NOT use IsBusy here because the
+            // page sets IsBusy = true before calling this method (to show the skeleton),
+            // and using IsBusy as the guard would cause this method to bail immediately.
+            if (_isLoading) return;
 
             try
             {
+                _isLoading = true;
                 IsBusy = true;
 
-                // Validate token before loading data
-                if (!await ValidateTokenAsync(_authService))
-                {
-                    return;
-                }
-
-                // Load assets using AssetService
-                var assetsList = await _assetService.GetAllAssetsAsync();
-
-                // OPTIMIZATION: Load all pending sync IDs in one query instead of N queries
-                var pendingSyncIds = await _dbContext.SyncQueue
-                    .Where(s => s.EntityType == "Asset")
-                    .Select(s => s.EntityId)
-                    .ToHashSetAsync();
-
+                // Reset paging state and pending sync IDs
+                _pageIndex = 0;
+                _hasMoreItems = true;
                 Assets.Clear();
-                foreach (var asset in assetsList)
+
+                // Load pending sync IDs using scoped DbContext with AsNoTracking
+                using (var scope = _serviceProvider.CreateScope())
                 {
-                    Assets.Add(new AssetItemViewModel
+                    var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
+                    _pendingSyncIds = await dbContext.SyncQueue
+                        .AsNoTracking()
+                        .Where(s => s.EntityType == "Asset")
+                        .Select(s => s.EntityId)
+                        .ToHashSetAsync();
+                }
+
+                // Load first page (will map and assign to Assets)
+                await LoadNextPageAsync();
+
+                // Update empty/has assets state
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    HasAssets = Assets.Count > 0;
+
+                    if (ShowEmptyState && !string.IsNullOrEmpty(SearchText))
                     {
-                        AssetId = asset.AssetId,
-                        Name = asset.Name,
-                        AssetTag = asset.AssetTag,
-                        CategoryName = asset.Category?.Name ?? "Unknown",
-                        CategoryIcon = GetCategoryIcon(asset.Category?.Name),
-                        LocationName = asset.Location?.Name ?? "Unknown",
-                        IsPendingSync = pendingSyncIds.Contains(asset.AssetId),
-                        DateModified = asset.DateModified
-                    });
-                }
+                        EmptyStateMessage = "No assets match your search";
+                    }
+                    else if (ShowEmptyState && (IsPendingSyncFilterActive ||
+                             SelectedCategory != "All Categories" ||
+                             SelectedLocation != "All Locations"))
+                    {
+                        EmptyStateMessage = "No assets match your filters";
+                    }
+                    else
+                    {
+                        EmptyStateMessage = "Your inventory is empty. Tap '+' to add one!";
+                    }
+                });
 
-                // Apply current filters
-                ApplyFilters();
-
-                HasAssets = Assets.Count > 0;
-                ShowEmptyState = FilteredAssets.Count == 0;
-                
-                if (ShowEmptyState && !string.IsNullOrEmpty(SearchText))
-                {
-                    EmptyStateMessage = "No assets match your search";
-                }
-                else if (ShowEmptyState && (IsPendingSyncFilterActive ||
-                         SelectedCategory != "All Categories" ||
-                         SelectedLocation != "All Locations"))
-                {
-                    EmptyStateMessage = "No assets match your filters";
-                }
-                else
-                {
-                    EmptyStateMessage = "Your inventory is empty. Tap '+' to add one!";
-                }
-
-                // Update sync status
+                // Update sync status (non-blocking)
                 await UpdateSyncStatusAsync();
 
-                // OPTIMIZATION: Only run background sync if there are pending items
-                // and not too frequently (avoid on every navigation)
-                if (HasPendingSync)
+                // Token validation moved to background - don't block UI
+                _ = Task.Run(async () =>
                 {
-                    _ = Task.Run(async () =>
+                    var tokenValid = await TryValidateTokenSilentAsync(_authService);
+                    if (!tokenValid)
                     {
-                        try
+                        await MainThread.InvokeOnMainThreadAsync(async () =>
                         {
-                            await Task.Delay(2000); // Delay to not block UI
-                            await _syncService.FullSyncAsync();
-                            // Update sync status after background sync
-                            await MainThread.InvokeOnMainThreadAsync(async () => await UpdateSyncStatusAsync());
-                        }
-                        catch (Exception ex)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"Background sync failed: {ex.Message}");
-                        }
-                    });
-                }
+                            try
+                            {
+                                await Shell.Current.GoToAsync("/LoginPage");
+                            }
+                            catch (Exception ex)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Navigation to login failed: {ex.Message}");
+                            }
+                        });
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -166,17 +172,80 @@ namespace MobileApp.ViewModels
             }
             finally
             {
+                _isLoading = false;
                 IsBusy = false;
             }
         }
 
-        /// <summary>
-        /// Check if an asset has pending sync operations
-        /// </summary>
-        private async Task<bool> IsPendingSyncAsync(string assetId)
+        [RelayCommand]
+        public async Task LoadMoreAsync()
         {
-            return await _dbContext.SyncQueue
-                .AnyAsync(s => s.EntityId == assetId && s.EntityType == "Asset");
+            if (_isLoadingMore || !_hasMoreItems) return;
+            await LoadNextPageAsync();
+        }
+
+        private async Task LoadNextPageAsync()
+        {
+            try
+            {
+                _isLoadingMore = true;
+
+                var page = await _assetService.GetAssetsPageAsync(_pageIndex, PageSize);
+                if (page == null || page.Count == 0)
+                {
+                    _hasMoreItems = false;
+                    return;
+                }
+
+                // Map on background thread
+                var newItems = await Task.Run(() =>
+                {
+                    var list = new List<AssetItemViewModel>(page.Count);
+                    foreach (var asset in page)
+                    {
+                        list.Add(new AssetItemViewModel
+                        {
+                            AssetId = asset.AssetId,
+                            Name = asset.Name,
+                            AssetTag = asset.AssetTag,
+                            CategoryName = asset.Category?.Name ?? "Unknown",
+                            CategoryIcon = GetCategoryIcon(asset.Category?.Name),
+                            LocationName = asset.Location?.Name ?? "Unknown",
+                            IsPendingSync = _pendingSyncIds.Contains(asset.AssetId),
+                            DateModified = asset.DateModified
+                        });
+                    }
+
+                    return list;
+                });
+
+                // Append to collection on main thread
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    foreach (var item in newItems)
+                        Assets.Add(item);
+
+                    ApplyFilters();
+                });
+
+                // Advance page index and check for more
+                if (page.Count < PageSize)
+                {
+                    _hasMoreItems = false;
+                }
+                else
+                {
+                    _pageIndex++;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error loading assets page: {ex.Message}");
+            }
+            finally
+            {
+                _isLoadingMore = false;
+            }
         }
 
         /// <summary>
@@ -285,11 +354,8 @@ namespace MobileApp.ViewModels
                 _ => filtered.OrderBy(a => a.Name)
             };
 
-            FilteredAssets.Clear();
-            foreach (var asset in filtered)
-            {
-                FilteredAssets.Add(asset);
-            }
+            var result = filtered.ToList();
+            FilteredAssets = result;
 
             ShowEmptyState = FilteredAssets.Count == 0;
         }
@@ -358,10 +424,6 @@ namespace MobileApp.ViewModels
         private async Task ShowAdvancedFiltersAsync()
         {
             // TODO: Implement bottom sheet with advanced filters
-            // For now, show a simple action sheet
-            var categories = await _dbContext.Categories.Select(c => c.Name).ToListAsync();
-            var locations = await _dbContext.Locations.Select(l => l.Name).ToListAsync();
-
             await Shell.Current.DisplayAlert(
                 "Advanced Filters",
                 "Advanced filter options will be available in the next update.",

@@ -68,6 +68,43 @@ namespace MobileApp.ViewModels
         }
 
         /// <summary>
+        /// Silent token validation that attempts to refresh tokens but does not
+        /// perform navigation. Use when you want to check/refresh tokens in
+        /// the background without interrupting the current UI flow.
+        /// </summary>
+        protected async Task<bool> TryValidateTokenSilentAsync(IAuthService authService)
+        {
+            try
+            {
+                var (accessToken, refreshToken) = await authService.GetStoredTokensAsync();
+
+                if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
+                {
+                    return false;
+                }
+
+                if (await authService.IsTokenExpiredAsync())
+                {
+                    var (success, newTokens, message) = await authService.RefreshTokenAsync();
+                    if (!success || newTokens == null)
+                    {
+                        authService.ClearTokens();
+                        return false;
+                    }
+
+                    return true;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Silent token validation error: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Navigate to login page using the same pattern as the rest of the app
         /// </summary>
         private async Task NavigateToLoginAsync()

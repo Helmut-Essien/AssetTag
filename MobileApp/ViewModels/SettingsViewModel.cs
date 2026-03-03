@@ -11,6 +11,7 @@ namespace MobileApp.ViewModels
     {
         private readonly IAuthService _authService;
         private readonly ISyncService _syncService;
+        private readonly INavigationService _navigationService;
 
         [ObservableProperty]
         private bool biometricAvailable;
@@ -23,10 +24,12 @@ namespace MobileApp.ViewModels
 
         public SettingsViewModel(
             IAuthService authService,
-            ISyncService syncService)
+            ISyncService syncService,
+            INavigationService navigationService)
         {
             _authService = authService;
             _syncService = syncService;
+            _navigationService = navigationService;
             Title = "Settings";
         }
 
@@ -98,7 +101,7 @@ namespace MobileApp.ViewModels
                     // If no stored credentials, ask for them
                     if (string.IsNullOrEmpty(storedEmail) || string.IsNullOrEmpty(storedPassword))
                     {
-                        var email = await Shell.Current.DisplayPromptAsync(
+                        var email = await _navigationService.DisplayPromptAsync(
                             "Enable Biometric Login",
                             "Enter your email address:",
                             "Next",
@@ -111,7 +114,7 @@ namespace MobileApp.ViewModels
                             return;
                         }
 
-                        var password = await Shell.Current.DisplayPromptAsync(
+                        var password = await _navigationService.DisplayPromptAsync(
                             "Enable Biometric Login",
                             "Enter your password:",
                             "Enable",
@@ -129,7 +132,7 @@ namespace MobileApp.ViewModels
 
                         if (!loginSuccess)
                         {
-                            await Shell.Current.DisplayAlert(
+                            await _navigationService.DisplayAlertAsync(
                                 "Error",
                                 $"Invalid credentials: {loginMessage}",
                                 "OK");
@@ -155,7 +158,7 @@ namespace MobileApp.ViewModels
                     {
                         await _authService.EnableBiometricAuthenticationAsync(storedEmail, storedPassword);
                         BiometricStatusText = "Use fingerprint or face to login";
-                        await Shell.Current.DisplayAlert(
+                        await _navigationService.DisplayAlertAsync(
                             "Success",
                             "Biometric authentication has been enabled!",
                             "OK");
@@ -163,7 +166,7 @@ namespace MobileApp.ViewModels
                     else
                     {
                         BiometricEnabled = false;
-                        await Shell.Current.DisplayAlert(
+                        await _navigationService.DisplayAlertAsync(
                             "Failed",
                             "Biometric authentication failed. Please try again.",
                             "OK");
@@ -172,7 +175,7 @@ namespace MobileApp.ViewModels
                 else
                 {
                     // Disable biometric
-                    var confirm = await Shell.Current.DisplayAlert(
+                    var confirm = await _navigationService.DisplayConfirmAsync(
                         "Disable Biometric Login",
                         "Are you sure you want to disable biometric authentication?",
                         "Yes",
@@ -182,7 +185,7 @@ namespace MobileApp.ViewModels
                     {
                         await _authService.DisableBiometricAuthenticationAsync();
                         BiometricStatusText = "Enable for quick login";
-                        await Shell.Current.DisplayAlert(
+                        await _navigationService.DisplayAlertAsync(
                             "Success",
                             "Biometric authentication has been disabled.",
                             "OK");
@@ -196,7 +199,7 @@ namespace MobileApp.ViewModels
             catch (Exception ex)
             {
                 BiometricEnabled = !enable;
-                await Shell.Current.DisplayAlert("Error", $"An error occurred: {ex.Message}", "OK");
+                await _navigationService.DisplayAlertAsync("Error", $"An error occurred: {ex.Message}", "OK");
             }
             finally
             {
@@ -214,7 +217,7 @@ namespace MobileApp.ViewModels
 
             try
             {
-                var confirm = await Shell.Current.DisplayAlert(
+                var confirm = await _navigationService.DisplayConfirmAsync(
                     "Clear Local Data",
                     "⚠️ WARNING: This will permanently delete ALL locally stored data including:\n\n" +
                     "• All assets\n" +
@@ -229,7 +232,7 @@ namespace MobileApp.ViewModels
                     return;
 
                 // Double confirmation for safety
-                var doubleConfirm = await Shell.Current.DisplayAlert(
+                var doubleConfirm = await _navigationService.DisplayConfirmAsync(
                     "Are You Sure?",
                     "This is your last chance to cancel. All local data will be permanently deleted.",
                     "Delete Everything",
@@ -243,17 +246,17 @@ namespace MobileApp.ViewModels
                 // Clear all local data
                 await _syncService.ClearAllLocalDataAsync();
 
-                await Shell.Current.DisplayAlert(
+                await _navigationService.DisplayAlertAsync(
                     "Success",
                     "All local data has been cleared. Pull from server to restore data.",
                     "OK");
 
                 // Go back to main page
-                await Shell.Current.GoToAsync("..");
+                await _navigationService.GoBackAsync();
             }
             catch (Exception ex)
             {
-                await Shell.Current.DisplayAlert("Error", $"Failed to clear data: {ex.Message}", "OK");
+                await _navigationService.DisplayAlertAsync("Error", $"Failed to clear data: {ex.Message}", "OK");
             }
             finally
             {
@@ -271,7 +274,7 @@ namespace MobileApp.ViewModels
 
             try
             {
-                var confirm = await Shell.Current.DisplayAlert(
+                var confirm = await _navigationService.DisplayConfirmAsync(
                     "Reset Sync State",
                     "This will reset the sync timestamp and fetch ALL data from the server on next sync. " +
                     "This is useful if you're missing data. Continue?",
@@ -285,19 +288,19 @@ namespace MobileApp.ViewModels
 
                 // Reset sync state
                 await _syncService.ResetSyncStateAsync();
-
-                // Perform full sync immediately
-                var (success, message) = await _syncService.FullSyncAsync();
+                
+                // Perform full sync immediately (enqueue to central sync queue)
+                var (success, message) = await _syncService.EnqueueFullSyncAsync();
 
                 // Show result
-                await Shell.Current.DisplayAlert(
+                await _navigationService.DisplayAlertAsync(
                     success ? "Success" : "Sync Error",
                     success ? "Sync state reset and full sync completed successfully!" : $"Reset completed but sync failed: {message}",
                     "OK");
             }
             catch (Exception ex)
             {
-                await Shell.Current.DisplayAlert("Error", $"Reset failed: {ex.Message}", "OK");
+                await _navigationService.DisplayAlertAsync("Error", $"Reset failed: {ex.Message}", "OK");
             }
             finally
             {
@@ -313,7 +316,7 @@ namespace MobileApp.ViewModels
         {
             try
             {
-                var confirm = await Shell.Current.DisplayAlert(
+                var confirm = await _navigationService.DisplayConfirmAsync(
                     "Logout",
                     "Are you sure you want to logout?",
                     "Yes",
@@ -328,20 +331,17 @@ namespace MobileApp.ViewModels
 
                 if (success)
                 {
-                    // Navigate back to login page
-                    if (Shell.Current is AppShell appShell)
-                    {
-                        await appShell.ShowLoginAsync();
-                    }
+                    // Navigate back to login page using navigation service
+                    await _navigationService.ShowLoginAsync();
                 }
                 else
                 {
-                    await Shell.Current.DisplayAlert("Logout", message, "OK");
+                    await _navigationService.DisplayAlertAsync("Logout", message, "OK");
                 }
             }
             catch (Exception ex)
             {
-                await Shell.Current.DisplayAlert("Error", $"Logout failed: {ex.Message}", "OK");
+                await _navigationService.DisplayAlertAsync("Error", $"Logout failed: {ex.Message}", "OK");
             }
             finally
             {
@@ -355,7 +355,7 @@ namespace MobileApp.ViewModels
         [RelayCommand]
         private async Task GoBackAsync()
         {
-            await Shell.Current.GoToAsync("..");
+            await _navigationService.GoBackAsync();
         }
     }
 }

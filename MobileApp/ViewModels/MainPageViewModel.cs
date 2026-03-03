@@ -12,7 +12,7 @@ namespace MobileApp.ViewModels
     /// </summary>
     public partial class MainPageViewModel : BaseViewModel
     {
-        private readonly LocalDbContext _dbContext;
+        private readonly IServiceProvider _serviceProvider;
         private readonly IAuthService _authService;
         private readonly ISyncService _syncService;
 
@@ -32,14 +32,17 @@ namespace MobileApp.ViewModels
         private string lastSync = "Never synced";
 
         public MainPageViewModel(
-            LocalDbContext dbContext,
+            IServiceProvider serviceProvider,
             IAuthService authService,
             ISyncService syncService)
         {
-            _dbContext = dbContext;
+            _serviceProvider = serviceProvider;
             _authService = authService;
             _syncService = syncService;
             Title = "Asset Management";
+            
+            // Start with IsBusy = true so skeleton shows immediately when page appears
+            IsBusy = true;
         }
 
         /// <summary>
@@ -48,28 +51,28 @@ namespace MobileApp.ViewModels
         [RelayCommand]
         public async Task LoadDashboardDataAsync()
         {
-            if (IsBusy) return;
-
             try
             {
-                IsBusy = true;
+                using var scope = _serviceProvider.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
 
-                // Load total assets count
-                TotalAssets = await _dbContext.Assets.CountAsync();
+                // Load total assets count with AsNoTracking
+                TotalAssets = await dbContext.Assets.AsNoTracking().CountAsync();
 
-                // Load assets scanned today
-                ScannedToday = await _dbContext.Assets
+                // Load assets scanned today with AsNoTracking
+                ScannedToday = await dbContext.Assets
+                    .AsNoTracking()
                     .Where(a => a.DateModified.Date == DateTime.Today)
                     .CountAsync();
 
                 // Load pending sync count from SyncService
                 PendingSync = await _syncService.GetPendingSyncCountAsync();
 
-                // Load categories count
-                Categories = await _dbContext.Categories.CountAsync();
+                // Load categories count with AsNoTracking
+                Categories = await dbContext.Categories.AsNoTracking().CountAsync();
 
-                // Update last sync time from DeviceInfo table
-                var deviceInfo = await _dbContext.DeviceInfo.FirstOrDefaultAsync();
+                // Update last sync time from DeviceInfo table with AsNoTracking
+                var deviceInfo = await dbContext.DeviceInfo.AsNoTracking().FirstOrDefaultAsync();
                 if (deviceInfo != null && deviceInfo.LastSync > DateTime.MinValue)
                 {
                     var timeSinceSync = DateTime.UtcNow - deviceInfo.LastSync;
@@ -97,10 +100,6 @@ namespace MobileApp.ViewModels
                 ScannedToday = 0;
                 PendingSync = 0;
                 Categories = 0;
-            }
-            finally
-            {
-                IsBusy = false;
             }
         }
 
@@ -168,8 +167,8 @@ namespace MobileApp.ViewModels
             {
                 IsBusy = true;
 
-                // Perform full bidirectional sync
-                var (success, message) = await _syncService.FullSyncAsync();
+                // Perform full bidirectional sync (enqueue to central sync queue)
+                var (success, message) = await _syncService.EnqueueFullSyncAsync();
 
                 // Show result to user
                 await Shell.Current.DisplayAlert(
@@ -224,8 +223,8 @@ namespace MobileApp.ViewModels
                 // Reset sync state
                 await _syncService.ResetSyncStateAsync();
 
-                // Perform full sync immediately
-                var (success, message) = await _syncService.FullSyncAsync();
+                // Perform full sync immediately (enqueue to central sync queue)
+                var (success, message) = await _syncService.EnqueueFullSyncAsync();
 
                 // Show result
                 await Shell.Current.DisplayAlert(
