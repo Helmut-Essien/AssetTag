@@ -8,6 +8,7 @@ namespace MobileApp.ViewModels
     public partial class LoginViewModel : BaseViewModel
     {
         private readonly IAuthService _authService;
+        private readonly INavigationService _navigationService;
 
         [ObservableProperty]
         private string email = string.Empty;
@@ -30,9 +31,10 @@ namespace MobileApp.ViewModels
         [ObservableProperty]
         private bool biometricEnabled = false;
 
-        public LoginViewModel(IAuthService authService)
+        public LoginViewModel(IAuthService authService, INavigationService navigationService)
         {
             _authService = authService;
+            _navigationService = navigationService;
             Title = "Login";
             
             // Check biometric availability on initialization
@@ -95,11 +97,8 @@ namespace MobileApp.ViewModels
                         await SecureStorage.SetAsync("biometric_enabled", "false");
                     }
                     
-                    // Navigate to main tabs
-                    if (Shell.Current is AppShell appShell)
-                    {
-                        await appShell.ShowMainTabsAsync();
-                    }
+                    // Navigate to main tabs using navigation service
+                    await _navigationService.ShowMainTabsAsync();
                 }
                 else
                 {
@@ -143,11 +142,8 @@ namespace MobileApp.ViewModels
 
                 if (success)
                 {
-                    // Navigate to main tabs
-                    if (Shell.Current is AppShell appShell)
-                    {
-                        await appShell.ShowMainTabsAsync();
-                    }
+                    // Navigate to main tabs using navigation service
+                    await _navigationService.ShowMainTabsAsync();
                 }
                 else
                 {
@@ -169,7 +165,7 @@ namespace MobileApp.ViewModels
         {
             if (!BiometricAvailable)
             {
-                await Shell.Current.DisplayAlert("Not Available",
+                await _navigationService.DisplayAlertAsync("Not Available",
                     "Biometric authentication is not available on this device.",
                     "OK");
                 return;
@@ -180,7 +176,7 @@ namespace MobileApp.ViewModels
                 // Disable biometric
                 await _authService.DisableBiometricAuthenticationAsync();
                 BiometricEnabled = false;
-                await Shell.Current.DisplayAlert("Disabled",
+                await _navigationService.DisplayAlertAsync("Disabled",
                     "Biometric authentication has been disabled.",
                     "OK");
             }
@@ -189,7 +185,7 @@ namespace MobileApp.ViewModels
                 // Enable biometric - require credentials first
                 if (string.IsNullOrWhiteSpace(Email) || string.IsNullOrWhiteSpace(Password))
                 {
-                    await Shell.Current.DisplayAlert("Credentials Required",
+                    await _navigationService.DisplayAlertAsync("Credentials Required",
                         "Please enter your email and password first to enable biometric authentication.",
                         "OK");
                     return;
@@ -203,13 +199,13 @@ namespace MobileApp.ViewModels
                 {
                     await _authService.EnableBiometricAuthenticationAsync(Email, Password);
                     BiometricEnabled = true;
-                    await Shell.Current.DisplayAlert("Enabled",
+                    await _navigationService.DisplayAlertAsync("Enabled",
                         "Biometric authentication has been enabled. You can now login using biometrics even if your session expires.",
                         "OK");
                 }
                 else
                 {
-                    await Shell.Current.DisplayAlert("Failed",
+                    await _navigationService.DisplayAlertAsync("Failed",
                         "Biometric authentication failed. Please try again.",
                         "OK");
                 }
@@ -239,7 +235,7 @@ namespace MobileApp.ViewModels
         private async Task ForgotPasswordAsync()
         {
             // Prompt user for email
-            string email = await Shell.Current.DisplayPromptAsync(
+            string? email = await _navigationService.DisplayPromptAsync(
                 "Forgot Password",
                 "Enter your email address:",
                 "Send Reset Link",
@@ -255,7 +251,7 @@ namespace MobileApp.ViewModels
             // Validate email format
             if (!IsValidEmail(email))
             {
-                await Shell.Current.DisplayAlert("Invalid Email",
+                await _navigationService.DisplayAlertAsync("Invalid Email",
                     "Please enter a valid email address.",
                     "OK");
                 return;
@@ -267,14 +263,14 @@ namespace MobileApp.ViewModels
             {
                 var (success, message) = await _authService.ForgotPasswordAsync(email);
 
-                await Shell.Current.DisplayAlert(
+                await _navigationService.DisplayAlertAsync(
                     success ? "Reset Link Sent" : "Error",
                     message,
                     "OK");
             }
             catch (Exception ex)
             {
-                await Shell.Current.DisplayAlert("Error",
+                await _navigationService.DisplayAlertAsync("Error",
                     $"An unexpected error occurred: {ex.Message}",
                     "OK");
             }

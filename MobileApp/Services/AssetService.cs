@@ -8,16 +8,16 @@ namespace MobileApp.Services;
 
 public class AssetService : IAssetService
 {
-    private readonly LocalDbContext _dbContext;
+    private readonly IServiceProvider _serviceProvider;
     private readonly ISyncService _syncService;
     private readonly ILogger<AssetService> _logger;
 
     public AssetService(
-        LocalDbContext dbContext, 
+        IServiceProvider serviceProvider,
         ISyncService syncService,
         ILogger<AssetService> logger)
     {
-        _dbContext = dbContext;
+        _serviceProvider = serviceProvider;
         _syncService = syncService;
         _logger = logger;
     }
@@ -26,7 +26,10 @@ public class AssetService : IAssetService
     {
         try
         {
-            return await _dbContext.Assets
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
+
+            return await dbContext.Assets
                 .Include(a => a.Category)
                 .Include(a => a.Location)
                 .Include(a => a.Department)
@@ -40,11 +43,38 @@ public class AssetService : IAssetService
         }
     }
 
+    public async Task<List<Asset>>GetAssetsPageAsync(int pageIndex, int pageSize)
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
+
+            return await dbContext.Assets
+                .AsNoTracking()
+                .Include(a => a.Category)
+                .Include(a => a.Location)
+                .Include(a => a.Department)
+                .OrderBy(a => a.Name)
+                .Skip(pageIndex * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting assets page {PageIndex} size {PageSize}", pageIndex, pageSize);
+            return new List<Asset>();
+        }
+    }
+
     public async Task<Asset?> GetAssetByIdAsync(string assetId)
     {
         try
         {
-            return await _dbContext.Assets
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
+
+            return await dbContext.Assets
                 .Include(a => a.Category)
                 .Include(a => a.Location)
                 .Include(a => a.Department)
@@ -70,24 +100,17 @@ public class AssetService : IAssetService
             asset.CreatedAt = DateTime.UtcNow;
             asset.DateModified = DateTime.UtcNow;
 
-            _dbContext.Assets.Add(asset);
-            await _dbContext.SaveChangesAsync(); // Automatically queues to SyncQueue
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
+
+            dbContext.Assets.Add(asset);
+            await dbContext.SaveChangesAsync(); // Automatically queues to SyncQueue
 
             _logger.LogInformation("Created asset {AssetId} ({AssetTag}) offline", 
                 asset.AssetId, asset.AssetTag);
 
-            // Try to sync immediately if online (fire and forget)
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await _syncService.PushChangesAsync();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Background sync failed after create");
-                }
-            });
+            // Enqueue a push sync request (fire-and-forget)
+            _ = _syncService.EnqueuePushAsync();
 
             return (true, "Asset created successfully");
         }
@@ -102,7 +125,10 @@ public class AssetService : IAssetService
     {
         try
         {
-            var existing = await _dbContext.Assets.FindAsync(asset.AssetId);
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
+
+            var existing = await dbContext.Assets.FindAsync(asset.AssetId);
             if (existing == null)
             {
                 _logger.LogWarning("Asset {AssetId} not found for update", asset.AssetId);
@@ -135,23 +161,13 @@ public class AssetService : IAssetService
             existing.Remarks = asset.Remarks;
             existing.DateModified = DateTime.UtcNow;
 
-            await _dbContext.SaveChangesAsync(); // Automatically queues to SyncQueue
+            await dbContext.SaveChangesAsync(); // Automatically queues to SyncQueue
 
             _logger.LogInformation("Updated asset {AssetId} ({AssetTag}) offline", 
                 asset.AssetId, asset.AssetTag);
 
-            // Try to sync immediately if online (fire and forget)
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await _syncService.PushChangesAsync();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Background sync failed after update");
-                }
-            });
+            // Enqueue a push sync request (fire-and-forget)
+            _ = _syncService.EnqueuePushAsync();
 
             return (true, "Asset updated successfully");
         }
@@ -166,7 +182,10 @@ public class AssetService : IAssetService
     {
         try
         {
-            var asset = await _dbContext.Assets.FindAsync(assetId);
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
+
+            var asset = await dbContext.Assets.FindAsync(assetId);
             if (asset == null)
             {
                 _logger.LogWarning("Asset {AssetId} not found for deletion", assetId);
@@ -174,24 +193,14 @@ public class AssetService : IAssetService
             }
 
             var assetTag = asset.AssetTag;
-            _dbContext.Assets.Remove(asset);
-            await _dbContext.SaveChangesAsync(); // Automatically queues to SyncQueue
+            dbContext.Assets.Remove(asset);
+            await dbContext.SaveChangesAsync(); // Automatically queues to SyncQueue
 
             _logger.LogInformation("Deleted asset {AssetId} ({AssetTag}) offline", 
                 assetId, assetTag);
 
-            // Try to sync immediately if online (fire and forget)
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await _syncService.PushChangesAsync();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Background sync failed after delete");
-                }
-            });
+            // Enqueue a push sync request (fire-and-forget)
+            _ = _syncService.EnqueuePushAsync();
 
             return (true, "Asset deleted successfully");
         }

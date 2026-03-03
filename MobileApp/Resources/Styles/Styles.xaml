@@ -9,6 +9,7 @@
     <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
     <converters:StringToBoolConverter x:Key="StringToBoolConverter" />
     <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+    <converters:SkeletonTypeConverter x:Key="SkeletonTypeConverter" />
 
     <!-- FAB Shadow -->
     <Shadow x:Key="FABShadow"

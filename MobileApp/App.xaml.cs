@@ -23,7 +23,20 @@ namespace MobileApp
             // No need to call Start() - it runs migrations in background
 
             // Start background sync service
-            _backgroundSyncService.Start();
+            // Defer starting the background sync slightly so the UI can render the first frame
+            // This avoids heavy work competing with initial UI rendering.
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                try
+                {
+                    await Task.Delay(200); // give the UI a moment
+                    _backgroundSyncService.Start();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Background sync start failed: {ex.Message}");
+                }
+            });
 
             // Monitor network connectivity changes
             Connectivity.ConnectivityChanged += OnConnectivityChanged;
@@ -40,7 +53,7 @@ namespace MobileApp
         /// Handle network connectivity changes
         /// Trigger immediate sync when internet is restored
         /// </summary>
-        private async void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
+        private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
         {
             if (e.NetworkAccess == NetworkAccess.Internet)
             {

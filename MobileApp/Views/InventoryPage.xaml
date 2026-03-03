@@ -4,6 +4,7 @@
              xmlns:viewmodels="clr-namespace:MobileApp.ViewModels"
              xmlns:controls="clr-namespace:MobileApp.Controls"
              x:Class="MobileApp.Views.InventoryPage"
+             x:Name="RootPage"
              x:DataType="viewmodels:InventoryViewModel"
              Title="Inventory"
              BackgroundColor="#F8F9FA"
@@ -148,13 +149,24 @@
         <!-- Asset List / Empty State -->
         <Grid Grid.Row="2">
             
-            <!-- Asset List (CollectionView) -->
-            <RefreshView IsRefreshing="{Binding IsBusy}"
+            <!-- Skeleton Loaders (visible when IsBusy is true) -->
+            <ScrollView x:Name="SkeletonView"
+                        Margin="16,0"
+                        IsVisible="{Binding IsBusy}">
+                <controls:SkeletonListView Type="AssetItem" Count="8" ItemSpacing="0"/>
+            </ScrollView>
+            
+            <!-- Asset List (CollectionView) - Show when NOT busy AND has assets -->
+            <RefreshView x:Name="AssetListView"
+                         x:DataType="viewmodels:InventoryViewModel"
+                         IsRefreshing="False"
                          Command="{Binding RefreshCommand}"
-                         IsVisible="{Binding ShowEmptyState, Converter={StaticResource InvertedBoolConverter}}">
-                <CollectionView ItemsSource="{Binding FilteredAssets}"
+                         IsVisible="{Binding HasAssets}">
+                <CollectionView x:DataType="viewmodels:InventoryViewModel" ItemsSource="{Binding FilteredAssets}"
                                 SelectionMode="None"
-                                Margin="16,0">
+                                Margin="16,0"
+                                RemainingItemsThreshold="5"
+                                RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}">
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="viewmodels:AssetItemViewModel">
                             <!-- Asset Card -->
@@ -163,8 +175,8 @@
                                    CornerRadius="12"
                                    BackgroundColor="White"
                                    HasShadow="True">
-                                <Frame.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:InventoryViewModel}}, Path=ViewAssetDetailsCommand}"
+                                    <Frame.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.ViewAssetDetailsCommand}"
                                                           CommandParameter="{Binding .}"/>
                                 </Frame.GestureRecognizers>
                                 
@@ -239,7 +251,8 @@
             </RefreshView>
 
             <!-- Empty State -->
-            <VerticalStackLayout IsVisible="{Binding ShowEmptyState}"
+            <VerticalStackLayout x:Name="EmptyStateView"
+                                 IsVisible="{Binding ShowEmptyState}"
                                  HorizontalOptions="Center"
                                  VerticalOptions="Center"
                                  Spacing="16"
@@ -264,12 +277,7 @@
                        HorizontalTextAlignment="Center"/>
             </VerticalStackLayout>
 
-            <!-- Loading Indicator -->
-            <ActivityIndicator IsRunning="{Binding IsBusy}"
-                              IsVisible="{Binding IsBusy}"
-                              Color="#005A9C"
-                              HorizontalOptions="Center"
-                              VerticalOptions="Center"/>
+
         </Grid>
 
         <!-- Floating Action Button (FAB) -->

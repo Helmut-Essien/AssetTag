@@ -56,7 +56,31 @@
                      Command="{Binding RefreshCommand}"
                      RefreshColor="#005A9C">
             <ScrollView>
-                <VerticalStackLayout Spacing="24" Padding="20,20,20,20">
+                <Grid>
+                    <!-- Skeleton Loaders (visible while loading) -->
+                    <VerticalStackLayout Spacing="24" Padding="20,20,20,20" IsVisible="{Binding IsBusy}">
+                        
+                        <!-- Summary Cards Skeleton -->
+                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
+                            <controls:SkeletonLoader Grid.Column="0" Type="StatCard"/>
+                            <controls:SkeletonLoader Grid.Column="1" Type="StatCard"/>
+                            <controls:SkeletonLoader Grid.Column="2" Type="StatCard"/>
+                        </Grid>
+                        
+                        <!-- Sync Status Skeleton -->
+                        <controls:SkeletonLoader Type="Card"/>
+                        
+                        <!-- Quick Actions Skeleton -->
+                        <VerticalStackLayout Spacing="16">
+                            <BoxView BackgroundColor="#E0E0E0" HeightRequest="18" WidthRequest="120" CornerRadius="4"/>
+                            <controls:SkeletonLoader Type="Card"/>
+                            <controls:SkeletonLoader Type="Card"/>
+                            <controls:SkeletonLoader Type="Card"/>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+
+                    <!-- Actual Content (visible when loaded) -->
+                    <VerticalStackLayout Spacing="24" Padding="20,20,20,20" IsVisible="{Binding IsNotBusy}">
                     
                     <!-- Summary Cards Section -->
                     <Grid ColumnDefinitions="*,*,*"
@@ -373,7 +397,8 @@
                         </Border>
                     </VerticalStackLayout>
                     
-                </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Grid>
             </ScrollView>
         </RefreshView>
 

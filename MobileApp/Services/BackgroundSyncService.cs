@@ -149,7 +149,8 @@ namespace MobileApp.Services
                     _logger.LogDebug("Background sync starting (pull only - no local changes to push)...");
                 }
                 
-                var (success, message) = await syncService.FullSyncAsync();
+                // Enqueue full sync so it goes through the centralized sync queue
+                var (success, message) = await syncService.EnqueueFullSyncAsync();
                 
                 if (success)
                 {

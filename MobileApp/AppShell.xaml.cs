@@ -9,13 +9,15 @@ namespace MobileApp
         private readonly IAuthService _authService;
 
         // Constructor injection for AppShell
+        // Note: AppShell is the navigation host, so it doesn't inject INavigationService
+        // Instead, NavigationService calls back to AppShell methods
         public AppShell(IServiceProvider serviceProvider, IAuthService authService)
         {
             InitializeComponent();
             _serviceProvider = serviceProvider;
             _authService = authService;
             
-            // Register routes for Shell navigation
+            // Register routes for Shell navigation (non-tab pages)
             Routing.RegisterRoute(nameof(LoginPage), typeof(LoginPage));
             Routing.RegisterRoute(nameof(SettingsPage), typeof(SettingsPage));
             Routing.RegisterRoute(nameof(InventoryPage), typeof(InventoryPage));
@@ -41,6 +43,10 @@ namespace MobileApp
             
             // Navigate to the Home tab using absolute routing
             await Shell.Current.GoToAsync("///MainTabs/Home");
+            
+            // REMOVED: Tab preloading was causing navigation delays
+            // Singleton pages + ViewModels with IsBusy=true provide instant skeleton display
+            // No need to preload - first navigation is now fast enough
         }
 
         /// <summary>

@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:MobileApp.ViewModels"
+             xmlns:controls="clr-namespace:MobileApp.Controls"
              x:Class="MobileApp.Views.SettingsPage"
              x:DataType="vm:SettingsViewModel"
              Title="Settings"
@@ -51,7 +52,26 @@
 
         <!-- Settings Content -->
         <ScrollView Grid.Row="1">
-            <VerticalStackLayout Spacing="24" Padding="20,20,20,20">
+            <Grid>
+                <!-- Skeleton Loaders (visible while loading) -->
+                <VerticalStackLayout Spacing="24" Padding="20,20,20,20" IsVisible="{Binding IsBusy}">
+                    <VerticalStackLayout Spacing="12">
+                        <BoxView BackgroundColor="#E0E0E0" HeightRequest="18" WidthRequest="80" CornerRadius="4"/>
+                        <controls:SkeletonLoader Type="Card"/>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="12">
+                        <BoxView BackgroundColor="#E0E0E0" HeightRequest="18" WidthRequest="120" CornerRadius="4"/>
+                        <controls:SkeletonLoader Type="Card"/>
+                        <controls:SkeletonLoader Type="Card"/>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="12">
+                        <BoxView BackgroundColor="#E0E0E0" HeightRequest="18" WidthRequest="70" CornerRadius="4"/>
+                        <controls:SkeletonLoader Type="Card"/>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+
+                <!-- Actual Content (visible when loaded) -->
+                <VerticalStackLayout Spacing="24" Padding="20,20,20,20" IsVisible="{Binding IsNotBusy}">
                 
                 <!-- Security Section -->
                 <VerticalStackLayout Spacing="12" IsVisible="{Binding BiometricAvailable}">
@@ -287,7 +307,8 @@
                            TextColor="#999999"/>
                 </VerticalStackLayout>
                 
-            </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Grid>
         </ScrollView>
 
     </Grid>
