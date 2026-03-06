@@ -59,7 +59,8 @@ namespace MobileApp.Views
         {
             try
             {
-                _viewModel.IsBusy = true;
+                // DON'T set IsBusy = true on return visits
+                // Data is already visible (Singleton pattern), just refresh silently
                 await Task.Yield();
                 await _viewModel.LoadAssetsAsync();
             }

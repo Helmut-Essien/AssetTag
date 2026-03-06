@@ -59,6 +59,12 @@ namespace MobileApp.ViewModels
         [ObservableProperty]
         private bool hasPendingSync;
 
+        [ObservableProperty]
+        private bool isInitialLoad = true;
+
+        [ObservableProperty]
+        private bool isLoadingMore = false;
+
         // Separate flag to prevent concurrent loads without blocking the very first call.
         // IsBusy cannot be used for this because the page sets it to true BEFORE calling
         // LoadAssetsAsync (so the skeleton shows), which would cause the old guard to bail out.
@@ -66,7 +72,6 @@ namespace MobileApp.ViewModels
         private int _pageIndex = 0;
         private const int PageSize = 50;
         private bool _hasMoreItems = true;
-        private bool _isLoadingMore = false;
         private HashSet<string> _pendingSyncIds = new();
 
         public InventoryViewModel(
@@ -100,7 +105,12 @@ namespace MobileApp.ViewModels
             try
             {
                 _isLoading = true;
-                IsBusy = true;
+                
+                // Only show skeleton on initial load
+                if (IsInitialLoad)
+                {
+                    IsBusy = true;
+                }
 
                 // Reset paging state and pending sync IDs
                 _pageIndex = 0;
@@ -174,22 +184,30 @@ namespace MobileApp.ViewModels
             {
                 _isLoading = false;
                 IsBusy = false;
+                IsInitialLoad = false; // Mark initial load as complete
             }
         }
 
         [RelayCommand]
         public async Task LoadMoreAsync()
         {
-            if (_isLoadingMore || !_hasMoreItems) return;
-            await LoadNextPageAsync();
+            if (IsLoadingMore || !_hasMoreItems) return;
+            
+            try
+            {
+                IsLoadingMore = true;
+                await LoadNextPageAsync();
+            }
+            finally
+            {
+                IsLoadingMore = false;
+            }
         }
 
         private async Task LoadNextPageAsync()
         {
             try
             {
-                _isLoadingMore = true;
-
                 var page = await _assetService.GetAssetsPageAsync(_pageIndex, PageSize);
                 if (page == null || page.Count == 0)
                 {
@@ -241,10 +259,6 @@ namespace MobileApp.ViewModels
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error loading assets page: {ex.Message}");
-            }
-            finally
-            {
-                _isLoadingMore = false;
             }
         }
 
