@@ -165,6 +165,7 @@
                 <CollectionView x:DataType="viewmodels:InventoryViewModel" ItemsSource="{Binding FilteredAssets}"
                                 SelectionMode="None"
                                 Margin="16,0"
+                                ItemsUpdatingScrollMode="KeepLastItemInView"
                                 RemainingItemsThreshold="5"
                                 RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}">
                     <CollectionView.ItemTemplate>
@@ -247,6 +248,37 @@
                             </Frame>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
+                    
+                    <!-- Footer: Loading More Indicator -->
+                    <CollectionView.Footer>
+                        <Grid Padding="16,12"
+                              IsVisible="{Binding IsLoadingMore}"
+                              HeightRequest="60">
+                            <Border BackgroundColor="White"
+                                    Padding="16,12"
+                                    StrokeThickness="0"
+                                    StrokeShape="RoundRectangle 8">
+                                <Border.Shadow>
+                                    <Shadow Brush="Black" Opacity="0.06" Radius="4" Offset="0,1"/>
+                                </Border.Shadow>
+                                <HorizontalStackLayout HorizontalOptions="Center"
+                                                      VerticalOptions="Center"
+                                                      Spacing="12">
+                                    <ActivityIndicator IsRunning="True"
+                                                     Color="#005A9C"
+                                                     WidthRequest="20"
+                                                     HeightRequest="20"
+                                                     VerticalOptions="Center"/>
+                                    <Label Text="Loading more assets..."
+                                           FontFamily="OpenSansRegular"
+                                           FontSize="14"
+                                           TextColor="#666666"
+                                           VerticalOptions="Center"/>
+                                </HorizontalStackLayout>
+                            </Border>
+                        </Grid>
+                    </CollectionView.Footer>
+                    
                 </CollectionView>
             </RefreshView>
 

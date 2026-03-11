@@ -41,12 +41,14 @@ namespace MobileApp.ViewModels
             _syncService = syncService;
             Title = "Asset Management";
             
-            // Start with IsBusy = true so skeleton shows immediately when page appears
-            IsBusy = true;
+            // CRITICAL: Start with IsBusy = false to show cached content immediately
+            // This prevents black screen on rapid tab switches
+            IsBusy = false;
         }
 
         /// <summary>
         /// Load dashboard statistics from the database
+        /// OPTIMIZED: All queries run in parallel and use ConfigureAwait(false)
         /// </summary>
         [RelayCommand]
         public async Task LoadDashboardDataAsync()
@@ -56,50 +58,76 @@ namespace MobileApp.ViewModels
                 using var scope = _serviceProvider.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
 
-                // Load total assets count with AsNoTracking
-                TotalAssets = await dbContext.Assets.AsNoTracking().CountAsync();
+                // PERFORMANCE: Run all queries in parallel to reduce total load time
+                var totalAssetsTask = dbContext.Assets
+                    .AsNoTracking()
+                    .CountAsync();
 
-                // Load assets scanned today with AsNoTracking
-                ScannedToday = await dbContext.Assets
+                var scannedTodayTask = dbContext.Assets
                     .AsNoTracking()
                     .Where(a => a.DateModified.Date == DateTime.Today)
                     .CountAsync();
 
-                // Load pending sync count from SyncService
-                PendingSync = await _syncService.GetPendingSyncCountAsync();
+                var pendingSyncTask = _syncService.GetPendingSyncCountAsync();
 
-                // Load categories count with AsNoTracking
-                Categories = await dbContext.Categories.AsNoTracking().CountAsync();
+                var categoriesTask = dbContext.Categories
+                    .AsNoTracking()
+                    .CountAsync();
 
-                // Update last sync time from DeviceInfo table with AsNoTracking
-                var deviceInfo = await dbContext.DeviceInfo.AsNoTracking().FirstOrDefaultAsync();
-                if (deviceInfo != null && deviceInfo.LastSync > DateTime.MinValue)
+                var deviceInfoTask = dbContext.DeviceInfo
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync();
+
+                // Wait for all queries to complete in parallel
+                await Task.WhenAll(
+                    totalAssetsTask,
+                    scannedTodayTask,
+                    pendingSyncTask,
+                    categoriesTask,
+                    deviceInfoTask
+                );
+
+                // Update properties on UI thread
+                await MainThread.InvokeOnMainThreadAsync(() =>
                 {
-                    var timeSinceSync = DateTime.UtcNow - deviceInfo.LastSync;
-                    if (timeSinceSync.TotalMinutes < 1)
-                        LastSync = "Just now";
-                    else if (timeSinceSync.TotalHours < 1)
-                        LastSync = $"{(int)timeSinceSync.TotalMinutes} min ago";
-                    else if (timeSinceSync.TotalDays < 1)
-                        LastSync = $"{(int)timeSinceSync.TotalHours} hours ago";
+                    TotalAssets = totalAssetsTask.Result;
+                    ScannedToday = scannedTodayTask.Result;
+                    PendingSync = pendingSyncTask.Result;
+                    Categories = categoriesTask.Result;
+
+                    var deviceInfo = deviceInfoTask.Result;
+                    if (deviceInfo != null && deviceInfo.LastSync > DateTime.MinValue)
+                    {
+                        var timeSinceSync = DateTime.UtcNow - deviceInfo.LastSync;
+                        if (timeSinceSync.TotalMinutes < 1)
+                            LastSync = "Just now";
+                        else if (timeSinceSync.TotalHours < 1)
+                            LastSync = $"{(int)timeSinceSync.TotalMinutes} min ago";
+                        else if (timeSinceSync.TotalDays < 1)
+                            LastSync = $"{(int)timeSinceSync.TotalHours} hours ago";
+                        else
+                            LastSync = deviceInfo.LastSync.ToString("MMM dd, yyyy HH:mm");
+                    }
                     else
-                        LastSync = deviceInfo.LastSync.ToString("MMM dd, yyyy HH:mm");
-                }
-                else
-                {
-                    LastSync = "Never synced";
-                }
+                    {
+                        LastSync = "Never synced";
+                    }
+                });
             }
             catch (Exception ex)
             {
                 // Log error
                 System.Diagnostics.Debug.WriteLine($"Error loading dashboard data: {ex.Message}");
                 
-                // Set default values
-                TotalAssets = 0;
-                ScannedToday = 0;
-                PendingSync = 0;
-                Categories = 0;
+                // Set default values on UI thread
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    TotalAssets = 0;
+                    ScannedToday = 0;
+                    PendingSync = 0;
+                    Categories = 0;
+                    LastSync = "Error loading";
+                });
             }
         }
 

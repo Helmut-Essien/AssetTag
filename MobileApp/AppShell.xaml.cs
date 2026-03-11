@@ -7,6 +7,10 @@ namespace MobileApp
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly IAuthService _authService;
+        
+        // Cache page instances to prevent recreation on tab switches
+        private MainPage? _cachedMainPage;
+        private InventoryPage? _cachedInventoryPage;
 
         // Constructor injection for AppShell
         // Note: AppShell is the navigation host, so it doesn't inject INavigationService
@@ -35,6 +39,20 @@ namespace MobileApp
         /// </summary>
         public async Task ShowMainTabsAsync()
         {
+            // CRITICAL: Create and cache page instances BEFORE showing tabs
+            // This prevents black screen on first tab switch
+            if (_cachedMainPage == null)
+            {
+                _cachedMainPage = _serviceProvider.GetRequiredService<MainPage>();
+                _cachedInventoryPage = _serviceProvider.GetRequiredService<InventoryPage>();
+                
+                // Assign cached instances to tab content
+                HomeTab.Content = _cachedMainPage;
+                InventoryTab.Content = _cachedInventoryPage;
+                CategoriesTab.Content = _cachedMainPage; // Reuse same instance
+                LocationsTab.Content = _cachedMainPage; // Reuse same instance
+            }
+            
             // Hide the initial splash/login content
             InitialContent.IsVisible = false;
             
@@ -43,10 +61,6 @@ namespace MobileApp
             
             // Navigate to the Home tab using absolute routing
             await Shell.Current.GoToAsync("///MainTabs/Home");
-            
-            // REMOVED: Tab preloading was causing navigation delays
-            // Singleton pages + ViewModels with IsBusy=true provide instant skeleton display
-            // No need to preload - first navigation is now fast enough
         }
 
         /// <summary>
