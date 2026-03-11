@@ -4,12 +4,13 @@ using Microsoft.Maui.ApplicationModel;
 namespace MobileApp.Views
 {
     /// <summary>
-    /// Inventory List page - optimized for instant skeleton display
+    /// Inventory List page - optimized for instant display and smooth tab switching
     /// </summary>
     public partial class InventoryPage : ContentPage
     {
         private readonly InventoryViewModel _viewModel;
         private bool _hasLoadedOnce = false;
+        private bool _isCurrentlyLoading = false;
 
         public InventoryPage(InventoryViewModel viewModel)
         {
@@ -17,58 +18,59 @@ namespace MobileApp.Views
             
             _viewModel = viewModel;
             BindingContext = _viewModel;
+            
+            // CRITICAL: Ensure IsBusy is false initially to show cached content
+            _viewModel.IsBusy = false;
         }
 
         protected override void OnAppearing()
         {
             base.OnAppearing();
 
-            // PERFORMANCE: Start loading immediately on first appearance
-            // Skeleton is already visible because IsBusy=true in ViewModel constructor
+            // CRITICAL: Only load data ONCE when page is first created
+            // Since this page is cached and reused, we should NOT reload on every OnAppearing
             if (!_hasLoadedOnce)
             {
                 _hasLoadedOnce = true;
-                // Fire and forget - let it run in background
+                _viewModel.IsBusy = true;
                 _ = LoadDataAsync();
             }
-            else
-            {
-                // On subsequent appearances, refresh data
-                _ = RefreshDataAsync();
-            }
+            // else: Page is cached - show existing data immediately
+            // User can manually refresh if needed via pull-to-refresh
         }
 
         private async Task LoadDataAsync()
         {
+            if (_isCurrentlyLoading) return;
+
             try
             {
-                // Yield to let UI thread render the skeleton first
+                _isCurrentlyLoading = true;
+                
+                // Yield to let UI thread render first
                 await Task.Yield();
                 
-                // Load inventory data
-                await _viewModel.LoadAssetsAsync();
+                // Load inventory data on background thread
+                await Task.Run(async () => await _viewModel.LoadAssetsAsync());
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error loading inventory: {ex.Message}");
                 await DisplayAlert("Error", "Failed to load assets. Please try again.", "OK");
             }
+            finally
+            {
+                _viewModel.IsBusy = false;
+                _isCurrentlyLoading = false;
+            }
         }
 
-        private async Task RefreshDataAsync()
+        protected override void OnDisappearing()
         {
-            try
-            {
-                // DON'T set IsBusy = true on return visits
-                // Data is already visible (Singleton pattern), just refresh silently
-                await Task.Yield();
-                await _viewModel.LoadAssetsAsync();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error refreshing inventory: {ex.Message}");
-                await DisplayAlert("Error", "Failed to refresh assets. Please try again.", "OK");
-            }
+            base.OnDisappearing();
+            
+            // CRITICAL: Ensure IsBusy is false when leaving page
+            _viewModel.IsBusy = false;
         }
     }
 }
