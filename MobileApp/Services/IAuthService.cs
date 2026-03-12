@@ -19,5 +19,7 @@ namespace MobileApp.Services
         Task<bool> IsBiometricEnabledAsync();
         Task<(bool Success, TokenResponseDTO? Token, string Message)> BiometricLoginAsync();
         Task<(string? Email, string? Password)> GetStoredCredentialsAsync();
+        Task<(string? Email, string? Password)> GetCurrentSessionCredentialsAsync();
+        Task StoreCurrentSessionCredentialsAsync(string email, string password);
     }
 }

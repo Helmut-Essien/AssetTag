@@ -16,6 +16,8 @@ namespace MobileApp.Services
         private const string BIOMETRIC_ENABLED_KEY = "biometric_enabled";
         private const string BIOMETRIC_EMAIL_KEY = "biometric_email";
         private const string BIOMETRIC_PASSWORD_KEY = "biometric_password";
+        private const string SESSION_EMAIL_KEY = "session_email";
+        private const string SESSION_PASSWORD_KEY = "session_password";
         private string _currentBaseUrl;
         private static readonly SemaphoreSlim _refreshLock = new SemaphoreSlim(1, 1);
 
@@ -137,6 +139,8 @@ namespace MobileApp.Services
                     if (token != null)
                     {
                         await SaveTokensAsync(token.AccessToken, token.RefreshToken);
+                        // Store session credentials for biometric re-enabling
+                        await StoreCurrentSessionCredentialsAsync(email, password);
                         return (true, token, "Login successful");
                     }
 
@@ -184,6 +188,10 @@ namespace MobileApp.Services
 
                 // Always clear local tokens first - this is the critical part for instant logout
                 ClearTokens();
+                
+                // Clear session credentials
+                SecureStorage.Remove(SESSION_EMAIL_KEY);
+                SecureStorage.Remove(SESSION_PASSWORD_KEY);
 
                 // Try to revoke tokens on server in background (best effort, non-blocking)
                 // This ensures the user gets logged out instantly without waiting for network operations
@@ -418,9 +426,10 @@ namespace MobileApp.Services
 
         public Task DisableBiometricAuthenticationAsync()
         {
+            // Only remove the enabled flag, keep credentials for easy re-enabling
             SecureStorage.Remove(BIOMETRIC_ENABLED_KEY);
-            SecureStorage.Remove(BIOMETRIC_EMAIL_KEY);
-            SecureStorage.Remove(BIOMETRIC_PASSWORD_KEY);
+            // Don't remove BIOMETRIC_EMAIL_KEY and BIOMETRIC_PASSWORD_KEY
+            // This allows users to re-enable without re-entering credentials
             return Task.CompletedTask;
         }
 
@@ -520,6 +529,33 @@ namespace MobileApp.Services
             catch (Exception ex)
             {
                 return (false, null, $"Biometric login failed: {ex.Message}");
+            }
+        }
+
+        public async Task StoreCurrentSessionCredentialsAsync(string email, string password)
+        {
+            try
+            {
+                await SecureStorage.SetAsync(SESSION_EMAIL_KEY, email);
+                await SecureStorage.SetAsync(SESSION_PASSWORD_KEY, password);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error storing session credentials: {ex.Message}");
+            }
+        }
+
+        public async Task<(string? Email, string? Password)> GetCurrentSessionCredentialsAsync()
+        {
+            try
+            {
+                var email = await SecureStorage.GetAsync(SESSION_EMAIL_KEY);
+                var password = await SecureStorage.GetAsync(SESSION_PASSWORD_KEY);
+                return (email, password);
+            }
+            catch
+            {
+                return (null, null);
             }
         }
     }
