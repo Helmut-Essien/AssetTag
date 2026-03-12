@@ -369,45 +369,57 @@ namespace MobileApp.ViewModels
                     // Check if user has stored credentials from login
                     var (storedEmail, storedPassword) = await _authService.GetStoredCredentialsAsync();
                     
-                    // If no stored credentials, ask for them
+                    // If no stored biometric credentials, try to use current session credentials
                     if (string.IsNullOrEmpty(storedEmail) || string.IsNullOrEmpty(storedPassword))
                     {
-                        var email = await Shell.Current.DisplayPromptAsync(
-                            "Enable Biometric Login",
-                            "Enter your email address:",
-                            "Next",
-                            "Cancel",
-                            keyboard: Keyboard.Email);
-
-                        if (string.IsNullOrWhiteSpace(email))
-                            return;
-
-                        var password = await Shell.Current.DisplayPromptAsync(
-                            "Enable Biometric Login",
-                            "Enter your password:",
-                            "Enable",
-                            "Cancel",
-                            keyboard: Keyboard.Default);
-
-                        if (string.IsNullOrWhiteSpace(password))
-                            return;
-
-                        // Verify credentials by attempting login
-                        IsBusy = true;
-                        var (loginSuccess, _, loginMessage) = await _authService.LoginAsync(email, password);
-                        IsBusy = false;
-
-                        if (!loginSuccess)
+                        var (sessionEmail, sessionPassword) = await _authService.GetCurrentSessionCredentialsAsync();
+                        
+                        if (!string.IsNullOrEmpty(sessionEmail) && !string.IsNullOrEmpty(sessionPassword))
                         {
-                            await Shell.Current.DisplayAlert(
-                                "Error",
-                                $"Invalid credentials: {loginMessage}",
-                                "OK");
-                            return;
+                            // Use session credentials
+                            storedEmail = sessionEmail;
+                            storedPassword = sessionPassword;
                         }
+                        else
+                        {
+                            // No session credentials available, ask for them
+                            var email = await Shell.Current.DisplayPromptAsync(
+                                "Enable Biometric Login",
+                                "Enter your email address:",
+                                "Next",
+                                "Cancel",
+                                keyboard: Keyboard.Email);
 
-                        storedEmail = email;
-                        storedPassword = password;
+                            if (string.IsNullOrWhiteSpace(email))
+                                return;
+
+                            var password = await Shell.Current.DisplayPromptAsync(
+                                "Enable Biometric Login",
+                                "Enter your password:",
+                                "Enable",
+                                "Cancel",
+                                keyboard: Keyboard.Default);
+
+                            if (string.IsNullOrWhiteSpace(password))
+                                return;
+
+                            // Verify credentials by attempting login
+                            IsBusy = true;
+                            var (loginSuccess, _, loginMessage) = await _authService.LoginAsync(email, password);
+                            IsBusy = false;
+
+                            if (!loginSuccess)
+                            {
+                                await Shell.Current.DisplayAlert(
+                                    "Error",
+                                    $"Invalid credentials: {loginMessage}",
+                                    "OK");
+                                return;
+                            }
+
+                            storedEmail = email;
+                            storedPassword = password;
+                        }
                     }
 
                     // Authenticate with biometrics to confirm

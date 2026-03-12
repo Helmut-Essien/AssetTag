@@ -119,11 +119,25 @@
                                        TextColor="#666666"/>
                             </VerticalStackLayout>
                             
-                            <Switch Grid.Column="2"
-                                    IsToggled="{Binding BiometricEnabled}"
-                                    OnColor="#4CAF50"
-                                    ThumbColor="White"
-                                    VerticalOptions="Center"/>
+                            <Border Grid.Column="2"
+                                    BackgroundColor="{Binding BiometricEnabled, Converter={StaticResource BoolToColorConverter}, ConverterParameter='Transparent|#E8F5E9'}"
+                                    Stroke="#E8F5E9"
+                                    Padding="2"
+                                    VerticalOptions="Center"
+                                    HorizontalOptions="End"
+                                    WidthRequest="52"
+                                    HeightRequest="32">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="16"/>
+                                </Border.StrokeShape>
+                                <Switch IsToggled="{Binding BiometricEnabled}"
+                                        OnColor="#4CAF50"
+                                        ThumbColor="White"
+                                        BackgroundColor="Transparent"
+                                        VerticalOptions="Center"
+                                        HorizontalOptions="Center"
+                                        Scale="0.85"/>
+                            </Border>
                         </Grid>
                     </Border>
                 </VerticalStackLayout>

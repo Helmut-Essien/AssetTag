@@ -22,6 +22,8 @@ namespace MobileApp.ViewModels
         [ObservableProperty]
         private string biometricStatusText = "Checking...";
 
+        private bool _isInitializing = false;
+
         public SettingsViewModel(
             IAuthService authService,
             ISyncService syncService,
@@ -48,6 +50,7 @@ namespace MobileApp.ViewModels
         {
             try
             {
+                _isInitializing = true;
                 BiometricAvailable = await BiometricAuthentication.IsBiometricAvailableAsync();
                 BiometricEnabled = await _authService.IsBiometricEnabledAsync();
 
@@ -68,6 +71,10 @@ namespace MobileApp.ViewModels
                 BiometricAvailable = false;
                 BiometricStatusText = "Error checking availability";
             }
+            finally
+            {
+                _isInitializing = false;
+            }
         }
 
         /// <summary>
@@ -75,7 +82,11 @@ namespace MobileApp.ViewModels
         /// </summary>
         partial void OnBiometricEnabledChanged(bool value)
         {
-            // Toggle biometric when switch is changed
+            // Skip if we're initializing (loading saved state)
+            if (_isInitializing)
+                return;
+
+            // Toggle biometric when switch is changed by user
             MainThread.BeginInvokeOnMainThread(async () =>
             {
                 await ToggleBiometricAsync(value);
@@ -98,50 +109,30 @@ namespace MobileApp.ViewModels
                     // Enable biometric
                     var (storedEmail, storedPassword) = await _authService.GetStoredCredentialsAsync();
 
-                    // If no stored credentials, ask for them
+                    // If no stored biometric credentials, try to use current session credentials
                     if (string.IsNullOrEmpty(storedEmail) || string.IsNullOrEmpty(storedPassword))
                     {
-                        var email = await _navigationService.DisplayPromptAsync(
-                            "Enable Biometric Login",
-                            "Enter your email address:",
-                            "Next",
-                            "Cancel",
-                            keyboard: Keyboard.Email);
-
-                        if (string.IsNullOrWhiteSpace(email))
+                        var (sessionEmail, sessionPassword) = await _authService.GetCurrentSessionCredentialsAsync();
+                        
+                        if (!string.IsNullOrEmpty(sessionEmail) && !string.IsNullOrEmpty(sessionPassword))
                         {
-                            BiometricEnabled = false;
-                            return;
+                            // Use session credentials and store them for biometric
+                            storedEmail = sessionEmail;
+                            storedPassword = sessionPassword;
+                            // Pre-store credentials so they're available for biometric login
+                            await _authService.EnableBiometricAuthenticationAsync(storedEmail, storedPassword);
                         }
-
-                        var password = await _navigationService.DisplayPromptAsync(
-                            "Enable Biometric Login",
-                            "Enter your password:",
-                            "Enable",
-                            "Cancel",
-                            keyboard: Keyboard.Default);
-
-                        if (string.IsNullOrWhiteSpace(password))
+                        else
                         {
+                            // No credentials available - this shouldn't happen if user is logged in
+                            // Show error and revert toggle
                             BiometricEnabled = false;
-                            return;
-                        }
-
-                        // Verify credentials
-                        var (loginSuccess, _, loginMessage) = await _authService.LoginAsync(email, password);
-
-                        if (!loginSuccess)
-                        {
                             await _navigationService.DisplayAlertAsync(
                                 "Error",
-                                $"Invalid credentials: {loginMessage}",
+                                "Unable to enable biometric login. Please log out and log back in, then try again.",
                                 "OK");
-                            BiometricEnabled = false;
                             return;
                         }
-
-                        storedEmail = email;
-                        storedPassword = password;
                     }
 
                     // Authenticate with biometrics to confirm
@@ -156,6 +147,7 @@ namespace MobileApp.ViewModels
 
                     if (result.Authenticated)
                     {
+                        // Enable biometric (credentials already stored above if needed)
                         await _authService.EnableBiometricAuthenticationAsync(storedEmail, storedPassword);
                         BiometricStatusText = "Use fingerprint or face to login";
                         await _navigationService.DisplayAlertAsync(

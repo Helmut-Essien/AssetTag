@@ -13,9 +13,9 @@ public partial class SettingsPage : ContentPage
         BindingContext = viewModel;
     }
 
-    protected override async void OnAppearing()
+    protected override void OnAppearing()
     {
         base.OnAppearing();
-        await _viewModel.InitializeAsync();
+        _ = _viewModel.InitializeAsync();
     }
 }
