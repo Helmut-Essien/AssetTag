@@ -314,6 +314,7 @@ jobs:
           dotnet publish MobileApp/MobileApp.csproj \
             -f net9.0-android \
             -c Release \
+            -p:TargetFrameworks=net9.0-android \
             -p:AndroidSigningKeyStore=${{ github.workspace }}/mugassets.keystore \
             -p:AndroidSigningStorePass=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
             -p:AndroidSigningKeyAlias=${{ secrets.ANDROID_KEY_ALIAS }} \
