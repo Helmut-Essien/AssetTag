@@ -319,8 +319,9 @@ jobs:
 
       # Restore with android framework scoped to MobileApp only.
       # MobileData and Shared restore for their own net9.0 target naturally.
+      # Note: dotnet restore does not support -f shorthand; use -p:TargetFramework instead.
       - name: Restore (Android only)
-        run: dotnet restore MobileApp/MobileApp.csproj -f net9.0-android
+        run: dotnet restore MobileApp/MobileApp.csproj -p:TargetFramework=net9.0-android
 
       # --no-restore skips the inline restore so the cascading TargetFrameworks
       # issue cannot occur; assets from the step above are reused.
