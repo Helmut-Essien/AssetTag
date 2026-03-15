@@ -27,7 +27,7 @@
 		<ApplicationTitle>MUG ASSETS</ApplicationTitle>
 
 		<!-- App Identifier -->
-		<ApplicationId>com.companyname.mobileapp</ApplicationId>
+		<ApplicationId>helmutcodesolutions.assettag.mobileapp</ApplicationId>
 
 		<!-- Versions -->
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
