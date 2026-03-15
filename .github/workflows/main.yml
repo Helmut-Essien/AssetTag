@@ -317,11 +317,11 @@ jobs:
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > mugassets.keystore
 
-      # Restore with android framework scoped to MobileApp only.
-      # MobileData and Shared restore for their own net9.0 target naturally.
-      # Note: dotnet restore does not support -f shorthand; use -p:TargetFramework instead.
-      - name: Restore (Android only)
-        run: dotnet restore MobileApp/MobileApp.csproj -p:TargetFramework=net9.0-android
+      # Restore the entire solution so MobileData and Shared resolve for net9.0,
+      # while MobileApp restores for all its multi-platform targets.
+      # The publish step uses -f net9.0-android to build only Android.
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
 
       # --no-restore skips the inline restore so the cascading TargetFrameworks
       # issue cannot occur; assets from the step above are reused.
