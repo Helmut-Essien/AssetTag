@@ -117,6 +117,9 @@ namespace MobileApp
             
             // Register BackgroundSyncService as Singleton (runs for app lifetime)
             builder.Services.AddSingleton<BackgroundSyncService>();
+            
+            // Register VersionCheckService as Singleton (lightweight, stateless service)
+            builder.Services.AddSingleton<IVersionCheckService, VersionCheckService>();
 
             // ────────────────────────────────────────────────────────────────
             // Register ViewModels for dependency injection

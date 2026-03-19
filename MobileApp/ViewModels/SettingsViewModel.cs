@@ -12,6 +12,7 @@ namespace MobileApp.ViewModels
         private readonly IAuthService _authService;
         private readonly ISyncService _syncService;
         private readonly INavigationService _navigationService;
+        private readonly IVersionCheckService _versionCheckService;
 
         [ObservableProperty]
         private bool biometricAvailable;
@@ -22,17 +23,25 @@ namespace MobileApp.ViewModels
         [ObservableProperty]
         private string biometricStatusText = "Checking...";
 
+        [ObservableProperty]
+        private string appVersion = "Loading...";
+
         private bool _isInitializing = false;
 
         public SettingsViewModel(
             IAuthService authService,
             ISyncService syncService,
-            INavigationService navigationService)
+            INavigationService navigationService,
+            IVersionCheckService versionCheckService)
         {
             _authService = authService;
             _syncService = syncService;
             _navigationService = navigationService;
+            _versionCheckService = versionCheckService;
             Title = "Settings";
+            
+            // Set app version
+            AppVersion = $"Version {_versionCheckService.GetCurrentVersion()}";
         }
 
         /// <summary>
@@ -338,6 +347,119 @@ namespace MobileApp.ViewModels
             finally
             {
                 IsBusy = false;
+            }
+        }
+
+        /// <summary>
+        /// Go back to previous page
+        /// </summary>
+        /// <summary>
+        /// Check for app updates manually
+        /// </summary>
+        [RelayCommand]
+        private async Task CheckForUpdatesAsync()
+        {
+            if (IsBusy) return;
+
+            try
+            {
+                IsBusy = true;
+
+                var (updateAvailable, versionInfo, message) = await _versionCheckService.CheckForUpdateAsync();
+
+                if (updateAvailable && versionInfo != null)
+                {
+                    var currentVersion = _versionCheckService.GetCurrentVersion();
+                    var isMandatory = versionInfo.IsMandatory;
+
+                    var title = isMandatory ? "Critical Update Required" : "Update Available";
+                    var updateMessage = isMandatory
+                        ? $"A critical update to version {versionInfo.LatestVersion} is required.\n\nCurrent version: {currentVersion}"
+                        : $"Version {versionInfo.LatestVersion} is now available!\n\nCurrent version: {currentVersion}";
+
+                    // Add features if available
+                    if (versionInfo.Features.Length > 0)
+                    {
+                        updateMessage += "\n\nWhat's new:\n" + string.Join("\n", versionInfo.Features.Select(f => $"• {f}"));
+                    }
+
+                    var updateButton = isMandatory ? "Update Now" : "Update";
+                    var cancelButton = isMandatory ? null : "Later";
+
+                    var result = await _navigationService.DisplayConfirmAsync(
+                        title,
+                        updateMessage,
+                        updateButton,
+                        cancelButton ?? "Cancel");
+
+                    if (result)
+                    {
+                        // User chose to update
+                        await DownloadAndInstallUpdateAsync(versionInfo);
+                    }
+                }
+                else
+                {
+                    await _navigationService.DisplayAlertAsync(
+                        "No Updates",
+                        $"You're running the latest version ({_versionCheckService.GetCurrentVersion()})!",
+                        "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                await _navigationService.DisplayAlertAsync(
+                    "Error",
+                    $"Failed to check for updates: {ex.Message}",
+                    "OK");
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        /// <summary>
+        /// Download and install the update
+        /// </summary>
+        private async Task DownloadAndInstallUpdateAsync(Shared.DTOs.VersionCheckResponseDto versionInfo)
+        {
+            try
+            {
+                await _navigationService.DisplayAlertAsync(
+                    "Downloading",
+                    "The update is being downloaded. This may take a few moments...",
+                    "OK");
+
+                var progress = new Progress<double>(percent =>
+                {
+                    var percentInt = (int)(percent * 100);
+                    System.Diagnostics.Debug.WriteLine($"Download progress: {percentInt}%");
+                });
+
+                var (success, downloadMessage) = await _versionCheckService.DownloadAndInstallUpdateAsync(versionInfo, progress);
+
+                if (success)
+                {
+                    await _navigationService.DisplayAlertAsync(
+                        "Update Ready",
+                        "The update has been downloaded. Please complete the installation.",
+                        "OK");
+                }
+                else
+                {
+                    await _navigationService.DisplayAlertAsync(
+                        "Update Failed",
+                        $"Failed to download update: {downloadMessage}",
+                        "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                await _navigationService.DisplayAlertAsync(
+                    "Error",
+                    $"An error occurred while downloading the update: {ex.Message}",
+                    "OK");
             }
         }
 
