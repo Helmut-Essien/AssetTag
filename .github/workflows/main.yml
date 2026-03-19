@@ -74,6 +74,9 @@ jobs:
           EMAIL_USER: ${{ secrets.EMAIL_USERNAME }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASSWORD }}
           APIKey: ${{ secrets.API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          GITHUB_OWNER: ${{ github.repository_owner }}
+          GITHUB_REPO: ${{ github.event.repository.name }}
         run: |
           dotnet publish AssetTag/AssetTag.csproj \
             --configuration Release \
@@ -98,6 +101,16 @@ jobs:
             },
             "Groq": {
             "ApiKey": "$APIKey"
+            },
+            "GitHub": {
+              "Owner": "$GITHUB_OWNER",
+              "Repository": "$GITHUB_REPO",
+              "Token": "$GITHUB_TOKEN"
+            },
+            "MobileApp": {
+              "LatestVersion": "1.0.0",
+              "MinimumSupportedVersion": "1.0.0",
+              "DownloadUrl": ""
             },
             "Logging": {
               "LogLevel": {
