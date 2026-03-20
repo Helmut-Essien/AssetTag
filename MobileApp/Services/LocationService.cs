@@ -87,9 +87,26 @@ public class LocationService : ILocationService
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
 
-            return await dbContext.Locations
+            _logger.LogInformation("Searching for location with ID: {LocationId}", locationId);
+            
+            var location = await dbContext.Locations
                 .AsNoTracking()
                 .FirstOrDefaultAsync(l => l.LocationId == locationId);
+
+            if (location == null)
+            {
+                _logger.LogWarning("Location {LocationId} not found in local database", locationId);
+                
+                // Log all location IDs for debugging
+                var allIds = await dbContext.Locations.Select(l => l.LocationId).ToListAsync();
+                _logger.LogInformation("Available location IDs: {LocationIds}", string.Join(", ", allIds));
+            }
+            else
+            {
+                _logger.LogInformation("Found location: {LocationName} (ID: {LocationId})", location.Name, location.LocationId);
+            }
+
+            return location;
         }
         catch (Exception ex)
         {
@@ -166,17 +183,22 @@ public class LocationService : ILocationService
             };
 
             // Save to local database
-            using var scope = _serviceProvider.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
+            using (var scope = _serviceProvider.CreateScope())
+            {
+                var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
 
-            // Disable change tracking to prevent sync queue entries
-            dbContext.ChangeTracker.AutoDetectChangesEnabled = false;
-            
-            dbContext.Locations.Add(apiLocation);
-            await dbContext.SaveChangesAsync();
-            
-            // Re-enable change tracking
-            dbContext.ChangeTracker.AutoDetectChangesEnabled = true;
+                // Disable change tracking to prevent sync queue entries
+                dbContext.ChangeTracker.AutoDetectChangesEnabled = false;
+                
+                dbContext.Locations.Add(apiLocation);
+                var savedCount = await dbContext.SaveChangesAsync();
+                
+                // Re-enable change tracking
+                dbContext.ChangeTracker.AutoDetectChangesEnabled = true;
+
+                _logger.LogInformation("Saved location {LocationId} to local database. Rows affected: {Count}",
+                    apiLocation.LocationId, savedCount);
+            }
 
             _logger.LogInformation("Location created successfully: {LocationId} - {Name}", 
                 apiLocation.LocationId, apiLocation.Name);
