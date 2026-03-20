@@ -114,6 +114,7 @@ namespace MobileApp
             // Register services that use DbContext as scoped so each scope gets its own DbContext
             builder.Services.AddScoped<ISyncService, SyncService>();
             builder.Services.AddScoped<IAssetService, AssetService>();
+            builder.Services.AddScoped<ILocationService, LocationService>();
             
             // Register BackgroundSyncService as Singleton (runs for app lifetime)
             builder.Services.AddSingleton<BackgroundSyncService>();
@@ -129,7 +130,12 @@ namespace MobileApp
             // State is managed through proper initialization methods (OnAppearing/InitializeAsync)
             builder.Services.AddSingleton<MainPageViewModel>();
             builder.Services.AddSingleton<InventoryViewModel>();
+            builder.Services.AddSingleton<LocationsViewModel>();
             builder.Services.AddSingleton<SettingsViewModel>();
+            
+            // Transient ViewModels for add/edit pages
+            builder.Services.AddTransient<AddLocationViewModel>();
+            builder.Services.AddTransient<EditLocationViewModel>();
             
             // Login/Splash are transient as they're only used once per session
             builder.Services.AddTransient<LoginViewModel>();
@@ -143,7 +149,12 @@ namespace MobileApp
             // This is the recommended approach for tab-based navigation in .NET MAUI
             builder.Services.AddSingleton<MainPage>();
             builder.Services.AddSingleton<InventoryPage>();
+            builder.Services.AddSingleton<LocationsPage>();
             builder.Services.AddSingleton<SettingsPage>();
+            
+            // Transient Pages for add/edit
+            builder.Services.AddTransient<AddLocationPage>();
+            builder.Services.AddTransient<EditLocationPage>();
             
             // Login/Splash pages are transient as they're used once per session
             builder.Services.AddTransient<LoginPage>();

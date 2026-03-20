@@ -28,5 +28,9 @@
 	</array>
 	<key>XSAppIconAssets</key>
 	<string>Assets.xcassets/appicon.appiconset</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs access to your location to capture GPS coordinates for asset locations.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app needs access to your location to capture GPS coordinates for asset locations.</string>
 </dict>
 </plist>

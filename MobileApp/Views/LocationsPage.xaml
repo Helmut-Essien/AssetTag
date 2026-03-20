@@ -3,10 +3,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewmodels="clr-namespace:MobileApp.ViewModels"
              xmlns:controls="clr-namespace:MobileApp.Controls"
-             x:Class="MobileApp.Views.InventoryPage"
+             x:Class="MobileApp.Views.LocationsPage"
              x:Name="RootPage"
-             x:DataType="viewmodels:InventoryViewModel"
-             Title="Inventory"
+             x:DataType="viewmodels:LocationsViewModel"
+             Title="Locations"
              BackgroundColor="#F8F9FA"
              Shell.NavBarIsVisible="False">
 
@@ -25,14 +25,13 @@
                         FontSize="24"
                         TextColor="White"
                         BackgroundColor="Transparent"
-                        BindingContext="{x:Null}"
-                        Command="{Binding Source={RelativeSource AncestorType={x:Type Shell}}, Path=BackCommand}"
+                        Command="{Binding CancelCommand}"
                         HorizontalOptions="Center"
                         VerticalOptions="Center"/>
                 
                 <!-- Title -->
                 <Label Grid.Column="1"
-                       Text="Inventory"
+                       Text="Locations"
                        FontFamily="OpenSansSemibold"
                        FontSize="20"
                        TextColor="White"
@@ -51,7 +50,7 @@
             </Grid>
         </Frame>
 
-        <!-- Search and Filter Section -->
+        <!-- Search and Action Section -->
         <VerticalStackLayout Grid.Row="1" Padding="16,12" Spacing="12">
             
             <!-- Search Bar -->
@@ -68,7 +67,7 @@
                     
                     <!-- Search Entry -->
                     <Entry Grid.Column="1"
-                           Placeholder="Search by name, tag, or serial..."
+                           Placeholder="Search by name, campus, building..."
                            PlaceholderColor="#999999"
                            Text="{Binding SearchText}"
                            TextColor="#333333"
@@ -89,65 +88,31 @@
                 </Grid>
             </Frame>
 
-            <!-- Filter Chips -->
+            <!-- Action Buttons -->
             <HorizontalStackLayout Spacing="8">
-                <!-- All Chip -->
+                <!-- Sync Button -->
                 <Frame Padding="12,8"
                        CornerRadius="16"
                        HasShadow="False"
-                       BackgroundColor="{Binding IsAllFilterActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#005A9C|#E0E0E0'}">
+                       BackgroundColor="#E3F2FD">
                     <Frame.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding ToggleAllFilterCommand}"/>
-                    </Frame.GestureRecognizers>
-                    <Label Text="All"
-                           FontFamily="OpenSansSemibold"
-                           FontSize="14"
-                           TextColor="{Binding IsAllFilterActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter='White|#666666'}"/>
-                </Frame>
-
-                <!-- Filter Chip -->
-                <Frame Padding="12,8"
-                       CornerRadius="16"
-                       HasShadow="False"
-                       BackgroundColor="#E0E0E0">
-                    <Frame.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding ShowAdvancedFiltersCommand}"/>
+                        <TapGestureRecognizer Command="{Binding SyncLocationsCommand}"/>
                     </Frame.GestureRecognizers>
                     <HorizontalStackLayout Spacing="4">
-                        <Label Text="🔽"
+                        <Label Text="🔄"
                                FontSize="12"
                                VerticalOptions="Center"/>
-                        <Label Text="Filter"
+                        <Label Text="Sync"
                                FontFamily="OpenSansSemibold"
                                FontSize="14"
-                               TextColor="#666666"
-                               VerticalOptions="Center"/>
-                    </HorizontalStackLayout>
-                </Frame>
-
-                <!-- Pending Sync Chip -->
-                <Frame Padding="12,8"
-                       CornerRadius="16"
-                       HasShadow="False"
-                       BackgroundColor="{Binding IsPendingSyncFilterActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#005A9C|#E0E0E0'}">
-                    <Frame.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding TogglePendingSyncFilterCommand}"/>
-                    </Frame.GestureRecognizers>
-                    <HorizontalStackLayout Spacing="4">
-                        <Label Text="⚠️"
-                               FontSize="12"
-                               VerticalOptions="Center"/>
-                        <Label Text="Pending Sync"
-                               FontFamily="OpenSansSemibold"
-                               FontSize="14"
-                               TextColor="{Binding IsPendingSyncFilterActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter='White|#666666'}"
+                               TextColor="#005A9C"
                                VerticalOptions="Center"/>
                     </HorizontalStackLayout>
                 </Frame>
             </HorizontalStackLayout>
         </VerticalStackLayout>
 
-        <!-- Asset List / Empty State -->
+        <!-- Location List / Empty State -->
         <Grid Grid.Row="2">
             
             <!-- Skeleton Loaders (visible when IsBusy is true) -->
@@ -157,52 +122,52 @@
                 <controls:SkeletonListView Type="AssetItem" Count="8" ItemSpacing="0"/>
             </ScrollView>
             
-            <!-- Asset List (CollectionView) - Show when NOT busy AND has assets -->
-            <RefreshView x:Name="AssetListView"
-                         x:DataType="viewmodels:InventoryViewModel"
+            <!-- Location List (CollectionView) - Show when NOT busy AND has locations -->
+            <RefreshView x:Name="LocationListView"
+                         x:DataType="viewmodels:LocationsViewModel"
                          IsRefreshing="False"
                          Command="{Binding RefreshCommand}"
-                         IsVisible="{Binding HasAssets}">
-                <CollectionView x:DataType="viewmodels:InventoryViewModel" ItemsSource="{Binding FilteredAssets}"
+                         IsVisible="{Binding HasLocations}">
+                <CollectionView x:DataType="viewmodels:LocationsViewModel"
+                                ItemsSource="{Binding FilteredLocations}"
                                 SelectionMode="None"
                                 Margin="16,0"
                                 ItemsUpdatingScrollMode="KeepLastItemInView"
                                 RemainingItemsThreshold="5"
                                 RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}">
                     <CollectionView.ItemTemplate>
-                        <DataTemplate x:DataType="viewmodels:AssetItemViewModel">
-                            <!-- Asset Card -->
+                        <DataTemplate x:DataType="viewmodels:LocationItemViewModel">
+                            <!-- Location Card -->
                             <Frame Margin="0,8"
                                    Padding="0"
                                    CornerRadius="12"
                                    BackgroundColor="White"
                                    HasShadow="True">
-                                    <Frame.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.ViewAssetDetailsCommand}"
-                                                          CommandParameter="{Binding .}"/>
+                                <Frame.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding TapCommand}"/>
                                 </Frame.GestureRecognizers>
                                 
                                 <Grid ColumnDefinitions="4,56,*,24" 
                                       Padding="0"
                                       HeightRequest="80">
                                     
-                                    <!-- Sync Indicator (Left Edge) -->
+                                    <!-- Left Edge Indicator -->
                                     <BoxView Grid.Column="0"
-                                             BackgroundColor="{Binding SyncStatusColor}"
+                                             BackgroundColor="#005A9C"
                                              CornerRadius="12,0,0,12"/>
                                     
-                                    <!-- Category Icon -->
+                                    <!-- Location Icon -->
                                     <Frame Grid.Column="1"
                                            WidthRequest="40"
                                            HeightRequest="40"
                                            CornerRadius="20"
-                                           BackgroundColor="#E3F2FD"
+                                           BackgroundColor="#E8F5E9"
                                            Padding="0"
                                            HasShadow="False"
                                            HorizontalOptions="Center"
                                            VerticalOptions="Center"
                                            Margin="8,0">
-                                        <Label Text="{Binding CategoryIcon}"
+                                        <Label Text="{Binding LocationIcon}"
                                                FontSize="24"
                                                HorizontalOptions="Center"
                                                VerticalOptions="Center"/>
@@ -213,7 +178,7 @@
                                                          Padding="12,16"
                                                          Spacing="4"
                                                          VerticalOptions="Center">
-                                        <!-- Asset Name -->
+                                        <!-- Location Name -->
                                         <Label Text="{Binding Name}"
                                                FontFamily="OpenSansSemibold"
                                                FontSize="16"
@@ -221,19 +186,17 @@
                                                LineBreakMode="TailTruncation"
                                                MaxLines="1"/>
                                         
-                                        <!-- Asset Tag & Location -->
-                                        <HorizontalStackLayout Spacing="8">
-                                            <Label Text="{Binding DisplayTag}"
+                                        <!-- Location Address -->
+                                        <HorizontalStackLayout Spacing="4">
+                                            <Label Text="{Binding DisplayAddress}"
                                                    FontSize="14"
                                                    TextColor="#666666"
                                                    LineBreakMode="TailTruncation"/>
-                                            <Label Text="•"
-                                                   FontSize="14"
-                                                   TextColor="#666666"/>
-                                            <Label Text="{Binding DisplayLocation}"
-                                                   FontSize="14"
-                                                   TextColor="#666666"
-                                                   LineBreakMode="TailTruncation"/>
+                                            <!-- GPS Indicator -->
+                                            <Label Text="📡"
+                                                   FontSize="12"
+                                                   IsVisible="{Binding HasCoordinates}"
+                                                   VerticalOptions="Center"/>
                                         </HorizontalStackLayout>
                                     </VerticalStackLayout>
                                     
@@ -270,7 +233,7 @@
                                                      WidthRequest="20"
                                                      HeightRequest="20"
                                                      VerticalOptions="Center"/>
-                                    <Label Text="Loading more assets..."
+                                    <Label Text="Loading more locations..."
                                            FontFamily="OpenSansRegular"
                                            FontSize="14"
                                            TextColor="#666666"
@@ -291,12 +254,12 @@
                                  Spacing="16"
                                  Padding="32">
                 <!-- Empty Icon -->
-                <Label Text="🔍"
+                <Label Text="📍"
                        FontSize="64"
                        HorizontalOptions="Center"/>
                 
                 <!-- Empty Title -->
-                <Label Text="No Assets Found"
+                <Label Text="No Locations Found"
                        FontFamily="OpenSansSemibold"
                        FontSize="18"
                        TextColor="#666666"
@@ -309,7 +272,6 @@
                        HorizontalOptions="Center"
                        HorizontalTextAlignment="Center"/>
             </VerticalStackLayout>
-
 
         </Grid>
 
@@ -325,8 +287,27 @@
                 HorizontalOptions="End"
                 VerticalOptions="End"
                 Margin="16"
-                Command="{Binding AddAssetCommand}"
+                Command="{Binding AddLocationCommand}"
                 Shadow="{StaticResource FABShadow}"/>
+
+        <!-- Location Capture Overlay -->
+        <Grid Grid.Row="0" Grid.RowSpan="3"
+              BackgroundColor="#80000000"
+              IsVisible="{Binding IsCapturingLocation}">
+            <VerticalStackLayout HorizontalOptions="Center"
+                                VerticalOptions="Center"
+                                Spacing="16">
+                <ActivityIndicator IsRunning="True"
+                                 Color="White"
+                                 WidthRequest="48"
+                                 HeightRequest="48"/>
+                <Label Text="Capturing GPS location..."
+                       FontFamily="OpenSansSemibold"
+                       FontSize="16"
+                       TextColor="White"
+                       HorizontalOptions="Center"/>
+            </VerticalStackLayout>
+        </Grid>
 
     </Grid>
 </ContentPage>
