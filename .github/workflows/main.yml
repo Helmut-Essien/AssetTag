@@ -393,12 +393,19 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: mobile-v1.0.${{ github.run_number }}
-          name: "MUG Assets v1.0.${{ github.run_number }}"
+          name: "MUG Assets v1.0.${{ github.run_number }} (Pre-release)"
           body: |
-            ## MUG Assets Android Release
+            ## MUG Assets Android Release (Pre-release)
 
             **Version:** 1.0.${{ github.run_number }}
             **Built from:** ${{ github.sha }}
+
+            ⚠️ **This is a pre-release version for testing purposes.**
+
+            ### What's New
+            - Bug fixes and performance improvements
+            - Enhanced user interface
+            - Improved stability
 
             ### How to install (sideloading)
             1. Download `MUGAssets-v1.0.${{ github.run_number }}.apk` below
@@ -406,5 +413,6 @@ jobs:
             3. On the device: **Settings → Apps → Special app access → Install unknown apps**
             4. Enable installs from your file manager or browser, then open the APK
           files: ./apk-release/MUGAssets-v1.0.${{ github.run_number }}.apk
+          prerelease: true
           make_latest: false
           generate_release_notes: false
