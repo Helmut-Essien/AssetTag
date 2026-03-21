@@ -126,102 +126,51 @@ namespace MobileApp
         }
 
         /// <summary>
-        /// Show update prompt to user
+        /// Show update prompt to user using the new UpdateAvailablePage
         /// </summary>
         private async Task ShowUpdatePromptAsync(VersionCheckResponseDto versionInfo)
         {
             try
             {
-                var currentVersion = _versionCheckService.GetCurrentVersion();
-                var isMandatory = versionInfo.IsMandatory;
-
-                var title = isMandatory ? "Critical Update Required" : "Update Available";
-                var message = isMandatory
-                    ? $"A critical update to version {versionInfo.LatestVersion} is required to continue using the app.\n\nCurrent version: {currentVersion}"
-                    : $"Version {versionInfo.LatestVersion} is now available!\n\nCurrent version: {currentVersion}";
-
-                // Add features if available
-                if (versionInfo.Features.Length > 0)
+                await MainThread.InvokeOnMainThreadAsync(async () =>
                 {
-                    message += "\n\nWhat's new:\n" + string.Join("\n", versionInfo.Features.Select(f => $"• {f}"));
-                }
-
-                var updateButton = isMandatory ? "Update Now" : "Update";
-                var cancelButton = isMandatory ? null : "Later";
-
-                var mainPage = Application.Current?.Windows[0]?.Page;
-                if (mainPage == null) return;
-
-                var result = await mainPage.DisplayAlert(
-                    title,
-                    message,
-                    updateButton,
-                    cancelButton);
-
-                if (result)
-                {
-                    // User chose to update
-                    await DownloadAndInstallUpdateAsync(versionInfo);
-                }
-                else if (isMandatory)
-                {
-                    // For mandatory updates, keep showing the prompt
-                    await Task.Delay(5000);
-                    await ShowUpdatePromptAsync(versionInfo);
-                }
+                    var updatePage = new Views.UpdateAvailablePage(_versionCheckService, versionInfo);
+                    
+                    // Show as modal page
+                    await Application.Current?.Windows[0]?.Page?.Navigation.PushModalAsync(updatePage)!;
+                    
+                    // For mandatory updates, prevent dismissal by monitoring the modal stack
+                    if (versionInfo.IsMandatory)
+                    {
+                        // Monitor if user tries to dismiss the modal
+                        _ = Task.Run(async () =>
+                        {
+                            await Task.Delay(1000);
+                            while (versionInfo.IsMandatory)
+                            {
+                                await Task.Delay(5000);
+                                
+                                // Check if modal was dismissed
+                                var hasModal = await MainThread.InvokeOnMainThreadAsync(() =>
+                                {
+                                    var navigation = Application.Current?.Windows[0]?.Page?.Navigation;
+                                    return navigation?.ModalStack.Count > 0;
+                                });
+                                
+                                if (!hasModal)
+                                {
+                                    // Re-show the modal if it was dismissed
+                                    await ShowUpdatePromptAsync(versionInfo);
+                                    break;
+                                }
+                            }
+                        });
+                    }
+                });
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error showing update prompt: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Download and install the update
-        /// </summary>
-        private async Task DownloadAndInstallUpdateAsync(VersionCheckResponseDto versionInfo)
-        {
-            try
-            {
-                var mainPage = Application.Current?.Windows[0]?.Page;
-                if (mainPage == null) return;
-
-                // Create a simple progress indicator
-                var progress = new Progress<double>(percent =>
-                {
-                    var percentInt = (int)(percent * 100);
-                    System.Diagnostics.Debug.WriteLine($"Download progress: {percentInt}%");
-                });
-
-                // Start download
-                var (success, message) = await _versionCheckService.DownloadAndInstallUpdateAsync(versionInfo, progress);
-
-                if (success)
-                {
-                    await mainPage.DisplayAlert(
-                        "Update Ready",
-                        "The update has been downloaded. Please complete the installation.",
-                        "OK");
-                }
-                else
-                {
-                    await mainPage.DisplayAlert(
-                        "Update Failed",
-                        $"Failed to download update: {message}",
-                        "OK");
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error downloading update: {ex.Message}");
-                var mainPage = Application.Current?.Windows[0]?.Page;
-                if (mainPage != null)
-                {
-                    await mainPage.DisplayAlert(
-                        "Error",
-                        $"An error occurred while downloading the update: {ex.Message}",
-                        "OK");
-                }
             }
         }
 
