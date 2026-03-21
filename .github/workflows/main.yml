@@ -414,5 +414,5 @@ jobs:
             4. Enable installs from your file manager or browser, then open the APK
           files: ./apk-release/MUGAssets-v1.0.${{ github.run_number }}.apk
           prerelease: true
-          make_latest: false
+          make_latest: "false"
           generate_release_notes: false
