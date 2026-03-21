@@ -328,7 +328,17 @@ jobs:
       # Decode the base64 keystore secret back into a .jks file on disk
       - name: Decode keystore
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > mugassets.keystore
+          echo "Decoding keystore from secret..."
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > ${{ github.workspace }}/mugassets.keystore
+          
+          if [ ! -f "${{ github.workspace }}/mugassets.keystore" ]; then
+            echo "ERROR: Keystore file was not created!"
+            exit 1
+          fi
+          
+          KEYSTORE_SIZE=$(stat -f%z "${{ github.workspace }}/mugassets.keystore" 2>/dev/null || stat -c%s "${{ github.workspace }}/mugassets.keystore" 2>/dev/null)
+          echo "Keystore file created successfully (size: $KEYSTORE_SIZE bytes)"
+          ls -la ${{ github.workspace }}/mugassets.keystore
 
       # Restore the entire solution so MobileData and Shared resolve for net9.0,
       # while MobileApp restores for all its multi-platform targets.
@@ -339,30 +349,83 @@ jobs:
       # --no-restore skips the inline restore so the cascading TargetFrameworks
       # issue cannot occur; assets from the step above are reused.
       - name: Build & sign Android APK
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/mugassets.keystore
+          KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          echo "=========================================="
+          echo "Android APK Signing Configuration"
+          echo "=========================================="
+          echo "Keystore path: $KEYSTORE_PATH"
+          echo "Key alias: $KEY_ALIAS"
+          echo "Keystore exists: $([ -f "$KEYSTORE_PATH" ] && echo 'YES' || echo 'NO')"
+          echo "Keystore password length: ${#KEYSTORE_PASS}"
+          echo "Key password length: ${#KEY_PASS}"
+          echo "=========================================="
+          
           dotnet publish MobileApp/MobileApp.csproj \
             -f net9.0-android \
             -c Release \
             --no-restore \
-            -p:AndroidSigningKeyStore=${{ github.workspace }}/mugassets.keystore \
-            -p:AndroidSigningStorePass=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
-            -p:AndroidSigningKeyAlias=${{ secrets.ANDROID_KEY_ALIAS }} \
-            -p:AndroidSigningKeyPass=${{ secrets.ANDROID_KEY_PASSWORD }} \
+            -p:AndroidSigningKeyStore="$KEYSTORE_PATH" \
+            -p:AndroidSigningStorePass="$KEYSTORE_PASS" \
+            -p:AndroidSigningKeyAlias="$KEY_ALIAS" \
+            -p:AndroidSigningKeyPass="$KEY_PASS" \
+            -p:AndroidKeyStore=true \
             -p:ApplicationVersion=${{ github.run_number }} \
             -p:ApplicationDisplayVersion="1.0.${{ github.run_number }}" \
             -p:AndroidPackageFormat=apk \
-            --output ./publish/android
+            --output ./publish/android \
+            -v:n
+          
+          BUILD_EXIT_CODE=$?
+          echo "=========================================="
+          echo "Build exit code: $BUILD_EXIT_CODE"
+          echo "=========================================="
+          
+          if [ $BUILD_EXIT_CODE -ne 0 ]; then
+            echo "ERROR: Build failed with exit code $BUILD_EXIT_CODE"
+            exit $BUILD_EXIT_CODE
+          fi
+          
+          echo "Build complete. Listing all APK files..."
+          find ./publish/android -name "*.apk" -exec ls -lh {} \;
+          
+          echo ""
+          echo "Checking APK signing status..."
+          for apk in ./publish/android/*.apk; do
+            if [ -f "$apk" ]; then
+              echo "Checking: $apk"
+              unzip -l "$apk" | grep -E "META-INF.*\.(RSA|DSA|EC)" || echo "  WARNING: No signing certificate found in $apk"
+            fi
+          done
 
       # Find the signed APK specifically — MAUI names it *-Signed.apk.
       # This avoids accidentally picking up an unsigned or debug APK.
       - name: Rename APK
         run: |
+          echo "Searching for signed APK..."
           APK_FILE=$(find ./publish/android -name "*-Signed.apk" | head -n 1)
+          
           if [ -z "$APK_FILE" ]; then
-            echo "ERROR: No signed APK found. Build output:";
-            find ./publish/android -type f; exit 1;
+            echo "=========================================="
+            echo "ERROR: No *-Signed.apk found!"
+            echo "=========================================="
+            echo "All files in publish/android:"
+            find ./publish/android -type f -ls
+            echo ""
+            echo "Checking for any APK files:"
+            find ./publish/android -name "*.apk" -ls
+            echo ""
+            echo "This likely means signing failed silently."
+            echo "Check the build logs above for signing errors."
+            exit 1
           fi
+          
           echo "Found signed APK: $APK_FILE"
+          echo "APK size: $(ls -lh "$APK_FILE" | awk '{print $5}')"
           cp "$APK_FILE" "./MUGAssets-v1.0.${{ github.run_number }}.apk"
 
       # Upload the renamed APK as a workflow artifact for the next job
