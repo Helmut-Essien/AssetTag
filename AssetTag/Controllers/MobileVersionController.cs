@@ -23,6 +23,38 @@ public class MobileVersionController : ControllerBase
     }
 
     /// <summary>
+    /// Test endpoint to check version configuration (GET request for browser testing)
+    /// </summary>
+    [HttpGet("test")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    public IActionResult TestVersionConfig()
+    {
+        var githubOwner = _configuration["GitHub:Owner"];
+        var githubRepo = _configuration["GitHub:Repository"];
+        var githubToken = _configuration["GitHub:Token"];
+        var latestVersion = _configuration["MobileApp:LatestVersion"];
+        var minimumVersion = _configuration["MobileApp:MinimumSupportedVersion"];
+        var downloadUrl = _configuration["MobileApp:DownloadUrl"];
+
+        return Ok(new
+        {
+            GitHubConfig = new
+            {
+                Owner = githubOwner ?? "NOT SET",
+                Repository = githubRepo ?? "NOT SET",
+                HasToken = !string.IsNullOrEmpty(githubToken)
+            },
+            FallbackConfig = new
+            {
+                LatestVersion = latestVersion ?? "NOT SET",
+                MinimumVersion = minimumVersion ?? "NOT SET",
+                DownloadUrl = downloadUrl ?? "NOT SET"
+            },
+            Message = "This shows what the API can see in configuration"
+        });
+    }
+
+    /// <summary>
     /// Check for available app updates
     /// </summary>
     [HttpPost("check")]
@@ -67,8 +99,16 @@ public class MobileVersionController : ControllerBase
             if (platform.Equals("android", StringComparison.OrdinalIgnoreCase))
             {
                 // Get GitHub repository info from configuration
-                var githubOwner = _configuration["GitHub:Owner"] ?? "YourGitHubUsername";
-                var githubRepo = _configuration["GitHub:Repository"] ?? "AssetTag";
+                var githubOwner = _configuration["GitHub:Owner"];
+                var githubRepo = _configuration["GitHub:Repository"];
+
+                // If GitHub config is missing, use fallback immediately
+                if (string.IsNullOrEmpty(githubOwner) || string.IsNullOrEmpty(githubRepo))
+                {
+                    _logger.LogWarning("GitHub configuration missing. Owner: {Owner}, Repo: {Repo}", 
+                        githubOwner ?? "NULL", githubRepo ?? "NULL");
+                    return GetFallbackVersionInfo();
+                }
 
                 // Fetch latest release from GitHub API
                 using var httpClient = new HttpClient();
@@ -83,6 +123,8 @@ public class MobileVersionController : ControllerBase
                 }
 
                 var apiUrl = $"https://api.github.com/repos/{githubOwner}/{githubRepo}/releases";
+                _logger.LogInformation("Fetching releases from: {Url}", apiUrl);
+                
                 var response = await httpClient.GetAsync(apiUrl);
 
                 if (!response.IsSuccessStatusCode)
@@ -99,6 +141,7 @@ public class MobileVersionController : ControllerBase
 
                 if (releases is null || releases.Count == 0)
                 {
+                    _logger.LogWarning("No releases found in GitHub");
                     return GetFallbackVersionInfo();
                 }
 
@@ -110,8 +153,11 @@ public class MobileVersionController : ControllerBase
 
                 if (latestRelease is null)
                 {
+                    _logger.LogWarning("No mobile releases found. Total releases: {Count}", releases.Count);
                     return GetFallbackVersionInfo();
                 }
+
+                _logger.LogInformation("Found latest release: {Tag}", latestRelease.TagName);
 
                 // Extract version from tag (e.g., "mobile-v1.0.123" -> "1.0.123")
                 var version = latestRelease.TagName.Replace("mobile-v", "", StringComparison.OrdinalIgnoreCase);
@@ -131,6 +177,8 @@ public class MobileVersionController : ControllerBase
 
                 // Parse features from release body
                 var features = ParseFeaturesFromReleaseNotes(latestRelease.Body);
+
+                _logger.LogInformation("Successfully retrieved version info from GitHub: {Version}", version);
 
                 return new VersionCheckResponseDto(
                     LatestVersion: version,
@@ -162,6 +210,8 @@ public class MobileVersionController : ControllerBase
         var latestVersion = _configuration["MobileApp:LatestVersion"] ?? "1.0.0";
         var minimumVersion = _configuration["MobileApp:MinimumSupportedVersion"] ?? "1.0.0";
         var downloadUrl = _configuration["MobileApp:DownloadUrl"] ?? "";
+
+        _logger.LogInformation("Using fallback version info: {Version}", latestVersion);
 
         return new VersionCheckResponseDto(
             LatestVersion: latestVersion,
