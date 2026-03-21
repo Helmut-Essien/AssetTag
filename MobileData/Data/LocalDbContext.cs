@@ -68,6 +68,13 @@ namespace MobileData.Data
 
         private void ConfigureCoreEntities(ModelBuilder mb)
         {
+            // ═══════════════════════════════════════════════════════════
+            // CRITICAL FIX: Ignore ApplicationUser entity in mobile database
+            // Mobile app only needs AssignedToUserId (string), not full user object
+            // This prevents EF Core from trying to configure ApplicationUser without a primary key
+            // ═══════════════════════════════════════════════════════════
+            mb.Ignore<ApplicationUser>();
+            
             /* ---- Keys & Indexes (same as API) ---- */
             mb.Entity<Asset>().HasKey(a => a.AssetId);
             mb.Entity<AssetHistory>().HasKey(h => h.HistoryId);
@@ -105,6 +112,17 @@ namespace MobileData.Data
               .WithOne(h => h.Asset)
               .HasForeignKey(h => h.AssetId)
               .OnDelete(DeleteBehavior.Cascade);
+
+            // ═══════════════════════════════════════════════════════════
+            // CRITICAL FIX: Ignore navigation properties to ApplicationUser
+            // Mobile app only tracks user IDs (strings), not the full user objects
+            // This prevents EF Core from trying to load ApplicationUser relationships
+            // ═══════════════════════════════════════════════════════════
+            mb.Entity<Asset>()
+              .Ignore(a => a.AssignedToUser);
+            
+            mb.Entity<Department>()
+              .Ignore(d => d.Users);
 
             // BUG FIX #4: Removed redundant IsPendingSync and LastSyncedUtc shadow properties
             // Sync state is already tracked in SyncQueue table, no need to duplicate it here

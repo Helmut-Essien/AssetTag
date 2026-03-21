@@ -11,6 +11,7 @@ namespace MobileApp
         // Cache page instances to prevent recreation on tab switches
         private MainPage? _cachedMainPage;
         private InventoryPage? _cachedInventoryPage;
+        private LocationsPage? _cachedLocationsPage;
 
         // Constructor injection for AppShell
         // Note: AppShell is the navigation host, so it doesn't inject INavigationService
@@ -25,6 +26,9 @@ namespace MobileApp
             Routing.RegisterRoute(nameof(LoginPage), typeof(LoginPage));
             Routing.RegisterRoute(nameof(SettingsPage), typeof(SettingsPage));
             Routing.RegisterRoute(nameof(InventoryPage), typeof(InventoryPage));
+            Routing.RegisterRoute(nameof(LocationsPage), typeof(LocationsPage));
+            Routing.RegisterRoute(nameof(AddLocationPage), typeof(AddLocationPage));
+            Routing.RegisterRoute(nameof(EditLocationPage), typeof(EditLocationPage));
             
             // Set initial content to DI-resolved SplashScreen
             var splashScreen = _serviceProvider.GetRequiredService<SplashScreen>();
@@ -45,12 +49,13 @@ namespace MobileApp
             {
                 _cachedMainPage = _serviceProvider.GetRequiredService<MainPage>();
                 _cachedInventoryPage = _serviceProvider.GetRequiredService<InventoryPage>();
+                _cachedLocationsPage = _serviceProvider.GetRequiredService<LocationsPage>();
                 
                 // Assign cached instances to tab content
                 HomeTab.Content = _cachedMainPage;
                 InventoryTab.Content = _cachedInventoryPage;
                 CategoriesTab.Content = _cachedMainPage; // Reuse same instance
-                LocationsTab.Content = _cachedMainPage; // Reuse same instance
+                LocationsTab.Content = _cachedLocationsPage;
             }
             
             // Hide the initial splash/login content

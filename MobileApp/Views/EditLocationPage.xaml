@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:MobileApp.ViewModels"
+             x:Class="MobileApp.Views.EditLocationPage"
+             x:DataType="viewmodels:EditLocationViewModel"
+             Title="Edit Location"
+             BackgroundColor="#F8F9FA"
+             Shell.NavBarIsVisible="False">
+
+    <Grid RowDefinitions="56,*,Auto">
+        
+        <!-- Top Header Bar -->
+        <Frame Grid.Row="0" 
+               BackgroundColor="#005A9C" 
+               CornerRadius="0" 
+               Padding="0"
+               HasShadow="True">
+            <Grid ColumnDefinitions="56,*,56" Padding="0">
+                <!-- Back Button -->
+                <Button Grid.Column="0"
+                        Text="←"
+                        FontSize="24"
+                        TextColor="White"
+                        BackgroundColor="Transparent"
+                        Command="{Binding CancelCommand}"
+                        HorizontalOptions="Center"
+                        VerticalOptions="Center"/>
+                
+                <!-- Title -->
+                <Label Grid.Column="1"
+                       Text="Edit Location"
+                       FontFamily="OpenSansSemibold"
+                       FontSize="20"
+                       TextColor="White"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"/>
+                
+                <!-- Save Button -->
+                <Button Grid.Column="2"
+                        Text="✓"
+                        FontSize="24"
+                        TextColor="White"
+                        BackgroundColor="Transparent"
+                        Command="{Binding SaveLocationCommand}"
+                        HorizontalOptions="Center"
+                        VerticalOptions="Center"/>
+            </Grid>
+        </Frame>
+
+        <!-- Form Content -->
+        <ScrollView Grid.Row="1" Padding="16" IsVisible="{Binding IsLoading, Converter={StaticResource InvertedBoolConverter}}">
+            <VerticalStackLayout Spacing="16">
+                
+                <!-- Location Name -->
+                <Frame BackgroundColor="White" 
+                       CornerRadius="12" 
+                       Padding="16"
+                       HasShadow="True">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Location Name *"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="14"
+                               TextColor="#333333"/>
+                        <Entry Text="{Binding Name}"
+                               Placeholder="e.g., Main Building"
+                               PlaceholderColor="#999999"
+                               TextColor="#333333"
+                               FontSize="16"/>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Campus -->
+                <Frame BackgroundColor="White" 
+                       CornerRadius="12" 
+                       Padding="16"
+                       HasShadow="True">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Campus *"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="14"
+                               TextColor="#333333"/>
+                        <Entry Text="{Binding Campus}"
+                               Placeholder="e.g., Main Campus"
+                               PlaceholderColor="#999999"
+                               TextColor="#333333"
+                               FontSize="16"/>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Building -->
+                <Frame BackgroundColor="White" 
+                       CornerRadius="12" 
+                       Padding="16"
+                       HasShadow="True">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Building (Optional)"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="14"
+                               TextColor="#333333"/>
+                        <Entry Text="{Binding Building}"
+                               Placeholder="e.g., Science Building"
+                               PlaceholderColor="#999999"
+                               TextColor="#333333"
+                               FontSize="16"/>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Room -->
+                <Frame BackgroundColor="White" 
+                       CornerRadius="12" 
+                       Padding="16"
+                       HasShadow="True">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Room (Optional)"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="14"
+                               TextColor="#333333"/>
+                        <Entry Text="{Binding Room}"
+                               Placeholder="e.g., Room 101"
+                               PlaceholderColor="#999999"
+                               TextColor="#333333"
+                               FontSize="16"/>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Description -->
+                <Frame BackgroundColor="White" 
+                       CornerRadius="12" 
+                       Padding="16"
+                       HasShadow="True">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Description (Optional)"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="14"
+                               TextColor="#333333"/>
+                        <Editor Text="{Binding Description}"
+                                Placeholder="Additional details about this location..."
+                                PlaceholderColor="#999999"
+                                TextColor="#333333"
+                                FontSize="16"
+                                HeightRequest="100"
+                                AutoSize="TextChanges"/>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- GPS Coordinates Section -->
+                <Frame BackgroundColor="White" 
+                       CornerRadius="12" 
+                       Padding="16"
+                       HasShadow="True">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="GPS Coordinates (Optional)"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="14"
+                               TextColor="#333333"/>
+                        
+                        <!-- Coordinates Display -->
+                        <Frame BackgroundColor="#F0F0F0"
+                               CornerRadius="8"
+                               Padding="12"
+                               HasShadow="False">
+                            <HorizontalStackLayout Spacing="8">
+                                <Label Text="📍"
+                                       FontSize="20"
+                                       VerticalOptions="Center"/>
+                                <Label Text="{Binding CoordinatesDisplay}"
+                                       FontSize="14"
+                                       TextColor="#666666"
+                                       VerticalOptions="Center"
+                                       HorizontalOptions="FillAndExpand"/>
+                            </HorizontalStackLayout>
+                        </Frame>
+
+                        <!-- Capture/Clear Buttons -->
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                            <Button Grid.Column="0"
+                                    Text="📡 Capture"
+                                    BackgroundColor="#005A9C"
+                                    TextColor="White"
+                                    CornerRadius="8"
+                                    Command="{Binding CaptureLocationCommand}"
+                                    IsEnabled="{Binding IsCapturingLocation, Converter={StaticResource InvertedBoolConverter}}"/>
+                            
+                            <Button Grid.Column="1"
+                                    Text="✕ Clear"
+                                    BackgroundColor="#DC3545"
+                                    TextColor="White"
+                                    CornerRadius="8"
+                                    Command="{Binding ClearCoordinatesCommand}"
+                                    IsVisible="{Binding HasCoordinates}"/>
+                        </Grid>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Required Fields Note -->
+                <Label Text="* Required fields"
+                       FontSize="12"
+                       TextColor="#999999"
+                       HorizontalOptions="Start"
+                       Margin="4,0,0,0"/>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Bottom Action Buttons -->
+        <Grid Grid.Row="2" 
+              ColumnDefinitions="*,*" 
+              ColumnSpacing="12"
+              Padding="16"
+              BackgroundColor="White"
+              IsVisible="{Binding IsLoading, Converter={StaticResource InvertedBoolConverter}}">
+            <Border Grid.Column="0"
+                    StrokeThickness="0">
+                <Border.Shadow>
+                    <Shadow Brush="Black" Opacity="0.1" Radius="8" Offset="0,-2"/>
+                </Border.Shadow>
+            </Border>
+            
+            <Button Grid.Column="0"
+                    Text="Cancel"
+                    BackgroundColor="#6C757D"
+                    TextColor="White"
+                    CornerRadius="8"
+                    HeightRequest="50"
+                    FontFamily="OpenSansSemibold"
+                    Command="{Binding CancelCommand}"/>
+            
+            <Button Grid.Column="1"
+                    Text="Save Changes"
+                    BackgroundColor="#005A9C"
+                    TextColor="White"
+                    CornerRadius="8"
+                    HeightRequest="50"
+                    FontFamily="OpenSansSemibold"
+                    Command="{Binding SaveLocationCommand}"/>
+        </Grid>
+
+        <!-- Loading Overlay -->
+        <Grid Grid.Row="0" Grid.RowSpan="3"
+              BackgroundColor="#F8F9FA"
+              IsVisible="{Binding IsLoading}">
+            <VerticalStackLayout HorizontalOptions="Center"
+                                VerticalOptions="Center"
+                                Spacing="16">
+                <ActivityIndicator IsRunning="True"
+                                 Color="#005A9C"
+                                 WidthRequest="48"
+                                 HeightRequest="48"/>
+                <Label Text="Loading location..."
+                       FontFamily="OpenSansSemibold"
+                       FontSize="16"
+                       TextColor="#666666"
+                       HorizontalOptions="Center"/>
+            </VerticalStackLayout>
+        </Grid>
+
+        <!-- Location Capture Overlay -->
+        <Grid Grid.Row="0" Grid.RowSpan="3"
+              BackgroundColor="#80000000"
+              IsVisible="{Binding IsCapturingLocation}">
+            <VerticalStackLayout HorizontalOptions="Center"
+                                VerticalOptions="Center"
+                                Spacing="16">
+                <ActivityIndicator IsRunning="True"
+                                 Color="White"
+                                 WidthRequest="48"
+                                 HeightRequest="48"/>
+                <Label Text="Capturing GPS location..."
+                       FontFamily="OpenSansSemibold"
+                       FontSize="16"
+                       TextColor="White"
+                       HorizontalOptions="Center"/>
+            </VerticalStackLayout>
+        </Grid>
+
+        <!-- Busy Overlay -->
+        <Grid Grid.Row="0" Grid.RowSpan="3"
+              BackgroundColor="#80000000"
+              IsVisible="{Binding IsBusy}">
+            <VerticalStackLayout HorizontalOptions="Center"
+                                VerticalOptions="Center"
+                                Spacing="16">
+                <ActivityIndicator IsRunning="True"
+                                 Color="White"
+                                 WidthRequest="48"
+                                 HeightRequest="48"/>
+                <Label Text="Saving changes..."
+                       FontFamily="OpenSansSemibold"
+                       FontSize="16"
+                       TextColor="White"
+                       HorizontalOptions="Center"/>
+            </VerticalStackLayout>
+        </Grid>
+
+    </Grid>
+</ContentPage>
