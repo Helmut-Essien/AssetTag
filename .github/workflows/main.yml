@@ -108,9 +108,9 @@ jobs:
               "Token": "$GITHUB_TOKEN"
             },
             "MobileApp": {
-              "LatestVersion": "1.0.0",
+              "LatestVersion": "1.0.${{ github.run_number }}",
               "MinimumSupportedVersion": "1.0.0",
-              "DownloadUrl": ""
+              "DownloadUrl": "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/download/mobile-v1.0.${{ github.run_number }}/MUGAssets-v1.0.${{ github.run_number }}.apk"
             },
             "Logging": {
               "LogLevel": {
