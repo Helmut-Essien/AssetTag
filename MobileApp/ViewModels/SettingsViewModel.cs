@@ -369,34 +369,10 @@ namespace MobileApp.ViewModels
 
                 if (updateAvailable && versionInfo != null)
                 {
-                    var currentVersion = _versionCheckService.GetCurrentVersion();
-                    var isMandatory = versionInfo.IsMandatory;
-
-                    var title = isMandatory ? "Critical Update Required" : "Update Available";
-                    var updateMessage = isMandatory
-                        ? $"A critical update to version {versionInfo.LatestVersion} is required.\n\nCurrent version: {currentVersion}"
-                        : $"Version {versionInfo.LatestVersion} is now available!\n\nCurrent version: {currentVersion}";
-
-                    // Add features if available
-                    if (versionInfo.Features.Length > 0)
-                    {
-                        updateMessage += "\n\nWhat's new:\n" + string.Join("\n", versionInfo.Features.Select(f => $"• {f}"));
-                    }
-
-                    var updateButton = isMandatory ? "Update Now" : "Update";
-                    var cancelButton = isMandatory ? null : "Later";
-
-                    var result = await _navigationService.DisplayConfirmAsync(
-                        title,
-                        updateMessage,
-                        updateButton,
-                        cancelButton ?? "Cancel");
-
-                    if (result)
-                    {
-                        // User chose to update
-                        await DownloadAndInstallUpdateAsync(versionInfo);
-                    }
+                    // Navigate to UpdateAvailablePage instead of showing alert
+                    IsBusy = false; // Reset before navigation
+                    var updatePage = new Views.UpdateAvailablePage(_versionCheckService, versionInfo);
+                    await Application.Current?.Windows[0]?.Page?.Navigation.PushModalAsync(updatePage)!;
                 }
                 else
                 {
