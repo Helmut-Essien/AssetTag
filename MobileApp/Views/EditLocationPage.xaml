@@ -37,14 +37,14 @@
                        VerticalOptions="Center"/>
                 
                 <!-- Save Button -->
-                <Button Grid.Column="2"
+                <!--<Button Grid.Column="2"
                         Text="✓"
                         FontSize="24"
                         TextColor="White"
                         BackgroundColor="Transparent"
                         Command="{Binding SaveLocationCommand}"
                         HorizontalOptions="Center"
-                        VerticalOptions="Center"/>
+                        VerticalOptions="Center"/>-->
             </Grid>
         </Frame>
 
