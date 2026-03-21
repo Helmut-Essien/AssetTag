@@ -145,17 +145,22 @@ public class MobileVersionController : ControllerBase
                     return GetFallbackVersionInfo();
                 }
 
-                // Find the latest mobile release (not prerelease)
+                // Find the latest mobile release (including pre-releases for testing)
                 var latestRelease = releases
-                    .Where(r => !r.Prerelease && r.TagName.StartsWith("mobile-v", StringComparison.OrdinalIgnoreCase))
+                    .Where(r => r.TagName.StartsWith("mobile-v", StringComparison.OrdinalIgnoreCase))
                     .OrderByDescending(r => r.PublishedAt)
                     .FirstOrDefault();
 
                 if (latestRelease is null)
                 {
                     _logger.LogWarning("No mobile releases found. Total releases: {Count}", releases.Count);
+                    _logger.LogInformation("Available tags: {Tags}",
+                        string.Join(", ", releases.Select(r => r.TagName)));
                     return GetFallbackVersionInfo();
                 }
+
+                _logger.LogInformation("Found release: {Tag}, IsPrerelease: {IsPrerelease}",
+                    latestRelease.TagName, latestRelease.Prerelease);
 
                 _logger.LogInformation("Found latest release: {Tag}", latestRelease.TagName);
 
