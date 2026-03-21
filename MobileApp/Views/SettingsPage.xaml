@@ -376,12 +376,12 @@
                                FontSize="12"
                                HorizontalOptions="Center"
                                TextColor="#999999"/>
-                        <!--<Label Text="✅ Update Test - Build Working!"
+                        <Label Text="✅ Update Test - Build Working!"
                                FontFamily="OpenSansRegular"
                                FontSize="11"
                                HorizontalOptions="Center"
                                TextColor="#4CAF50"
-                               Margin="0,4,0,0"/>-->
+                               Margin="0,4,0,0"/>
                     </VerticalStackLayout>
                 </VerticalStackLayout>
                 
