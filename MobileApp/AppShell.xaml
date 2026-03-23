@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:MobileApp"
     xmlns:views="clr-namespace:MobileApp.Views"
+    xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
     Title="MobileApp"
     Shell.FlyoutBehavior="Disabled"
     Shell.NavBarIsVisible="False">
@@ -45,14 +46,7 @@
                 Shell.PresentationMode="NotAnimated" />
         </Tab>
 
-        <!-- Categories Tab (Placeholder) -->
-        <Tab Title="Categories" Route="Categories" Icon="tab_categories.png">
-            <ShellContent
-                x:Name="CategoriesTab"
-                Shell.PresentationMode="NotAnimated" />
-        </Tab>
-
-        <!-- Locations Tab (Placeholder) -->
+        <!-- Locations Tab -->
         <Tab Title="Locations" Route="Locations" Icon="tab_locations.png">
             <ShellContent
                 x:Name="LocationsTab"

@@ -490,16 +490,11 @@ namespace MobileApp.ViewModels
         {
             try
             {
-                // TODO: Navigate to add asset page when implemented
-                await Shell.Current.DisplayAlert(
-                    "Add Asset",
-                    "Opening asset registration form...",
-                    "OK");
-                // await Shell.Current.GoToAsync("AddAssetPage");
+                await Shell.Current.GoToAsync(nameof(Views.AddAssetPage));
             }
             catch (Exception ex)
             {
-                await Shell.Current.DisplayAlert("Error", ex.Message, "OK");
+                await Shell.Current.DisplayAlert("Error", $"Failed to navigate: {ex.Message}", "OK");
             }
         }
 

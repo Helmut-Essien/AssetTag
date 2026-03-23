@@ -6,12 +6,14 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using CommunityToolkit.Maui;
 using Syncfusion.Maui.Toolkit.Hosting;
+using UraniumUI;
 using MobileData.Data;
 using MobileApp.ViewModels;
 using MobileApp.Services;
 using MobileApp.Views;
 using MobileApp.Configuration;
 using System.Reflection;
+using MauiIcons.Material;
 
 namespace MobileApp
 {
@@ -29,7 +31,10 @@ namespace MobileApp
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 })
-                .UseMauiCommunityToolkit();
+                .UseMauiCommunityToolkit()
+                .UseUraniumUI()
+                .UseUraniumUIMaterial()
+                .UseMaterialMauiIcons();
 
             // ────────────────────────────────────────────────────────────────
             // Load Configuration from appsettings.json
@@ -136,6 +141,7 @@ namespace MobileApp
             // Transient ViewModels for add/edit pages
             builder.Services.AddTransient<AddLocationViewModel>();
             builder.Services.AddTransient<EditLocationViewModel>();
+            builder.Services.AddTransient<AddAssetViewModel>();
             
             // Login/Splash are transient as they're only used once per session
             builder.Services.AddTransient<LoginViewModel>();
@@ -155,6 +161,8 @@ namespace MobileApp
             // Transient Pages for add/edit
             builder.Services.AddTransient<AddLocationPage>();
             builder.Services.AddTransient<EditLocationPage>();
+            builder.Services.AddTransient<AddAssetPage>();
+            builder.Services.AddTransient<BarcodeScannerPage>();
             
             // Login/Splash pages are transient as they're used once per session
             builder.Services.AddTransient<LoginPage>();
