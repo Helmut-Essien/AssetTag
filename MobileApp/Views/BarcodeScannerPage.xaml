@@ -56,19 +56,19 @@
         <!-- Camera View -->
         <zxing:CameraBarcodeReaderView Grid.Row="1"
                                         x:Name="CameraView"
-                                        IsDetecting="False"
+                                        IsDetecting="True"
                                         IsTorchOn="False"
                                         BarcodesDetected="OnBarcodesDetected" />
 
-        <!-- Scanning Overlay -->
+        <!-- Scanning frame overlay (no background, just border) -->
         <Grid Grid.Row="1" InputTransparent="True">
-            <BoxView Color="#80000000"/>
-            
+            <!-- Scanning frame border -->
             <Border WidthRequest="280"
                     HeightRequest="280"
                     Stroke="White"
-                    StrokeThickness="2"
+                    StrokeThickness="3"
                     BackgroundColor="Transparent"
+                    InputTransparent="True"
                     HorizontalOptions="Center"
                     VerticalOptions="Center">
                 <Border.StrokeShape>
@@ -76,30 +76,30 @@
                 </Border.StrokeShape>
                 
                 <!-- Corner Indicators -->
-                <Grid>
+                <Grid InputTransparent="True">
                     <!-- Top-left -->
-                    <BoxView BackgroundColor="#00FF00" WidthRequest="40" HeightRequest="4" 
-                             HorizontalOptions="Start" VerticalOptions="Start"/>
-                    <BoxView BackgroundColor="#00FF00" WidthRequest="4" HeightRequest="40" 
-                             HorizontalOptions="Start" VerticalOptions="Start"/>
+                    <BoxView BackgroundColor="#00FF00" WidthRequest="40" HeightRequest="4"
+                             HorizontalOptions="Start" VerticalOptions="Start" InputTransparent="True"/>
+                    <BoxView BackgroundColor="#00FF00" WidthRequest="4" HeightRequest="40"
+                             HorizontalOptions="Start" VerticalOptions="Start" InputTransparent="True"/>
                     
                     <!-- Top-right -->
-                    <BoxView BackgroundColor="#00FF00" WidthRequest="40" HeightRequest="4" 
-                             HorizontalOptions="End" VerticalOptions="Start"/>
-                    <BoxView BackgroundColor="#00FF00" WidthRequest="4" HeightRequest="40" 
-                             HorizontalOptions="End" VerticalOptions="Start"/>
+                    <BoxView BackgroundColor="#00FF00" WidthRequest="40" HeightRequest="4"
+                             HorizontalOptions="End" VerticalOptions="Start" InputTransparent="True"/>
+                    <BoxView BackgroundColor="#00FF00" WidthRequest="4" HeightRequest="40"
+                             HorizontalOptions="End" VerticalOptions="Start" InputTransparent="True"/>
                     
                     <!-- Bottom-left -->
-                    <BoxView BackgroundColor="#00FF00" WidthRequest="40" HeightRequest="4" 
-                             HorizontalOptions="Start" VerticalOptions="End"/>
-                    <BoxView BackgroundColor="#00FF00" WidthRequest="4" HeightRequest="40" 
-                             HorizontalOptions="Start" VerticalOptions="End"/>
+                    <BoxView BackgroundColor="#00FF00" WidthRequest="40" HeightRequest="4"
+                             HorizontalOptions="Start" VerticalOptions="End" InputTransparent="True"/>
+                    <BoxView BackgroundColor="#00FF00" WidthRequest="4" HeightRequest="40"
+                             HorizontalOptions="Start" VerticalOptions="End" InputTransparent="True"/>
                     
                     <!-- Bottom-right -->
-                    <BoxView BackgroundColor="#00FF00" WidthRequest="40" HeightRequest="4" 
-                             HorizontalOptions="End" VerticalOptions="End"/>
-                    <BoxView BackgroundColor="#00FF00" WidthRequest="4" HeightRequest="40" 
-                             HorizontalOptions="End" VerticalOptions="End"/>
+                    <BoxView BackgroundColor="#00FF00" WidthRequest="40" HeightRequest="4"
+                             HorizontalOptions="End" VerticalOptions="End" InputTransparent="True"/>
+                    <BoxView BackgroundColor="#00FF00" WidthRequest="4" HeightRequest="40"
+                             HorizontalOptions="End" VerticalOptions="End" InputTransparent="True"/>
                 </Grid>
             </Border>
         </Grid>
