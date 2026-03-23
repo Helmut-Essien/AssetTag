@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewmodels="clr-namespace:MobileApp.ViewModels"
              xmlns:models="clr-namespace:Shared.Models;assembly=Shared"
+             xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
              x:Class="MobileApp.Views.AddAssetPage"
              x:DataType="viewmodels:AddAssetViewModel"
              Title="Add Asset"
@@ -19,19 +20,15 @@
                HasShadow="True">
             <Grid ColumnDefinitions="56,*,56" Padding="0">
                 <!-- Back Button -->
-                <Button Grid.Column="0"
-                        BackgroundColor="Transparent"
-                        Command="{Binding CancelCommand}"
-                        HorizontalOptions="Center"
-                        VerticalOptions="Center"
-                        Padding="0">
-                    <Button.ImageSource>
-                        <FontImageSource FontFamily="MaterialIconsRegular"
-                                       Glyph="&#xe5c4;"
-                                       Size="24"
-                                       Color="White"/>
-                    </Button.ImageSource>
-                </Button>
+                <ImageButton Grid.Column="0"
+                             Source="icon_arrow_back.png"
+                             BackgroundColor="Transparent"
+                             Command="{Binding CancelCommand}"
+                             HorizontalOptions="Center"
+                             VerticalOptions="Center"
+                             WidthRequest="40"
+                             HeightRequest="40"
+                             Aspect="AspectFit"/>
                 
                 <!-- Title -->
                 <Label Grid.Column="1"
@@ -43,19 +40,15 @@
                        VerticalOptions="Center"/>
                 
                 <!-- Save Button -->
-                <Button Grid.Column="2"
-                        BackgroundColor="Transparent"
-                        Command="{Binding SaveAssetCommand}"
-                        HorizontalOptions="Center"
-                        VerticalOptions="Center"
-                        Padding="0">
-                    <Button.ImageSource>
-                        <FontImageSource FontFamily="MaterialIconsRegular"
-                                       Glyph="&#xe5ca;"
-                                       Size="24"
-                                       Color="White"/>
-                    </Button.ImageSource>
-                </Button>
+                <ImageButton Grid.Column="2"
+                             Source="icon_check.png"
+                             BackgroundColor="Transparent"
+                             Command="{Binding SaveAssetCommand}"
+                             HorizontalOptions="Center"
+                             VerticalOptions="Center"
+                             WidthRequest="40"
+                             HeightRequest="40"
+                             Aspect="AspectFit"/>
             </Grid>
         </Frame>
 
@@ -86,21 +79,16 @@
                                    HeightRequest="48"
                                    VerticalOptions="Center"/>
                             
-                            <Button Grid.Column="1"
-                                    BackgroundColor="#005A9C"
-                                    CornerRadius="8"
-                                    WidthRequest="48"
-                                    HeightRequest="48"
-                                    Padding="0"
-                                    Command="{Binding ScanBarcodeCommand}"
-                                    ToolTipProperties.Text="Scan Barcode">
-                                <Button.ImageSource>
-                                    <FontImageSource FontFamily="MaterialIconsRegular"
-                                                   Glyph="&#xf85b;"
-                                                   Size="24"
-                                                   Color="White"/>
-                                </Button.ImageSource>
-                            </Button>
+                            <ImageButton Grid.Column="1"
+                                         Source="icon_qr_scanner.png"
+                                         BackgroundColor="#005A9C"
+                                         CornerRadius="8"
+                                         WidthRequest="48"
+                                         HeightRequest="48"
+                                         Padding="12"
+                                         Command="{Binding ScanBarcodeCommand}"
+                                         ToolTipProperties.Text="Scan Barcode"
+                                         Aspect="AspectFit"/>
                         </Grid>
                     </VerticalStackLayout>
                 </Frame>

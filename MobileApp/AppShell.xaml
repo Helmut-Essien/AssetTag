@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:MobileApp"
     xmlns:views="clr-namespace:MobileApp.Views"
+    xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
     Title="MobileApp"
     Shell.FlyoutBehavior="Disabled"
     Shell.NavBarIsVisible="False">

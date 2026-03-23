@@ -13,6 +13,7 @@ using MobileApp.Services;
 using MobileApp.Views;
 using MobileApp.Configuration;
 using System.Reflection;
+using MauiIcons.Material;
 
 namespace MobileApp
 {
@@ -32,7 +33,8 @@ namespace MobileApp
                 })
                 .UseMauiCommunityToolkit()
                 .UseUraniumUI()
-                .UseUraniumUIMaterial();
+                .UseUraniumUIMaterial()
+                .UseMaterialMauiIcons();
 
             // ────────────────────────────────────────────────────────────────
             // Load Configuration from appsettings.json
