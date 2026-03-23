@@ -65,6 +65,11 @@ namespace MobileApp.Views
             }
         }
 
+        private async void OnBackButtonClicked(object sender, EventArgs e)
+        {
+            await Shell.Current.GoToAsync("..");
+        }
+
         protected override void OnDisappearing()
         {
             base.OnDisappearing();

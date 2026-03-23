@@ -8,7 +8,7 @@ namespace MobileApp.Views;
 /// </summary>
 public partial class BarcodeScannerPage : ContentPage
 {
-    private readonly TaskCompletionSource<string?> _scanResultTcs;
+    private TaskCompletionSource<string?> _scanResultTcs;
     private bool _isProcessing;
 
     public BarcodeScannerPage()
@@ -56,6 +56,7 @@ public partial class BarcodeScannerPage : ContentPage
             }
             catch (Exception ex)
             {
+                _isProcessing = false; // Reset flag on error
                 _scanResultTcs.TrySetException(ex);
                 await Navigation.PopModalAsync();
             }
@@ -78,6 +79,11 @@ public partial class BarcodeScannerPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        
+        // Reset state for new scan session
+        _isProcessing = false;
+        _scanResultTcs = new TaskCompletionSource<string?>();
+        
         CameraView.IsDetecting = true;
     }
 

@@ -25,8 +25,7 @@
                         FontSize="24"
                         TextColor="White"
                         BackgroundColor="Transparent"
-                        BindingContext="{x:Null}"
-                        Command="{Binding Source={RelativeSource AncestorType={x:Type Shell}}, Path=BackCommand}"
+                        Clicked="OnBackButtonClicked"
                         HorizontalOptions="Center"
                         VerticalOptions="Center"/>
                 
@@ -179,7 +178,7 @@
                                    HasShadow="True">
                                     <Frame.GestureRecognizers>
                                     <TapGestureRecognizer Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.ViewAssetDetailsCommand}"
-                                                          CommandParameter="{Binding .}"/>
+                                                          CommandParameter="{Binding}"/>
                                 </Frame.GestureRecognizers>
                                 
                                 <Grid ColumnDefinitions="4,56,*,24" 

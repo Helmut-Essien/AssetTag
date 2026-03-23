@@ -14,6 +14,7 @@ using MobileApp.Views;
 using MobileApp.Configuration;
 using System.Reflection;
 using MauiIcons.Material;
+using ZXing.Net.Maui.Controls;
 
 namespace MobileApp
 {
@@ -34,7 +35,8 @@ namespace MobileApp
                 .UseMauiCommunityToolkit()
                 .UseUraniumUI()
                 .UseUraniumUIMaterial()
-                .UseMaterialMauiIcons();
+                .UseMaterialMauiIcons()
+                .UseBarcodeReader();
 
             // ────────────────────────────────────────────────────────────────
             // Load Configuration from appsettings.json
