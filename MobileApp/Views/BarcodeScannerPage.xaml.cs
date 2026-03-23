@@ -1,4 +1,5 @@
 using ZXing.Net.Maui;
+using ZXing.Net.Maui.Controls;
 
 namespace MobileApp.Views;
 
@@ -15,6 +16,14 @@ public partial class BarcodeScannerPage : ContentPage
     {
         InitializeComponent();
         _scanResultTcs = new TaskCompletionSource<string?>();
+        
+        // Configure barcode reader options
+        CameraView.Options = new BarcodeReaderOptions
+        {
+            Formats = BarcodeFormats.OneDimensional | BarcodeFormats.TwoDimensional,
+            AutoRotate = true,
+            Multiple = false
+        };
     }
 
     /// <summary>
