@@ -29,6 +29,7 @@ namespace MobileApp
             Routing.RegisterRoute(nameof(LocationsPage), typeof(LocationsPage));
             Routing.RegisterRoute(nameof(AddLocationPage), typeof(AddLocationPage));
             Routing.RegisterRoute(nameof(EditLocationPage), typeof(EditLocationPage));
+            Routing.RegisterRoute(nameof(AddAssetPage), typeof(AddAssetPage));
             
             // Set initial content to DI-resolved SplashScreen
             var splashScreen = _serviceProvider.GetRequiredService<SplashScreen>();
@@ -54,7 +55,6 @@ namespace MobileApp
                 // Assign cached instances to tab content
                 HomeTab.Content = _cachedMainPage;
                 InventoryTab.Content = _cachedInventoryPage;
-                CategoriesTab.Content = _cachedMainPage; // Reuse same instance
                 LocationsTab.Content = _cachedLocationsPage;
             }
             

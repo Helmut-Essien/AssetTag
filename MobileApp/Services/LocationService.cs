@@ -261,14 +261,12 @@ public class LocationService : ILocationService
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
 
-            // Disable change tracking to prevent sync queue entries
-            dbContext.ChangeTracker.AutoDetectChangesEnabled = false;
-
             var existingLocation = await dbContext.Locations
                 .FirstOrDefaultAsync(l => l.LocationId == location.LocationId);
 
             if (existingLocation != null)
             {
+                // Update properties
                 existingLocation.Name = location.Name;
                 existingLocation.Description = location.Description;
                 existingLocation.Campus = location.Campus;
@@ -278,11 +276,16 @@ public class LocationService : ILocationService
                 existingLocation.Longitude = location.Longitude;
                 existingLocation.DateModified = location.DateModified;
 
-                await dbContext.SaveChangesAsync();
+                // Explicitly mark as modified to ensure changes are saved
+                dbContext.Entry(existingLocation).State = EntityState.Modified;
+                
+                var savedCount = await dbContext.SaveChangesAsync();
+                _logger.LogInformation("Updated location in local database. Rows affected: {Count}", savedCount);
             }
-
-            // Re-enable change tracking
-            dbContext.ChangeTracker.AutoDetectChangesEnabled = true;
+            else
+            {
+                _logger.LogWarning("Location {LocationId} not found in local database for update", location.LocationId);
+            }
 
             _logger.LogInformation("Location updated successfully: {LocationId} - {Name}", 
                 location.LocationId, location.Name);

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:zxing="clr-namespace:ZXing.Net.Maui.Controls;assembly=ZXing.Net.Maui.Controls"
+             x:Class="MobileApp.Views.BarcodeScannerPage"
+             Title="Scan Barcode"
+             BackgroundColor="Black"
+             Shell.NavBarIsVisible="False">
+    
+    <Grid RowDefinitions="56,*,Auto">
+        
+        <!-- Header -->
+        <Border Grid.Row="0"
+                BackgroundColor="#005A9C"
+                StrokeThickness="0">
+            <Border.Shadow>
+                <Shadow Brush="Black" Opacity="0.3" Radius="4" Offset="0,2"/>
+            </Border.Shadow>
+            <Grid ColumnDefinitions="56,*,56">
+                <Button Grid.Column="0"
+                        BackgroundColor="Transparent"
+                        Clicked="OnCloseClicked"
+                        Padding="0">
+                    <Button.ImageSource>
+                        <FontImageSource FontFamily="MaterialIconsRegular"
+                                       Glyph="&#xe5cd;"
+                                       Size="24"
+                                       Color="White"/>
+                    </Button.ImageSource>
+                </Button>
+                
+                <Label Grid.Column="1"
+                       Text="Scan Barcode/QR Code"
+                       FontFamily="OpenSansSemibold"
+                       FontSize="18"
+                       TextColor="White"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"/>
+                
+                <Button Grid.Column="2"
+                        x:Name="TorchButton"
+                        BackgroundColor="Transparent"
+                        Opacity="0.5"
+                        Clicked="OnTorchToggled"
+                        Padding="0">
+                    <Button.ImageSource>
+                        <FontImageSource FontFamily="MaterialIconsRegular"
+                                       Glyph="&#xe8f4;"
+                                       Size="24"
+                                       Color="White"/>
+                    </Button.ImageSource>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- Camera View -->
+        <zxing:CameraBarcodeReaderView Grid.Row="1"
+                                        x:Name="CameraView"
+                                        IsDetecting="False"
+                                        IsTorchOn="False"
+                                        BarcodesDetected="OnBarcodesDetected" />
+
+        <!-- Scanning Overlay -->
+        <Grid Grid.Row="1" InputTransparent="True">
+            <BoxView Color="#80000000"/>
+            
+            <Border WidthRequest="280"
+                    HeightRequest="280"
+                    Stroke="White"
+                    StrokeThickness="2"
+                    BackgroundColor="Transparent"
+                    HorizontalOptions="Center"
+                    VerticalOptions="Center">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="12"/>
+                </Border.StrokeShape>
+                
+                <!-- Corner Indicators -->
+                <Grid>
+                    <!-- Top-left -->
+                    <BoxView BackgroundColor="#00FF00" WidthRequest="40" HeightRequest="4" 
+                             HorizontalOptions="Start" VerticalOptions="Start"/>
+                    <BoxView BackgroundColor="#00FF00" WidthRequest="4" HeightRequest="40" 
+                             HorizontalOptions="Start" VerticalOptions="Start"/>
+                    
+                    <!-- Top-right -->
+                    <BoxView BackgroundColor="#00FF00" WidthRequest="40" HeightRequest="4" 
+                             HorizontalOptions="End" VerticalOptions="Start"/>
+                    <BoxView BackgroundColor="#00FF00" WidthRequest="4" HeightRequest="40" 
+                             HorizontalOptions="End" VerticalOptions="Start"/>
+                    
+                    <!-- Bottom-left -->
+                    <BoxView BackgroundColor="#00FF00" WidthRequest="40" HeightRequest="4" 
+                             HorizontalOptions="Start" VerticalOptions="End"/>
+                    <BoxView BackgroundColor="#00FF00" WidthRequest="4" HeightRequest="40" 
+                             HorizontalOptions="Start" VerticalOptions="End"/>
+                    
+                    <!-- Bottom-right -->
+                    <BoxView BackgroundColor="#00FF00" WidthRequest="40" HeightRequest="4" 
+                             HorizontalOptions="End" VerticalOptions="End"/>
+                    <BoxView BackgroundColor="#00FF00" WidthRequest="4" HeightRequest="40" 
+                             HorizontalOptions="End" VerticalOptions="End"/>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Instructions -->
+        <Border Grid.Row="2"
+                BackgroundColor="#CC000000"
+                StrokeThickness="0"
+                Padding="20">
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Position the barcode/QR code within the frame"
+                       FontFamily="OpenSansSemibold"
+                       FontSize="16"
+                       TextColor="White"
+                       HorizontalOptions="Center"/>
+                <Label Text="Scanning will happen automatically"
+                       FontFamily="OpenSansRegular"
+                       FontSize="14"
+                       TextColor="#CCCCCC"
+                       HorizontalOptions="Center"/>
+            </VerticalStackLayout>
+        </Border>
+        
+    </Grid>
+    
+</ContentPage>

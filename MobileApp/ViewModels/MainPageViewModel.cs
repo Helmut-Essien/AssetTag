@@ -132,20 +132,18 @@ namespace MobileApp.ViewModels
         }
 
         /// <summary>
-        /// Navigate to barcode/QR scanner page
+        /// Navigate to barcode/QR scanner page (opens Add Asset page with scanner)
         /// </summary>
         [RelayCommand]
         private async Task ScanAssetAsync()
         {
             try
             {
-                // TODO: Navigate to scanner page when implemented
-                await Shell.Current.DisplayAlert("Scan Asset", "Opening scanner...", "OK");
-                // await Shell.Current.GoToAsync("ScanPage");
+                await Shell.Current.GoToAsync(nameof(AddAssetPage));
             }
             catch (Exception ex)
             {
-                await Shell.Current.DisplayAlert("Error", ex.Message, "OK");
+                await Shell.Current.DisplayAlert("Error", $"Failed to navigate: {ex.Message}", "OK");
             }
         }
 
@@ -157,13 +155,11 @@ namespace MobileApp.ViewModels
         {
             try
             {
-                // TODO: Navigate to add asset page when implemented
-                await Shell.Current.DisplayAlert("Add Asset", "Opening asset registration form...", "OK");
-                // await Shell.Current.GoToAsync("AddAssetPage");
+                await Shell.Current.GoToAsync(nameof(AddAssetPage));
             }
             catch (Exception ex)
             {
-                await Shell.Current.DisplayAlert("Error", ex.Message, "OK");
+                await Shell.Current.DisplayAlert("Error", $"Failed to navigate: {ex.Message}", "OK");
             }
         }
 

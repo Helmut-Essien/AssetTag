@@ -1,0 +1,528 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:MobileApp.ViewModels"
+             xmlns:models="clr-namespace:Shared.Models;assembly=Shared"
+             x:Class="MobileApp.Views.AddAssetPage"
+             x:DataType="viewmodels:AddAssetViewModel"
+             Title="Add Asset"
+             BackgroundColor="#F8F9FA"
+             Shell.NavBarIsVisible="False">
+
+    <Grid RowDefinitions="56,*,Auto">
+        
+        <!-- Top Header Bar -->
+        <Frame Grid.Row="0" 
+               BackgroundColor="#005A9C" 
+               CornerRadius="0" 
+               Padding="0"
+               HasShadow="True">
+            <Grid ColumnDefinitions="56,*,56" Padding="0">
+                <!-- Back Button -->
+                <Button Grid.Column="0"
+                        BackgroundColor="Transparent"
+                        Command="{Binding CancelCommand}"
+                        HorizontalOptions="Center"
+                        VerticalOptions="Center"
+                        Padding="0">
+                    <Button.ImageSource>
+                        <FontImageSource FontFamily="MaterialIconsRegular"
+                                       Glyph="&#xe5c4;"
+                                       Size="24"
+                                       Color="White"/>
+                    </Button.ImageSource>
+                </Button>
+                
+                <!-- Title -->
+                <Label Grid.Column="1"
+                       Text="Add Asset"
+                       FontFamily="OpenSansSemibold"
+                       FontSize="20"
+                       TextColor="White"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"/>
+                
+                <!-- Save Button -->
+                <Button Grid.Column="2"
+                        BackgroundColor="Transparent"
+                        Command="{Binding SaveAssetCommand}"
+                        HorizontalOptions="Center"
+                        VerticalOptions="Center"
+                        Padding="0">
+                    <Button.ImageSource>
+                        <FontImageSource FontFamily="MaterialIconsRegular"
+                                       Glyph="&#xe5ca;"
+                                       Size="24"
+                                       Color="White"/>
+                    </Button.ImageSource>
+                </Button>
+            </Grid>
+        </Frame>
+
+        <!-- Form Content -->
+        <ScrollView Grid.Row="1" Padding="16">
+            <VerticalStackLayout Spacing="16">
+                
+                <!-- Digital Asset Tag with Scanner -->
+                <Frame BackgroundColor="White"
+                       CornerRadius="12"
+                       Padding="16"
+                       HasShadow="True">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Digital Asset Tag (Optional)"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="14"
+                               TextColor="#333333"/>
+                        
+                        <!-- Entry with Scan Button -->
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Entry Grid.Column="0"
+                                   Text="{Binding DigitalAssetTag}"
+                                   Placeholder="Scan or enter digital tag"
+                                   FontSize="14"
+                                   BackgroundColor="#F8F9FA"
+                                   TextColor="#333333"
+                                   PlaceholderColor="#999999"
+                                   HeightRequest="48"
+                                   VerticalOptions="Center"/>
+                            
+                            <Button Grid.Column="1"
+                                    BackgroundColor="#005A9C"
+                                    CornerRadius="8"
+                                    WidthRequest="48"
+                                    HeightRequest="48"
+                                    Padding="0"
+                                    Command="{Binding ScanBarcodeCommand}"
+                                    ToolTipProperties.Text="Scan Barcode">
+                                <Button.ImageSource>
+                                    <FontImageSource FontFamily="MaterialIconsRegular"
+                                                   Glyph="&#xf85b;"
+                                                   Size="24"
+                                                   Color="White"/>
+                                </Button.ImageSource>
+                            </Button>
+                        </Grid>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Asset Tag -->
+                <Frame BackgroundColor="White" 
+                       CornerRadius="12" 
+                       Padding="16"
+                       HasShadow="True">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Asset Tag *"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="14"
+                               TextColor="#333333"/>
+                        <Entry Text="{Binding AssetTag}"
+                               Placeholder="e.g., AT-2024-001"
+                               PlaceholderColor="#999999"
+                               TextColor="#333333"
+                               FontSize="16"/>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Asset Name -->
+                <Frame BackgroundColor="White" 
+                       CornerRadius="12" 
+                       Padding="16"
+                       HasShadow="True">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Asset Name *"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="14"
+                               TextColor="#333333"/>
+                        <Entry Text="{Binding Name}"
+                               Placeholder="e.g., Dell Laptop"
+                               PlaceholderColor="#999999"
+                               TextColor="#333333"
+                               FontSize="16"/>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Category Picker -->
+                <Frame BackgroundColor="White" 
+                       CornerRadius="12" 
+                       Padding="16"
+                       HasShadow="True">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Category *"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="14"
+                               TextColor="#333333"/>
+                        <Picker ItemsSource="{Binding Categories}"
+                                SelectedItem="{Binding SelectedCategory}"
+                                Title="Select Category"
+                                TextColor="#333333"
+                                FontSize="16">
+                            <Picker.ItemDisplayBinding>
+                                <Binding Path="Name" x:DataType="models:Category"/>
+                            </Picker.ItemDisplayBinding>
+                        </Picker>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Location Picker -->
+                <Frame BackgroundColor="White" 
+                       CornerRadius="12" 
+                       Padding="16"
+                       HasShadow="True">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Location *"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="14"
+                               TextColor="#333333"/>
+                        <Picker ItemsSource="{Binding Locations}"
+                                SelectedItem="{Binding SelectedLocation}"
+                                Title="Select Location"
+                                TextColor="#333333"
+                                FontSize="16">
+                            <Picker.ItemDisplayBinding>
+                                <Binding Path="Name" x:DataType="models:Location"/>
+                            </Picker.ItemDisplayBinding>
+                        </Picker>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Department Picker -->
+                <Frame BackgroundColor="White" 
+                       CornerRadius="12" 
+                       Padding="16"
+                       HasShadow="True">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Department *"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="14"
+                               TextColor="#333333"/>
+                        <Picker ItemsSource="{Binding Departments}"
+                                SelectedItem="{Binding SelectedDepartment}"
+                                Title="Select Department"
+                                TextColor="#333333"
+                                FontSize="16">
+                            <Picker.ItemDisplayBinding>
+                                <Binding Path="Name" x:DataType="models:Department"/>
+                            </Picker.ItemDisplayBinding>
+                        </Picker>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Status Picker -->
+                <Frame BackgroundColor="White" 
+                       CornerRadius="12" 
+                       Padding="16"
+                       HasShadow="True">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Status *"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="14"
+                               TextColor="#333333"/>
+                        <Picker ItemsSource="{Binding StatusOptions}"
+                                SelectedItem="{Binding SelectedStatus}"
+                                Title="Select Status"
+                                TextColor="#333333"
+                                FontSize="16"/>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Condition Picker -->
+                <Frame BackgroundColor="White" 
+                       CornerRadius="12" 
+                       Padding="16"
+                       HasShadow="True">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Condition *"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="14"
+                               TextColor="#333333"/>
+                        <Picker ItemsSource="{Binding ConditionOptions}"
+                                SelectedItem="{Binding SelectedCondition}"
+                                Title="Select Condition"
+                                TextColor="#333333"
+                                FontSize="16"/>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Description -->
+                <Frame BackgroundColor="White"
+                       CornerRadius="12"
+                       Padding="16"
+                       HasShadow="True">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Description (Optional)"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="14"
+                               TextColor="#333333"/>
+                        <Editor Text="{Binding Description}"
+                                Placeholder="Additional details about this asset..."
+                                PlaceholderColor="#999999"
+                                TextColor="#333333"
+                                FontSize="16"
+                                HeightRequest="100"
+                                AutoSize="TextChanges"/>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Purchase Date and Serial Number -->
+                <Frame BackgroundColor="White"
+                       CornerRadius="12"
+                       Padding="16"
+                       HasShadow="True">
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="12">
+                        <!-- Purchase Date -->
+                        <VerticalStackLayout Grid.Row="0" Spacing="8">
+                            <Label Text="Purchase Date (Optional)"
+                                   FontFamily="OpenSansSemibold"
+                                   FontSize="14"
+                                   TextColor="#333333"/>
+                            <DatePicker Date="{Binding PurchaseDate}"
+                                       Format="yyyy-MM-dd"
+                                       TextColor="#333333"
+                                       FontSize="16"
+                                       BackgroundColor="#F8F9FA"/>
+                        </VerticalStackLayout>
+
+                        <!-- Serial Number -->
+                        <VerticalStackLayout Grid.Row="1" Spacing="8">
+                            <Label Text="Serial Number (Optional)"
+                                   FontFamily="OpenSansSemibold"
+                                   FontSize="14"
+                                   TextColor="#333333"/>
+                            <Entry Text="{Binding SerialNumber}"
+                                   Placeholder="e.g., SN123456789"
+                                   PlaceholderColor="#999999"
+                                   TextColor="#333333"
+                                   FontSize="16"/>
+                        </VerticalStackLayout>
+                    </Grid>
+                </Frame>
+
+                <!-- Financial Information Section Header -->
+                <Label Text="Financial Information"
+                       FontFamily="OpenSansSemibold"
+                       FontSize="16"
+                       TextColor="#005A9C"
+                       Margin="0,8,0,0"/>
+
+                <!-- Purchase Price and Quantity -->
+                <Frame BackgroundColor="White"
+                       CornerRadius="12"
+                       Padding="16"
+                       HasShadow="True">
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="12">
+                        <!-- Purchase Price -->
+                        <VerticalStackLayout Grid.Row="0" Spacing="8">
+                            <Label Text="Purchase Price (Optional)"
+                                   FontFamily="OpenSansSemibold"
+                                   FontSize="14"
+                                   TextColor="#333333"/>
+                            <Entry Text="{Binding PurchasePrice}"
+                                   Placeholder="0.00"
+                                   Keyboard="Numeric"
+                                   PlaceholderColor="#999999"
+                                   TextColor="#333333"
+                                   FontSize="16"/>
+                        </VerticalStackLayout>
+
+                        <!-- Quantity -->
+                        <VerticalStackLayout Grid.Row="1" Spacing="8">
+                            <Label Text="Quantity"
+                                   FontFamily="OpenSansSemibold"
+                                   FontSize="14"
+                                   TextColor="#333333"/>
+                            <Entry Text="{Binding Quantity}"
+                                   Placeholder="1"
+                                   Keyboard="Numeric"
+                                   PlaceholderColor="#999999"
+                                   TextColor="#333333"
+                                   FontSize="16"/>
+                        </VerticalStackLayout>
+
+                        <!-- Cost Per Unit -->
+                        <VerticalStackLayout Grid.Row="2" Spacing="8">
+                            <Label Text="Cost Per Unit (Optional)"
+                                   FontFamily="OpenSansSemibold"
+                                   FontSize="14"
+                                   TextColor="#333333"/>
+                            <Entry Text="{Binding CostPerUnit}"
+                                   Placeholder="0.00"
+                                   Keyboard="Numeric"
+                                   PlaceholderColor="#999999"
+                                   TextColor="#333333"
+                                   FontSize="16"/>
+                        </VerticalStackLayout>
+                    </Grid>
+                </Frame>
+
+                <!-- Additional Information Section Header -->
+                <Label Text="Additional Information"
+                       FontFamily="OpenSansSemibold"
+                       FontSize="16"
+                       TextColor="#005A9C"
+                       Margin="0,8,0,0"/>
+
+                <!-- Vendor and Invoice -->
+                <Frame BackgroundColor="White"
+                       CornerRadius="12"
+                       Padding="16"
+                       HasShadow="True">
+                    <Grid RowDefinitions="Auto,Auto" RowSpacing="12">
+                        <!-- Vendor Name -->
+                        <VerticalStackLayout Grid.Row="0" Spacing="8">
+                            <Label Text="Vendor Name (Optional)"
+                                   FontFamily="OpenSansSemibold"
+                                   FontSize="14"
+                                   TextColor="#333333"/>
+                            <Entry Text="{Binding VendorName}"
+                                   Placeholder="e.g., Dell Inc."
+                                   PlaceholderColor="#999999"
+                                   TextColor="#333333"
+                                   FontSize="16"/>
+                        </VerticalStackLayout>
+
+                        <!-- Invoice Number -->
+                        <VerticalStackLayout Grid.Row="1" Spacing="8">
+                            <Label Text="Invoice Number (Optional)"
+                                   FontFamily="OpenSansSemibold"
+                                   FontSize="14"
+                                   TextColor="#333333"/>
+                            <Entry Text="{Binding InvoiceNumber}"
+                                   Placeholder="e.g., INV-2024-001"
+                                   PlaceholderColor="#999999"
+                                   TextColor="#333333"
+                                   FontSize="16"/>
+                        </VerticalStackLayout>
+                    </Grid>
+                </Frame>
+
+                <!-- Warranty and Disposal -->
+                <Frame BackgroundColor="White"
+                       CornerRadius="12"
+                       Padding="16"
+                       HasShadow="True">
+                    <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="12">
+                        <!-- Warranty Expiry -->
+                        <VerticalStackLayout Grid.Row="0" Spacing="8">
+                            <Label Text="Warranty Expiry (Optional)"
+                                   FontFamily="OpenSansSemibold"
+                                   FontSize="14"
+                                   TextColor="#333333"/>
+                            <DatePicker Date="{Binding WarrantyExpiry}"
+                                       Format="yyyy-MM-dd"
+                                       TextColor="#333333"
+                                       FontSize="16"
+                                       BackgroundColor="#F8F9FA"/>
+                        </VerticalStackLayout>
+
+                        <!-- Disposal Date -->
+                        <VerticalStackLayout Grid.Row="1" Spacing="8">
+                            <Label Text="Disposal Date (Optional)"
+                                   FontFamily="OpenSansSemibold"
+                                   FontSize="14"
+                                   TextColor="#333333"/>
+                            <DatePicker Date="{Binding DisposalDate}"
+                                       Format="yyyy-MM-dd"
+                                       TextColor="#333333"
+                                       FontSize="16"
+                                       BackgroundColor="#F8F9FA"/>
+                        </VerticalStackLayout>
+
+                        <!-- Disposal Value -->
+                        <VerticalStackLayout Grid.Row="2" Spacing="8">
+                            <Label Text="Disposal Value (Optional)"
+                                   FontFamily="OpenSansSemibold"
+                                   FontSize="14"
+                                   TextColor="#333333"/>
+                            <Entry Text="{Binding DisposalValue}"
+                                   Placeholder="0.00"
+                                   Keyboard="Numeric"
+                                   PlaceholderColor="#999999"
+                                   TextColor="#333333"
+                                   FontSize="16"/>
+                        </VerticalStackLayout>
+                    </Grid>
+                </Frame>
+
+                <!-- Remarks -->
+                <Frame BackgroundColor="White"
+                       CornerRadius="12"
+                       Padding="16"
+                       HasShadow="True">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Remarks (Optional)"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="14"
+                               TextColor="#333333"/>
+                        <Editor Text="{Binding Remarks}"
+                                Placeholder="Additional notes or comments..."
+                                PlaceholderColor="#999999"
+                                TextColor="#333333"
+                                FontSize="16"
+                                HeightRequest="80"
+                                AutoSize="TextChanges"/>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Required Fields Note -->
+                <Label Text="* Required fields"
+                       FontSize="12"
+                       TextColor="#999999"
+                       HorizontalOptions="Start"
+                       Margin="4,0,0,0"/>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Bottom Action Buttons -->
+        <Grid Grid.Row="2" 
+              ColumnDefinitions="*,*" 
+              ColumnSpacing="12"
+              Padding="16"
+              BackgroundColor="White">
+            <Border Grid.Column="0"
+                    StrokeThickness="0">
+                <Border.Shadow>
+                    <Shadow Brush="Black" Opacity="0.1" Radius="8" Offset="0,-2"/>
+                </Border.Shadow>
+            </Border>
+            
+            <Button Grid.Column="0"
+                    Text="Cancel"
+                    BackgroundColor="#6C757D"
+                    TextColor="White"
+                    CornerRadius="8"
+                    HeightRequest="50"
+                    FontFamily="OpenSansSemibold"
+                    Command="{Binding CancelCommand}"/>
+            
+            <Button Grid.Column="1"
+                    Text="Save Asset"
+                    BackgroundColor="#005A9C"
+                    TextColor="White"
+                    CornerRadius="8"
+                    HeightRequest="50"
+                    FontFamily="OpenSansSemibold"
+                    Command="{Binding SaveAssetCommand}"/>
+        </Grid>
+
+        <!-- Busy Overlay -->
+        <Grid Grid.Row="0" Grid.RowSpan="3"
+              BackgroundColor="#80000000"
+              IsVisible="{Binding IsBusy}">
+            <VerticalStackLayout HorizontalOptions="Center"
+                                VerticalOptions="Center"
+                                Spacing="16">
+                <ActivityIndicator IsRunning="True"
+                                 Color="White"
+                                 WidthRequest="48"
+                                 HeightRequest="48"/>
+                <Label Text="{Binding BusyMessage}"
+                       FontFamily="OpenSansSemibold"
+                       FontSize="16"
+                       TextColor="White"
+                       HorizontalOptions="Center"/>
+            </VerticalStackLayout>
+        </Grid>
+
+    </Grid>
+</ContentPage>

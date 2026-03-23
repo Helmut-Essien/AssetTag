@@ -45,14 +45,7 @@
                 Shell.PresentationMode="NotAnimated" />
         </Tab>
 
-        <!-- Categories Tab (Placeholder) -->
-        <Tab Title="Categories" Route="Categories" Icon="tab_categories.png">
-            <ShellContent
-                x:Name="CategoriesTab"
-                Shell.PresentationMode="NotAnimated" />
-        </Tab>
-
-        <!-- Locations Tab (Placeholder) -->
+        <!-- Locations Tab -->
         <Tab Title="Locations" Route="Locations" Icon="tab_locations.png">
             <ShellContent
                 x:Name="LocationsTab"
