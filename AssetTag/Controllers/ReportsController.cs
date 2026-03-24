@@ -126,7 +126,7 @@ public class ReportsController : ControllerBase
                 .Select(g => new AssetsByLocationDto
                 {
                     Location = g.First().Location != null
-                        ? $"{g.First().Location.Name} ({g.First().Location.Campus})"
+                        ? $"{g.First().Location!.Name} ({g.First().Location!.Campus})"
                         : "Unassigned",
                     AssetCount = g.Count(),
                     TotalValue = g.Sum(a => a.NetBookValue ?? 0),
@@ -427,7 +427,7 @@ public class ReportsController : ControllerBase
                     var dailyDepreciation = annualDepreciation / 365.25m;
                     
                     // Determine how many days in the period the asset was owned
-                    var assetStartDate = asset.PurchaseDate.Value > start ? asset.PurchaseDate.Value : start;
+                    var assetStartDate = asset.PurchaseDate!.Value > start ? asset.PurchaseDate.Value : start;
                     var daysOwned = (end - assetStartDate).Days + 1;
                     
                     periodCharge += dailyDepreciation * daysOwned;

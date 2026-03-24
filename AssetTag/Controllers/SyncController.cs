@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Shared.DTOs;
 using Shared.Models;
 using System.Text.Json;
+using System.Security.Claims;
 
 namespace AssetTag.Controllers;
 
@@ -20,6 +21,32 @@ public class SyncController : ControllerBase
     {
         _context = context;
         _logger = logger;
+    }
+
+    private void CreateAssetHistory(string assetId, string action, string description,
+        string? oldLocationId = null, string? newLocationId = null,
+        string? oldStatus = null, string? newStatus = null)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            _logger.LogWarning("Cannot create asset history: User ID not found in claims");
+            return;
+        }
+
+        var history = new AssetHistory
+        {
+            AssetId = assetId,
+            UserId = userId,
+            Action = action,
+            Description = description,
+            OldLocationId = oldLocationId,
+            NewLocationId = newLocationId,
+            OldStatus = oldStatus,
+            NewStatus = newStatus
+        };
+
+        _context.AssetHistories.Add(history);
     }
 
     /// <summary>
@@ -255,6 +282,16 @@ public class SyncController : ControllerBase
                 _context.Assets.Add(newAsset);
                 await _context.SaveChangesAsync();
                 
+                // Record creation history
+                CreateAssetHistory(
+                    newAsset.AssetId,
+                    "CREATE",
+                    $"Asset '{newAsset.Name}' with tag '{newAsset.AssetTag}' was created via mobile sync",
+                    newLocationId: newAsset.LocationId,
+                    newStatus: newAsset.Status
+                );
+                await _context.SaveChangesAsync();
+                
                 _logger.LogInformation("Created asset {AssetId} via sync", operation.EntityId);
                 break;
 
@@ -268,6 +305,10 @@ public class SyncController : ControllerBase
                     _logger.LogWarning("Asset {AssetId} not found for update", operation.EntityId);
                     return;
                 }
+
+                // Store old values for history tracking
+                var oldLocationId = existingAsset.LocationId;
+                var oldStatus = existingAsset.Status;
 
                 // Apply updates (Last-Write-Wins conflict resolution)
                 if (updateDto.AssetTag != null) existingAsset.AssetTag = updateDto.AssetTag;
@@ -295,7 +336,42 @@ public class SyncController : ControllerBase
                 if (updateDto.Remarks != null) existingAsset.Remarks = updateDto.Remarks;
 
                 existingAsset.DateModified = DateTime.UtcNow;
+                
+                // Track changes for history
+                var changes = new List<string>();
+                
+                if (updateDto.Name != null && updateDto.Name != existingAsset.Name)
+                    changes.Add($"Name changed to '{updateDto.Name}'");
+                
+                if (updateDto.LocationId != null && updateDto.LocationId != oldLocationId)
+                {
+                    var oldLocation = oldLocationId != null ? await _context.Locations.FindAsync(oldLocationId) : null;
+                    var newLocation = await _context.Locations.FindAsync(updateDto.LocationId);
+                    changes.Add($"Location changed from '{oldLocation?.Name ?? "Unknown"}' to '{newLocation?.Name ?? "Unknown"}'");
+                }
+                
+                if (updateDto.Status != null && updateDto.Status != oldStatus)
+                    changes.Add($"Status changed from '{oldStatus}' to '{updateDto.Status}'");
+                
+                if (updateDto.Condition != null)
+                    changes.Add($"Condition changed to '{updateDto.Condition}'");
+                
                 await _context.SaveChangesAsync();
+                
+                // Record update history if there were changes
+                if (changes.Any())
+                {
+                    CreateAssetHistory(
+                        existingAsset.AssetId,
+                        "UPDATE",
+                        $"Asset updated via mobile sync: {string.Join("; ", changes)}",
+                        oldLocationId: oldLocationId,
+                        newLocationId: existingAsset.LocationId,
+                        oldStatus: oldStatus,
+                        newStatus: existingAsset.Status
+                    );
+                    await _context.SaveChangesAsync();
+                }
                 
                 _logger.LogInformation("Updated asset {AssetId} via sync", operation.EntityId);
                 break;
@@ -304,6 +380,17 @@ public class SyncController : ControllerBase
                 var assetToDelete = await _context.Assets.FindAsync(operation.EntityId);
                 if (assetToDelete != null)
                 {
+                    var assetTag = assetToDelete.AssetTag;
+                    var assetName = assetToDelete.Name;
+                    
+                    // Record deletion history BEFORE deleting the asset
+                    CreateAssetHistory(
+                        assetToDelete.AssetId,
+                        "DELETE",
+                        $"Asset '{assetName}' with tag '{assetTag}' was deleted via mobile sync"
+                    );
+                    await _context.SaveChangesAsync();
+                    
                     _context.Assets.Remove(assetToDelete);
                     await _context.SaveChangesAsync();
                     

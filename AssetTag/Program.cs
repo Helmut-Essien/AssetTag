@@ -436,7 +436,7 @@ builder.Services.AddAuthentication(options =>
 
             // Log all claims for debugging
             logger.LogDebug("=== User Claims ===");
-            foreach (var claim in context.Principal.Claims)
+            foreach (var claim in context.Principal?.Claims ?? Enumerable.Empty<System.Security.Claims.Claim>())
             {
                 logger.LogDebug("Claim: {Type} = {Value}", claim.Type, claim.Value);
             }

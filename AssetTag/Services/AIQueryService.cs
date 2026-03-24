@@ -118,9 +118,9 @@ Generate a safe SQL SELECT query:";
             }
 
             var responseContent = await response.Content.ReadAsStringAsync();
-            dynamic result = JsonConvert.DeserializeObject(responseContent);
+            dynamic? result = JsonConvert.DeserializeObject(responseContent);
 
-            var sql = result.choices[0].message.content.ToString();
+            var sql = result?.choices?[0]?.message?.content?.ToString() ?? "";
 
             // Clean up the SQL
             sql = CleanSqlResponse(sql);
@@ -159,9 +159,9 @@ Generate a safe SQL SELECT query:";
             using var command = _context.Database.GetDbConnection().CreateCommand();
             command.CommandText = sqlQuery;
 
-            if (command.Connection.State != ConnectionState.Open)
+            if (command.Connection?.State != ConnectionState.Open)
             {
-                await command.Connection.OpenAsync();
+                await command.Connection!.OpenAsync();
             }
 
             using var reader = await command.ExecuteReaderAsync();
@@ -174,7 +174,7 @@ Generate a safe SQL SELECT query:";
                 for (int i = 0; i < reader.FieldCount; i++)
                 {
                     var value = reader.GetValue(i);
-                    row[reader.GetName(i)] = value == DBNull.Value ? null : value;
+                    row[reader.GetName(i)] = value == DBNull.Value ? (object)"" : value;
                 }
                 results.Add(row);
             }
@@ -515,7 +515,7 @@ Generate a safe SQL SELECT query:";
         }
     }
 
-    private async Task<List<ColumnSchema>> GetTableColumns(string tableName)
+    private Task<List<ColumnSchema>> GetTableColumns(string tableName)
     {
         var columns = new List<ColumnSchema>();
 
@@ -599,7 +599,7 @@ Generate a safe SQL SELECT query:";
             _logger.LogError(ex, $"Error getting columns for table {tableName}");
         }
 
-        return columns;
+        return Task.FromResult(columns);
     }
 
     private string GetTableDescription(string tableName)

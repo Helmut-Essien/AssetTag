@@ -74,8 +74,8 @@ public class TokenService : ITokenService
                 new DateTimeOffset(expiration).ToUnixTimeSeconds().ToString(),
                 ClaimValueTypes.Integer64),
             new Claim(ClaimTypes.NameIdentifier, user.Id),
-            new Claim(ClaimTypes.Email, user.Email),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email),
+            new Claim(ClaimTypes.Email, user.Email ?? ""),
+            new Claim(JwtRegisteredClaimNames.Email, user.Email ?? ""),
             new Claim("is_active", user.IsActive ? "true" : "false"),
             new Claim("security_stamp", user.SecurityStamp ?? "")
         };
