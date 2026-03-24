@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:zxing="clr-namespace:ZXing.Net.Maui.Controls;assembly=ZXing.Net.MAUI.Controls"
+             xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
              x:Class="MobileApp.Views.BarcodeScannerPage"
              Title="Scan Barcode"
              BackgroundColor="Black"
@@ -20,14 +21,8 @@
                 <Button Grid.Column="0"
                         BackgroundColor="Transparent"
                         Clicked="OnCloseClicked"
-                        Padding="0">
-                    <Button.ImageSource>
-                        <FontImageSource FontFamily="MaterialIconsRegular"
-                                       Glyph="&#xe5cd;"
-                                       Size="24"
-                                       Color="White"/>
-                    </Button.ImageSource>
-                </Button>
+                        Padding="16"
+                        ImageSource="{mi:Material Icon=Close, IconColor=White}"/>
                 
                 <Label Grid.Column="1"
                        Text="Scan Barcode/QR Code"
@@ -42,14 +37,8 @@
                         BackgroundColor="Transparent"
                         Opacity="0.5"
                         Clicked="OnTorchToggled"
-                        Padding="0">
-                    <Button.ImageSource>
-                        <FontImageSource FontFamily="MaterialIconsRegular"
-                                       Glyph="&#xe8f4;"
-                                       Size="24"
-                                       Color="White"/>
-                    </Button.ImageSource>
-                </Button>
+                        Padding="16"
+                        ImageSource="{mi:Material Icon=FlashlightOn, IconColor=White}"/>
             </Grid>
         </Border>
 
