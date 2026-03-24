@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:MobileApp.ViewModels"
              xmlns:controls="clr-namespace:MobileApp.Controls"
+             xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
              x:Class="MobileApp.MainPage"
              x:DataType="vm:MainPageViewModel"
              BackgroundColor="#F8F9FA">
@@ -40,10 +41,16 @@
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="20"/>
                 </Border.StrokeShape>
-                <Label Text="⚙️"
-                       FontSize="24"
+                <Image WidthRequest="24" HeightRequest="24"
                        HorizontalOptions="Center"
-                       VerticalOptions="Center"/>
+                       VerticalOptions="Center">
+                    <Image.Source>
+                        <FontImageSource FontFamily="MaterialRegular"
+                                       Glyph="{mi:Material Icon=Settings}"
+                                       Color="White"
+                                       Size="24"/>
+                    </Image.Source>
+                </Image>
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding NavigateToSettingsCommand}"/>
                 </Border.GestureRecognizers>
@@ -96,9 +103,14 @@
                                 <RoundRectangle CornerRadius="12"/>
                             </Border.StrokeShape>
                             <VerticalStackLayout Spacing="8" HorizontalOptions="Center">
-                                <Label Text="📦"
-                                       FontSize="28"
-                                       HorizontalOptions="Center"/>
+                                <Image WidthRequest="28" HeightRequest="28" HorizontalOptions="Center">
+                                    <Image.Source>
+                                        <FontImageSource FontFamily="MaterialRegular"
+                                                       Glyph="{mi:Material Icon=Inventory}"
+                                                       Color="#005A9C"
+                                                       Size="28"/>
+                                    </Image.Source>
+                                </Image>
                                 <Label Text="{Binding TotalAssets}"
                                        FontFamily="OpenSansRegular"
                                        FontSize="24"
@@ -123,9 +135,14 @@
                                 <RoundRectangle CornerRadius="12"/>
                             </Border.StrokeShape>
                             <VerticalStackLayout Spacing="8" HorizontalOptions="Center">
-                                <Label Text="📱"
-                                       FontSize="28"
-                                       HorizontalOptions="Center"/>
+                                <Image WidthRequest="28" HeightRequest="28" HorizontalOptions="Center">
+                                    <Image.Source>
+                                        <FontImageSource FontFamily="MaterialRegular"
+                                                       Glyph="{mi:Material Icon=QrCodeScanner}"
+                                                       Color="#4CAF50"
+                                                       Size="28"/>
+                                    </Image.Source>
+                                </Image>
                                 <Label Text="{Binding ScannedToday}"
                                        FontFamily="OpenSansRegular"
                                        FontSize="24"
@@ -150,9 +167,14 @@
                                 <RoundRectangle CornerRadius="12"/>
                             </Border.StrokeShape>
                             <VerticalStackLayout Spacing="8" HorizontalOptions="Center">
-                                <Label Text="⚠️"
-                                       FontSize="28"
-                                       HorizontalOptions="Center"/>
+                                <Image WidthRequest="28" HeightRequest="28" HorizontalOptions="Center">
+                                    <Image.Source>
+                                        <FontImageSource FontFamily="MaterialRegular"
+                                                       Glyph="{mi:Material Icon=SyncProblem}"
+                                                       Color="#FFC107"
+                                                       Size="28"/>
+                                    </Image.Source>
+                                </Image>
                                 <Label Text="{Binding PendingSync}"
                                        FontFamily="OpenSansRegular"
                                        FontSize="24"
@@ -224,10 +246,17 @@
                                     <RoundRectangle CornerRadius="8"/>
                                 </Border.StrokeShape>
                                 <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
-                                    <Label Grid.Column="0"
-                                           Text="🔄"
-                                           FontSize="16"
-                                           VerticalOptions="Center"/>
+                                    <Image Grid.Column="0"
+                                           WidthRequest="16"
+                                           HeightRequest="16"
+                                           VerticalOptions="Center">
+                                        <Image.Source>
+                                            <FontImageSource FontFamily="MaterialRegular"
+                                                           Glyph="{mi:Material Icon=RestartAlt}"
+                                                           Color="White"
+                                                           Size="16"/>
+                                        </Image.Source>
+                                    </Image>
                                     <Label Grid.Column="1"
                                            Text="Reset Sync State"
                                            FontFamily="OpenSansRegular"
@@ -269,10 +298,16 @@
                                     <Border.StrokeShape>
                                         <RoundRectangle CornerRadius="24"/>
                                     </Border.StrokeShape>
-                                    <Label Text="➕"
-                                           FontSize="24"
+                                    <Image WidthRequest="24" HeightRequest="24"
                                            HorizontalOptions="Center"
-                                           VerticalOptions="Center"/>
+                                           VerticalOptions="Center">
+                                        <Image.Source>
+                                            <FontImageSource FontFamily="MaterialRegular"
+                                                           Glyph="{mi:Material Icon=AddCircle}"
+                                                           Color="#4CAF50"
+                                                           Size="24"/>
+                                        </Image.Source>
+                                    </Image>
                                 </Border>
                                 
                                 <VerticalStackLayout Grid.Column="1"
@@ -289,11 +324,17 @@
                                            TextColor="#666666"/>
                                 </VerticalStackLayout>
                                 
-                                <Label Grid.Column="2"
-                                       Text="›"
-                                       FontSize="28"
-                                       TextColor="#CCCCCC"
-                                       VerticalOptions="Center"/>
+                                <Image Grid.Column="2"
+                                       WidthRequest="28"
+                                       HeightRequest="28"
+                                       VerticalOptions="Center">
+                                    <Image.Source>
+                                        <FontImageSource FontFamily="MaterialRegular"
+                                                       Glyph="{mi:Material Icon=ChevronRight}"
+                                                       Color="#CCCCCC"
+                                                       Size="28"/>
+                                    </Image.Source>
+                                </Image>
                             </Grid>
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding AddAssetCommand}"/>
@@ -317,10 +358,16 @@
                                     <Border.StrokeShape>
                                         <RoundRectangle CornerRadius="24"/>
                                     </Border.StrokeShape>
-                                    <Label Text="📋"
-                                           FontSize="24"
+                                    <Image WidthRequest="24" HeightRequest="24"
                                            HorizontalOptions="Center"
-                                           VerticalOptions="Center"/>
+                                           VerticalOptions="Center">
+                                        <Image.Source>
+                                            <FontImageSource FontFamily="MaterialRegular"
+                                                           Glyph="{mi:Material Icon=ListAlt}"
+                                                           Color="#005A9C"
+                                                           Size="24"/>
+                                        </Image.Source>
+                                    </Image>
                                 </Border>
                                 
                                 <VerticalStackLayout Grid.Column="1"
@@ -337,11 +384,17 @@
                                            TextColor="#666666"/>
                                 </VerticalStackLayout>
                                 
-                                <Label Grid.Column="2"
-                                       Text="›"
-                                       FontSize="28"
-                                       TextColor="#CCCCCC"
-                                       VerticalOptions="Center"/>
+                                <Image Grid.Column="2"
+                                       WidthRequest="28"
+                                       HeightRequest="28"
+                                       VerticalOptions="Center">
+                                    <Image.Source>
+                                        <FontImageSource FontFamily="MaterialRegular"
+                                                       Glyph="{mi:Material Icon=ChevronRight}"
+                                                       Color="#CCCCCC"
+                                                       Size="28"/>
+                                    </Image.Source>
+                                </Image>
                             </Grid>
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding ViewAssetsCommand}"/>
@@ -365,10 +418,16 @@
                                     <Border.StrokeShape>
                                         <RoundRectangle CornerRadius="24"/>
                                     </Border.StrokeShape>
-                                    <Label Text="📷"
-                                           FontSize="24"
+                                    <Image WidthRequest="24" HeightRequest="24"
                                            HorizontalOptions="Center"
-                                           VerticalOptions="Center"/>
+                                           VerticalOptions="Center">
+                                        <Image.Source>
+                                            <FontImageSource FontFamily="MaterialRegular"
+                                                           Glyph="{mi:Material Icon=QrCodeScanner}"
+                                                           Color="#FF9800"
+                                                           Size="24"/>
+                                        </Image.Source>
+                                    </Image>
                                 </Border>
                                 
                                 <VerticalStackLayout Grid.Column="1"
@@ -385,11 +444,17 @@
                                            TextColor="#666666"/>
                                 </VerticalStackLayout>
                                 
-                                <Label Grid.Column="2"
-                                       Text="›"
-                                       FontSize="28"
-                                       TextColor="#CCCCCC"
-                                       VerticalOptions="Center"/>
+                                <Image Grid.Column="2"
+                                       WidthRequest="28"
+                                       HeightRequest="28"
+                                       VerticalOptions="Center">
+                                    <Image.Source>
+                                        <FontImageSource FontFamily="MaterialRegular"
+                                                       Glyph="{mi:Material Icon=ChevronRight}"
+                                                       Color="#CCCCCC"
+                                                       Size="28"/>
+                                    </Image.Source>
+                                </Image>
                             </Grid>
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding ScanAssetCommand}"/>

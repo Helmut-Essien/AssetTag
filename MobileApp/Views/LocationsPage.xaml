@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewmodels="clr-namespace:MobileApp.ViewModels"
              xmlns:controls="clr-namespace:MobileApp.Controls"
+             xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
              x:Class="MobileApp.Views.LocationsPage"
              x:Name="RootPage"
              x:DataType="viewmodels:LocationsViewModel"
@@ -21,9 +22,7 @@
             <Grid ColumnDefinitions="56,*,56" Padding="0">
                 <!-- Back Button -->
                 <Button Grid.Column="0"
-                        Text="←"
-                        FontSize="24"
-                        TextColor="White"
+                        ImageSource="{mi:Material Icon=ArrowBack, IconColor=White}"
                         BackgroundColor="Transparent"
                         Command="{Binding CancelCommand}"
                         HorizontalOptions="Center"
@@ -40,9 +39,7 @@
                 
                 <!-- Sort Button -->
                 <Button Grid.Column="2"
-                        Text="⇅"
-                        FontSize="24"
-                        TextColor="White"
+                        ImageSource="{mi:Material Icon=Sort, IconColor=White}"
                         BackgroundColor="Transparent"
                         Command="{Binding ShowSortOptionsCommand}"
                         HorizontalOptions="Center"
@@ -60,10 +57,17 @@
                    HasShadow="True">
                 <Grid ColumnDefinitions="24,*,24">
                     <!-- Search Icon -->
-                    <Label Grid.Column="0"
-                           Text="🔍"
-                           FontSize="20"
-                           VerticalOptions="Center"/>
+                    <Image Grid.Column="0"
+                           WidthRequest="20"
+                           HeightRequest="20"
+                           VerticalOptions="Center">
+                        <Image.Source>
+                            <FontImageSource FontFamily="MaterialRegular"
+                                           Glyph="{mi:Material Icon=Search}"
+                                           Color="#666666"
+                                           Size="20"/>
+                        </Image.Source>
+                    </Image>
                     
                     <!-- Search Entry -->
                     <Entry Grid.Column="1"
@@ -77,13 +81,13 @@
                     
                     <!-- Clear Button (visible when text exists) -->
                     <Button Grid.Column="2"
-                            Text="✕"
-                            FontSize="16"
-                            TextColor="#666666"
+                            ImageSource="{mi:Material Icon=Close, IconColor=#666666}"
                             BackgroundColor="Transparent"
                             Command="{Binding ClearFiltersCommand}"
                             IsVisible="{Binding SearchText, Converter={StaticResource StringToBoolConverter}}"
                             VerticalOptions="Center"
+                            WidthRequest="24"
+                            HeightRequest="24"
                             Padding="0"/>
                 </Grid>
             </Frame>
@@ -99,9 +103,14 @@
                         <TapGestureRecognizer Command="{Binding SyncLocationsCommand}"/>
                     </Frame.GestureRecognizers>
                     <HorizontalStackLayout Spacing="4">
-                        <Label Text="🔄"
-                               FontSize="12"
-                               VerticalOptions="Center"/>
+                        <Image WidthRequest="12" HeightRequest="12" VerticalOptions="Center">
+                            <Image.Source>
+                                <FontImageSource FontFamily="MaterialRegular"
+                                               Glyph="{mi:Material Icon=Sync}"
+                                               Color="#005A9C"
+                                               Size="12"/>
+                            </Image.Source>
+                        </Image>
                         <Label Text="Sync"
                                FontFamily="OpenSansSemibold"
                                FontSize="14"
@@ -193,21 +202,33 @@
                                                    TextColor="#666666"
                                                    LineBreakMode="TailTruncation"/>
                                             <!-- GPS Indicator -->
-                                            <Label Text="📡"
-                                                   FontSize="12"
+                                            <Image WidthRequest="12" HeightRequest="12"
                                                    IsVisible="{Binding HasCoordinates}"
-                                                   VerticalOptions="Center"/>
+                                                   VerticalOptions="Center">
+                                                <Image.Source>
+                                                    <FontImageSource FontFamily="MaterialRegular"
+                                                                   Glyph="{mi:Material Icon=GpsFixed}"
+                                                                   Color="#4CAF50"
+                                                                   Size="12"/>
+                                                </Image.Source>
+                                            </Image>
                                         </HorizontalStackLayout>
                                     </VerticalStackLayout>
                                     
                                     <!-- Chevron Icon -->
-                                    <Label Grid.Column="3"
-                                           Text="›"
-                                           FontSize="24"
-                                           TextColor="#999999"
+                                    <Image Grid.Column="3"
+                                           WidthRequest="24"
+                                           HeightRequest="24"
                                            HorizontalOptions="Center"
                                            VerticalOptions="Center"
-                                           Margin="0,0,8,0"/>
+                                           Margin="0,0,8,0">
+                                        <Image.Source>
+                                            <FontImageSource FontFamily="MaterialRegular"
+                                                           Glyph="{mi:Material Icon=ChevronRight}"
+                                                           Color="#999999"
+                                                           Size="24"/>
+                                        </Image.Source>
+                                    </Image>
                                 </Grid>
                             </Frame>
                         </DataTemplate>
@@ -254,9 +275,14 @@
                                  Spacing="16"
                                  Padding="32">
                 <!-- Empty Icon -->
-                <Label Text="📍"
-                       FontSize="64"
-                       HorizontalOptions="Center"/>
+                <Image WidthRequest="64" HeightRequest="64" HorizontalOptions="Center">
+                    <Image.Source>
+                        <FontImageSource FontFamily="MaterialRegular"
+                                       Glyph="{mi:Material Icon=LocationOff}"
+                                       Color="#CCCCCC"
+                                       Size="64"/>
+                    </Image.Source>
+                </Image>
                 
                 <!-- Empty Title -->
                 <Label Text="No Locations Found"
@@ -277,9 +303,7 @@
 
         <!-- Floating Action Button (FAB) -->
         <Button Grid.Row="2"
-                Text="+"
-                FontSize="24"
-                TextColor="White"
+                ImageSource="{mi:Material Icon=Add, IconColor=White}"
                 BackgroundColor="#005A9C"
                 CornerRadius="28"
                 WidthRequest="56"

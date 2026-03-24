@@ -20,15 +20,14 @@
                HasShadow="True">
             <Grid ColumnDefinitions="56,*,56" Padding="0">
                 <!-- Back Button -->
-                <ImageButton Grid.Column="0"
-                             Source="icon_arrow_back.png"
-                             BackgroundColor="Transparent"
-                             Command="{Binding CancelCommand}"
-                             HorizontalOptions="Center"
-                             VerticalOptions="Center"
-                             WidthRequest="40"
-                             HeightRequest="40"
-                             Aspect="AspectFit"/>
+                <Button Grid.Column="0"
+                        ImageSource="{mi:Material Icon=ArrowBack, IconColor=White}"
+                        BackgroundColor="Transparent"
+                        Command="{Binding CancelCommand}"
+                        HorizontalOptions="Center"
+                        VerticalOptions="Center"
+                        WidthRequest="40"
+                        HeightRequest="40"/>
                 
                 <!-- Title -->
                 <Label Grid.Column="1"
@@ -40,15 +39,14 @@
                        VerticalOptions="Center"/>
                 
                 <!-- Save Button -->
-                <ImageButton Grid.Column="2"
-                             Source="icon_check.png"
-                             BackgroundColor="Transparent"
-                             Command="{Binding SaveAssetCommand}"
-                             HorizontalOptions="Center"
-                             VerticalOptions="Center"
-                             WidthRequest="40"
-                             HeightRequest="40"
-                             Aspect="AspectFit"/>
+                <Button Grid.Column="2"
+                        ImageSource="{mi:Material Icon=Save, IconColor=White}"
+                        BackgroundColor="Transparent"
+                        Command="{Binding SaveAssetCommand}"
+                        HorizontalOptions="Center"
+                        VerticalOptions="Center"
+                        WidthRequest="40"
+                        HeightRequest="40"/>
             </Grid>
         </Frame>
 
@@ -79,16 +77,15 @@
                                    HeightRequest="48"
                                    VerticalOptions="Center"/>
                             
-                            <ImageButton Grid.Column="1"
-                                         Source="icon_qr_scanner.png"
-                                         BackgroundColor="#005A9C"
-                                         CornerRadius="8"
-                                         WidthRequest="48"
-                                         HeightRequest="48"
-                                         Padding="12"
-                                         Command="{Binding ScanBarcodeCommand}"
-                                         ToolTipProperties.Text="Scan Barcode"
-                                         Aspect="AspectFit"/>
+                            <Button Grid.Column="1"
+                                    ImageSource="{mi:Material Icon=QrCodeScanner, IconColor=White}"
+                                    BackgroundColor="#005A9C"
+                                    CornerRadius="8"
+                                    WidthRequest="48"
+                                    HeightRequest="48"
+                                    Padding="12"
+                                    Command="{Binding ScanBarcodeCommand}"
+                                    ToolTipProperties.Text="Scan Barcode"/>
                         </Grid>
                     </VerticalStackLayout>
                 </Frame>
