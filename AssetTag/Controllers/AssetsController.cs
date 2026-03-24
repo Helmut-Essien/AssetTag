@@ -17,12 +17,12 @@ public class AssetsController : ControllerBase
 
     public AssetsController(ApplicationDbContext context) => _context = context;
 
-    private async Task CreateAssetHistory(string assetId, string action, string description,
+    private Task CreateAssetHistory(string assetId, string action, string description,
         string? oldLocationId = null, string? newLocationId = null,
         string? oldStatus = null, string? newStatus = null)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userId)) return;
+        if (string.IsNullOrEmpty(userId)) return Task.CompletedTask;
 
         var history = new AssetHistory
         {
@@ -37,6 +37,7 @@ public class AssetsController : ControllerBase
         };
 
         _context.AssetHistories.Add(history);
+        return Task.CompletedTask;
     }
 
     // GET: /api/assets
@@ -57,11 +58,11 @@ public class AssetsController : ControllerBase
             query = query.Where(a =>
                 a.AssetTag.Contains(searchTerm) ||
                 a.Name.Contains(searchTerm) ||
-                a.Description.Contains(searchTerm) ||
-                a.SerialNumber.Contains(searchTerm) ||
-                a.DigitalAssetTag.Contains(searchTerm) ||
-                a.VendorName.Contains(searchTerm) ||
-                a.InvoiceNumber.Contains(searchTerm));
+                (a.Description != null && a.Description.Contains(searchTerm)) ||
+                (a.SerialNumber != null && a.SerialNumber.Contains(searchTerm)) ||
+                (a.DigitalAssetTag != null && a.DigitalAssetTag.Contains(searchTerm)) ||
+                (a.VendorName != null && a.VendorName.Contains(searchTerm)) ||
+                (a.InvoiceNumber != null && a.InvoiceNumber.Contains(searchTerm)));
         }
 
         if (!string.IsNullOrEmpty(status))

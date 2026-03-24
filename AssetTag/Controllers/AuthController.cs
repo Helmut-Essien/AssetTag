@@ -1021,23 +1021,30 @@ namespace AssetTag.Controllers
 
                 // Generate token
                 var fullUser = await _userManager.FindByIdAsync(user.Id);
+                if (fullUser == null)
+                {
+                    _logger.LogWarning("User not found after initial lookup: {UserId}", user.Id);
+                    return Ok(new { Message = "If the email exists, a password reset link has been sent." });
+                }
+                
                 var token = await _userManager.GeneratePasswordResetTokenAsync(fullUser);
 
                 // Prepare email data
                 var frontendBaseUrl = _configuration["FrontendBaseUrl"] ?? "https://1qtrdwgx-44369.uks1.devtunnels.ms";
                 var resetUrl = $"{frontendBaseUrl}/Account/ResetPassword";
 
+                var userEmail = user.Email ?? "";
                 // Fire and forget email for performance
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        await _emailService.SendPasswordResetEmailAsync(user.Email, token, resetUrl);
-                        _logger.LogInformation("Password reset email sent to {Email}", user.Email);
+                        await _emailService.SendPasswordResetEmailAsync(userEmail, token, resetUrl);
+                        _logger.LogInformation("Password reset email sent to {Email}", userEmail);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to send password reset email to {Email}", user.Email);
+                        _logger.LogWarning(ex, "Failed to send password reset email to {Email}", userEmail);
                     }
                 });
 
@@ -1207,8 +1214,8 @@ namespace AssetTag.Controllers
                 {
                     UserName = dto.Username,
                     Email = dto.Email,
-                    FirstName = dto.FirstName,
-                    Surname = dto.Surname,
+                    FirstName = dto.FirstName ?? "",
+                    Surname = dto.Surname ?? "",
                     OtherNames = dto.OtherNames,
                     DateOfBirth = dto.DateOfBirth,
                     Address = dto.Address,
@@ -1267,7 +1274,7 @@ namespace AssetTag.Controllers
         #region Token Validation Helper Methods
 
         private (bool IsValid, string ValidationMessage, string DetailedMessage,
-            string UserId, string UserName, string Email, List<string> Roles,
+            string? UserId, string? UserName, string? Email, List<string>? Roles,
             DateTime? ExpiresAt, DateTime? IssuedAt) ValidateAccessToken(string token)
         {
             try
@@ -1410,7 +1417,7 @@ namespace AssetTag.Controllers
         private static bool VerifyPassword(string? passwordHash, string password)
         {
             return passwordHash is not null &&
-                   _passwordHasher.VerifyHashedPassword(null, passwordHash, password)
+                   _passwordHasher.VerifyHashedPassword(null!, passwordHash, password)
                    != PasswordVerificationResult.Failed;
         }
 

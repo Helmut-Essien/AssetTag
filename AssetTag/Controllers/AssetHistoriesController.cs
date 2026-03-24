@@ -44,12 +44,12 @@ public class AssetHistoriesController : ControllerBase
             query = query.Where(h => h.Action == action);
 
         if (!string.IsNullOrEmpty(assetName))
-            query = query.Where(h => h.Asset.Name.Contains(assetName));
+            query = query.Where(h => h.Asset != null && h.Asset.Name.Contains(assetName));
 
         if (!string.IsNullOrEmpty(userName))
-            query = query.Where(h =>
-                (h.User.FirstName + " " + h.User.Surname).Contains(userName) ||
-                (h.User.FirstName + " " + h.User.OtherNames + " " + h.User.Surname).Contains(userName));
+            query = query.Where(h => h.User != null &&
+                ((h.User.FirstName + " " + h.User.Surname).Contains(userName) ||
+                (h.User.FirstName + " " + (h.User.OtherNames ?? "") + " " + h.User.Surname).Contains(userName)));
 
         if (fromDate.HasValue)
             query = query.Where(h => h.Timestamp >= fromDate.Value);
@@ -77,10 +77,12 @@ public class AssetHistoriesController : ControllerBase
                 NewLocationId = h.NewLocationId,
                 OldStatus = h.OldStatus,
                 NewStatus = h.NewStatus,
-                AssetName = h.Asset.Name,
-                UserFullName = string.IsNullOrWhiteSpace(h.User.OtherNames)
-                    ? $"{h.User.FirstName} {h.User.Surname}"
-                    : $"{h.User.FirstName} {h.User.OtherNames} {h.User.Surname}",
+                AssetName = h.Asset != null ? h.Asset.Name : "",
+                UserFullName = h.User != null
+                    ? (string.IsNullOrWhiteSpace(h.User.OtherNames)
+                        ? $"{h.User.FirstName} {h.User.Surname}"
+                        : $"{h.User.FirstName} {h.User.OtherNames} {h.User.Surname}")
+                    : "",
                 OldLocationName = h.OldLocation != null ? h.OldLocation.Name : null,
                 NewLocationName = h.NewLocation != null ? h.NewLocation.Name : null
             })
@@ -152,10 +154,12 @@ public class AssetHistoriesController : ControllerBase
                 NewLocationId = h.NewLocationId,
                 OldStatus = h.OldStatus,
                 NewStatus = h.NewStatus,
-                AssetName = h.Asset.Name,
-                UserFullName = string.IsNullOrWhiteSpace(h.User.OtherNames)
-                    ? $"{h.User.FirstName} {h.User.Surname}"
-                    : $"{h.User.FirstName} {h.User.OtherNames} {h.User.Surname}",
+                AssetName = h.Asset != null ? h.Asset.Name : "",
+                UserFullName = h.User != null
+                    ? (string.IsNullOrWhiteSpace(h.User.OtherNames)
+                        ? $"{h.User.FirstName} {h.User.Surname}"
+                        : $"{h.User.FirstName} {h.User.OtherNames} {h.User.Surname}")
+                    : "",
                 OldLocationName = h.OldLocation != null ? h.OldLocation.Name : null,
                 NewLocationName = h.NewLocation != null ? h.NewLocation.Name : null
             })
@@ -203,9 +207,9 @@ public class AssetHistoriesController : ControllerBase
         searchQuery = searchQuery.Where(h =>
             h.Action.Contains(query) ||
             h.Description.Contains(query) ||
-            h.Asset.Name.Contains(query) ||
-            (h.User.FirstName + " " + h.User.Surname).Contains(query) ||
-            (h.User.FirstName + " " + h.User.OtherNames + " " + h.User.Surname).Contains(query) ||
+            (h.Asset != null && h.Asset.Name.Contains(query)) ||
+            (h.User != null && (h.User.FirstName + " " + h.User.Surname).Contains(query)) ||
+            (h.User != null && (h.User.FirstName + " " + (h.User.OtherNames ?? "") + " " + h.User.Surname).Contains(query)) ||
             (h.OldLocation != null && h.OldLocation.Name.Contains(query)) ||
             (h.NewLocation != null && h.NewLocation.Name.Contains(query)) ||
             (h.OldStatus != null && h.OldStatus.Contains(query)) ||
@@ -231,10 +235,12 @@ public class AssetHistoriesController : ControllerBase
                 NewLocationId = h.NewLocationId,
                 OldStatus = h.OldStatus,
                 NewStatus = h.NewStatus,
-                AssetName = h.Asset.Name,
-                UserFullName = string.IsNullOrWhiteSpace(h.User.OtherNames)
-                    ? $"{h.User.FirstName} {h.User.Surname}"
-                    : $"{h.User.FirstName} {h.User.OtherNames} {h.User.Surname}",
+                AssetName = h.Asset != null ? h.Asset.Name : "",
+                UserFullName = h.User != null
+                    ? (string.IsNullOrWhiteSpace(h.User.OtherNames)
+                        ? $"{h.User.FirstName} {h.User.Surname}"
+                        : $"{h.User.FirstName} {h.User.OtherNames} {h.User.Surname}")
+                    : "",
                 OldLocationName = h.OldLocation != null ? h.OldLocation.Name : null,
                 NewLocationName = h.NewLocation != null ? h.NewLocation.Name : null
             })
@@ -267,8 +273,9 @@ public class AssetHistoriesController : ControllerBase
         var recentAssets = await _context.AssetHistories
             .AsNoTracking()
             .Include(h => h.Asset)
+            .Where(h => h.Asset != null)
             .OrderByDescending(h => h.Timestamp)
-            .Select(h => new { h.AssetId, h.Asset.Name })
+            .Select(h => new { h.AssetId, Name = h.Asset!.Name })
             .Distinct()
             .Take(10)
             .ToListAsync();
@@ -319,8 +326,8 @@ public class AssetHistoriesController : ControllerBase
             NewLocationId = history.NewLocationId,
             OldStatus = history.OldStatus,
             NewStatus = history.NewStatus,
-            AssetName = history.Asset.Name,
-            UserFullName = GetUserFullName(history.User),
+            AssetName = history.Asset?.Name ?? "",
+            UserFullName = history.User != null ? GetUserFullName(history.User) : "",
             OldLocationName = history.OldLocation?.Name,
             NewLocationName = history.NewLocation?.Name
         });

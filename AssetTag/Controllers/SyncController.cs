@@ -23,7 +23,7 @@ public class SyncController : ControllerBase
         _logger = logger;
     }
 
-    private async Task CreateAssetHistory(string assetId, string action, string description,
+    private void CreateAssetHistory(string assetId, string action, string description,
         string? oldLocationId = null, string? newLocationId = null,
         string? oldStatus = null, string? newStatus = null)
     {
@@ -283,7 +283,7 @@ public class SyncController : ControllerBase
                 await _context.SaveChangesAsync();
                 
                 // Record creation history
-                await CreateAssetHistory(
+                CreateAssetHistory(
                     newAsset.AssetId,
                     "CREATE",
                     $"Asset '{newAsset.Name}' with tag '{newAsset.AssetTag}' was created via mobile sync",
@@ -361,7 +361,7 @@ public class SyncController : ControllerBase
                 // Record update history if there were changes
                 if (changes.Any())
                 {
-                    await CreateAssetHistory(
+                    CreateAssetHistory(
                         existingAsset.AssetId,
                         "UPDATE",
                         $"Asset updated via mobile sync: {string.Join("; ", changes)}",
@@ -384,7 +384,7 @@ public class SyncController : ControllerBase
                     var assetName = assetToDelete.Name;
                     
                     // Record deletion history BEFORE deleting the asset
-                    await CreateAssetHistory(
+                    CreateAssetHistory(
                         assetToDelete.AssetId,
                         "DELETE",
                         $"Asset '{assetName}' with tag '{assetTag}' was deleted via mobile sync"
