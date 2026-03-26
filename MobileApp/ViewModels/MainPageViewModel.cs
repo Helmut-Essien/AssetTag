@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MobileData.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using MobileApp.Services;
 using MobileApp.Views;
 
@@ -16,6 +17,7 @@ namespace MobileApp.ViewModels
         private readonly IAuthService _authService;
         private readonly ISyncService _syncService;
         private readonly IAssetService _assetService;
+        private readonly ILogger<MainPageViewModel> _logger;
 
         [ObservableProperty]
         private int totalAssets;
@@ -32,16 +34,27 @@ namespace MobileApp.ViewModels
         [ObservableProperty]
         private string lastSync = "Never synced";
 
+        [ObservableProperty]
+        private bool isSyncing;
+
+        [ObservableProperty]
+        private double syncProgress;
+
+        [ObservableProperty]
+        private string syncStatusText = "";
+
         public MainPageViewModel(
             IServiceProvider serviceProvider,
             IAuthService authService,
             ISyncService syncService,
-            IAssetService assetService)
+            IAssetService assetService,
+            ILogger<MainPageViewModel> logger)
         {
             _serviceProvider = serviceProvider;
             _authService = authService;
             _syncService = syncService;
             _assetService = assetService;
+            _logger = logger;
             Title = "Asset Management";
             
             // CRITICAL: Start with IsBusy = false to show cached content immediately
@@ -248,19 +261,53 @@ namespace MobileApp.ViewModels
         }
 
         /// <summary>
-        /// Sync local data with the server
+        /// Sync local data with the server with progress tracking
         /// </summary>
         [RelayCommand]
         private async Task SyncDataAsync()
         {
-            if (IsBusy) return;
+            if (IsBusy || IsSyncing) return;
 
             try
             {
                 IsBusy = true;
+                IsSyncing = true;
+                SyncProgress = 0;
+                SyncStatusText = "Preparing sync...";
+
+                // Simulate progress updates during sync
+                var progressTask = Task.Run(async () =>
+                {
+                    for (int i = 0; i <= 90; i += 10)
+                    {
+                        if (!IsSyncing) break;
+                        
+                        await MainThread.InvokeOnMainThreadAsync(() =>
+                        {
+                            SyncProgress = i / 100.0;
+                            if (i < 30)
+                                SyncStatusText = "Pushing local changes...";
+                            else if (i < 60)
+                                SyncStatusText = "Pulling server updates...";
+                            else
+                                SyncStatusText = "Finalizing sync...";
+                        });
+                        
+                        await Task.Delay(300);
+                    }
+                });
 
                 // Perform full bidirectional sync (enqueue to central sync queue)
                 var (success, message) = await _syncService.EnqueueFullSyncAsync();
+
+                // Complete progress
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    SyncProgress = 1.0;
+                    SyncStatusText = success ? "Sync complete!" : "Sync failed";
+                });
+
+                await Task.Delay(500); // Brief pause to show completion
 
                 // Show result to user
                 await Shell.Current.DisplayAlert(
@@ -274,6 +321,9 @@ namespace MobileApp.ViewModels
             }
             finally
             {
+                IsSyncing = false;
+                SyncProgress = 0;
+                SyncStatusText = "";
                 IsBusy = false;
                 
                 // Reload dashboard data AFTER IsBusy is set to false and dialog is dismissed

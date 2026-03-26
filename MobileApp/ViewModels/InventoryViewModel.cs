@@ -550,26 +550,28 @@ namespace MobileApp.ViewModels
         }
 
         /// <summary>
-        /// Get category icon based on category name (Material Design icon name)
+        /// Get category icon based on category name (Material Design icon Unicode)
+        /// Returns the actual Unicode character for Material Icons font
         /// </summary>
         private string GetCategoryIcon(string? categoryName)
         {
             if (string.IsNullOrEmpty(categoryName))
-                return "Inventory2";
+                return "\ue1b9"; // Inventory2 (default)
 
             return categoryName.ToLower() switch
             {
-                var c when c.Contains("laptop") || c.Contains("computer") => "Laptop",
-                var c when c.Contains("furniture") || c.Contains("chair") || c.Contains("desk") => "Chair",
-                var c when c.Contains("printer") => "Print",
-                var c when c.Contains("phone") || c.Contains("mobile") => "Smartphone",
-                var c when c.Contains("monitor") || c.Contains("screen") || c.Contains("display") => "Monitor",
-                var c when c.Contains("tool") => "Build",
-                var c when c.Contains("vehicle") || c.Contains("car") => "DirectionsCar",
-                var c when c.Contains("camera") => "CameraAlt",
-                var c when c.Contains("network") || c.Contains("router") => "Router",
-                var c when c.Contains("server") => "Dns",
-                _ => "Inventory2"
+                var c when c.Contains("building") => "\ue0c8", // Business/Building
+                var c when c.Contains("computer") || c.Contains("accessories") => "\ue31e", // Laptop/Computer
+                var c when c.Contains("furniture") || c.Contains("fitting") => "\ue8cc", // Chair/Furniture
+                var c when c.Contains("library") || c.Contains("book") || c.Contains("material") => "\ue02f", // Book/Library
+                var c when c.Contains("loose") || c.Contains("tool") => "\ue869", // Build/Tools
+                var c when c.Contains("motor") || c.Contains("vehicle") => "\ue531", // DirectionsCar/Vehicle
+                var c when c.Contains("office") || c.Contains("equipment") => "\ue8ad", // Print/Office Equipment
+                var c when c.Contains("plant") || c.Contains("equipment") => "\ue5d1", // Precision Manufacturing/Plants
+                var c when c.Contains("road") || c.Contains("curvert") => "\ue52f", // DirectionsRailway/Roads
+                var c when c.Contains("software") => "\ue30a", // Code/Software
+                var c when c.Contains("teaching") || c.Contains("aid") || c.Contains("mat") => "\uf02d", // School/Teaching
+                _ => "\ue1b9" // Inventory2 (default for unknown categories)
             };
         }
 
@@ -608,7 +610,7 @@ namespace MobileApp.ViewModels
         private string categoryName = string.Empty;
 
         [ObservableProperty]
-        private string categoryIcon = "📦";
+        private string categoryIcon = "\ue1b9"; // Inventory2 Unicode (default)
 
         [ObservableProperty]
         private string locationName = string.Empty;
@@ -620,7 +622,7 @@ namespace MobileApp.ViewModels
         private DateTime dateModified;
 
         public string DisplayTag => $"ID: #{AssetTag}";
-        public string DisplayLocation => $"📍 {LocationName}";
+        public string DisplayLocation => LocationName;
         public string SyncStatusColor => IsPendingSync ? "#FFC107" : "Transparent";
 
         [RelayCommand]

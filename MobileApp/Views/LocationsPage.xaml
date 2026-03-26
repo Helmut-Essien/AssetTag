@@ -182,7 +182,7 @@
                                                VerticalOptions="Center">
                                             <Image.Source>
                                                 <FontImageSource FontFamily="MaterialRegular"
-                                                               Glyph="{mi:Material Icon={Binding LocationIcon}}"
+                                                               Glyph="{Binding LocationIcon}"
                                                                Color="#4CAF50"
                                                                Size="24"/>
                                             </Image.Source>

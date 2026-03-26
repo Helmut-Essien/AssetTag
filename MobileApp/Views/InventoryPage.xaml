@@ -231,7 +231,7 @@
                                                VerticalOptions="Center">
                                             <Image.Source>
                                                 <FontImageSource FontFamily="MaterialRegular"
-                                                               Glyph="{mi:Material Icon={Binding CategoryIcon}}"
+                                                               Glyph="{Binding CategoryIcon}"
                                                                Color="#005A9C"
                                                                Size="24"/>
                                             </Image.Source>

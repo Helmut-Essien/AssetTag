@@ -486,7 +486,7 @@ public partial class LocationItemViewModel : ObservableObject
         }
     }
 
-    public string LocationIcon => "LocationOn";
+    public string LocationIcon => "\ue55f"; // LocationOn Unicode
     
     public bool HasCoordinates => Latitude.HasValue && Longitude.HasValue;
 
