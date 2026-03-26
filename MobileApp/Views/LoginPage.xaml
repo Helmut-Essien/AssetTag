@@ -20,7 +20,7 @@
     </ContentPage.Resources>
 
     <Grid Background="{StaticResource LoginGradient}">
-
+        
         <!--  Decorative Background Circles  -->
         <AbsoluteLayout>
             <!--  Top Left Circle  -->
@@ -183,13 +183,6 @@
                         </buttons:SfButton.Background>
                     </buttons:SfButton>
 
-                    <!--  Loading Indicator - Compact  -->
-                    <ActivityIndicator
-                        HeightRequest="30"
-                        IsRunning="{Binding IsBusy}"
-                        IsVisible="{Binding IsBusy}"
-                        Color="{StaticResource Primary}" />
-
                     <!--  Biometric Login Button - Compact  -->
                     <buttons:SfButton
                         Margin="0,5,0,0"
@@ -228,6 +221,28 @@
                 TextColor="White" />
 
         </VerticalStackLayout>
+
+        <!--  Busy Overlay  -->
+        <Grid
+            BackgroundColor="#80000000"
+            IsVisible="{Binding IsBusy}">
+            <VerticalStackLayout
+                HorizontalOptions="Center"
+                Spacing="16"
+                VerticalOptions="Center">
+                <ActivityIndicator
+                    HeightRequest="48"
+                    IsRunning="True"
+                    WidthRequest="48"
+                    Color="White" />
+                <Label
+                    FontAttributes="Bold"
+                    FontSize="16"
+                    HorizontalOptions="Center"
+                    Text="Signing in..."
+                    TextColor="White" />
+            </VerticalStackLayout>
+        </Grid>
     </Grid>
 
 </ContentPage>

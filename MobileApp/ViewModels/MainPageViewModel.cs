@@ -172,10 +172,11 @@ namespace MobileApp.ViewModels
 
                 if (!string.IsNullOrWhiteSpace(scannedValue))
                 {
-                    // Search for asset by digital asset tag or asset tag
+                    // Search for asset by digital asset tag or asset tag and update LastScannedAt
                     using var scope = _serviceProvider.CreateScope();
                     var dbContext = scope.ServiceProvider.GetRequiredService<MobileData.Data.LocalDbContext>();
                     
+                    // Find asset without AsNoTracking so we can update it
                     var asset = await dbContext.Assets
                         .FirstOrDefaultAsync(a => a.DigitalAssetTag == scannedValue || a.AssetTag == scannedValue);
 
@@ -184,7 +185,16 @@ namespace MobileApp.ViewModels
                         // Update LastScannedAt timestamp to track barcode scans
                         asset.LastScannedAt = DateTime.UtcNow;
                         asset.DateModified = DateTime.UtcNow;
-                        await dbContext.SaveChangesAsync();
+                        
+                        try
+                        {
+                            await dbContext.SaveChangesAsync();
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to update LastScannedAt for asset {AssetId}", asset.AssetId);
+                            // Continue to navigation even if update fails
+                        }
                         
                         // Asset found - navigate to update page
                         await Shell.Current.GoToAsync($"AddAssetPage?assetId={asset.AssetId}");

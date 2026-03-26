@@ -23,13 +23,20 @@
             </Grid.ColumnDefinitions>
             
             <!-- Title -->
-            <Label Grid.Row="0" Grid.Column="0"
-                   Text="Asset Management"
-                   FontFamily="OpenSansRegular"
-                   FontSize="22"
-                   FontAttributes="Bold"
-                   TextColor="White"
-                   VerticalOptions="Center"/>
+            <VerticalStackLayout Grid.Row="0" Grid.Column="0"
+                                 Spacing="2"
+                                 VerticalOptions="Center">
+                <Label Text="Asset Management"
+                       FontFamily="OpenSansRegular"
+                       FontSize="22"
+                       FontAttributes="Bold"
+                       TextColor="White"/>
+                <Label Text="Field Operations"
+                       FontFamily="OpenSansRegular"
+                       FontSize="12"
+                       TextColor="White"
+                       Opacity="0.8"/>
+            </VerticalStackLayout>
             
             <!-- Settings Icon Button -->
             <Border Grid.Row="0" Grid.Column="1"
