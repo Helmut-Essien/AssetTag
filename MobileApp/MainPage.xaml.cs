@@ -27,17 +27,19 @@ namespace MobileApp
         {
             base.OnAppearing();
             
-            // CRITICAL: Only load data ONCE when page is first created
-            // Since this page is cached and reused across multiple tabs,
-            // we should NOT reload on every OnAppearing
+            // Load data on first appearance
             if (!_hasLoadedOnce)
             {
                 _hasLoadedOnce = true;
                 _viewModel.IsBusy = true;
                 _ = LoadDataAsync();
             }
-            // else: Page is cached - show existing data immediately
-            // User can manually refresh if needed via pull-to-refresh
+            else
+            {
+                // Reload data when returning to the page to show updated pending sync count
+                // This ensures dashboard stats are always current
+                _ = LoadDataAsync();
+            }
         }
 
         private async Task LoadDataAsync()

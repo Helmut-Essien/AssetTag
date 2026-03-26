@@ -508,6 +508,48 @@ namespace MobileApp.ViewModels
         }
 
         /// <summary>
+        /// Scan barcode to search for asset in inventory
+        /// </summary>
+        [RelayCommand]
+        private async Task ScanToSearchAsync()
+        {
+            try
+            {
+                // Check camera permission
+                var status = await Permissions.CheckStatusAsync<Permissions.Camera>();
+                if (status != PermissionStatus.Granted)
+                {
+                    status = await Permissions.RequestAsync<Permissions.Camera>();
+                    if (status != PermissionStatus.Granted)
+                    {
+                        await Shell.Current.DisplayAlert(
+                            "Permission Denied",
+                            "Camera permission is required to scan barcodes. Please enable it in settings.",
+                            "OK");
+                        return;
+                    }
+                }
+
+                // Create and navigate to scanner page
+                var scannerPage = new Views.BarcodeScannerPage();
+                await Shell.Current.Navigation.PushModalAsync(scannerPage);
+
+                // Wait for scan result
+                var scannedValue = await scannerPage.GetScanResultAsync();
+
+                if (!string.IsNullOrWhiteSpace(scannedValue))
+                {
+                    // Set the scanned value as search text to filter the inventory
+                    SearchText = scannedValue;
+                }
+            }
+            catch (Exception ex)
+            {
+                await Shell.Current.DisplayAlert("Error", $"Failed to scan barcode: {ex.Message}", "OK");
+            }
+        }
+
+        /// <summary>
         /// Get category icon based on category name (Material Design icon name)
         /// </summary>
         private string GetCategoryIcon(string? categoryName)

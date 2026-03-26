@@ -25,6 +25,7 @@ namespace Shared.Models
         public string? AssignedToUserId { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime DateModified { get; set; } = DateTime.UtcNow;
+        public DateTime? LastScannedAt { get; set; }
         public string? SerialNumber { get; set; }
         public required string Condition { get; set; }
 

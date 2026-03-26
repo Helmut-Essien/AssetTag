@@ -15,6 +15,7 @@ namespace MobileApp.ViewModels
         private readonly IServiceProvider _serviceProvider;
         private readonly IAuthService _authService;
         private readonly ISyncService _syncService;
+        private readonly IAssetService _assetService;
 
         [ObservableProperty]
         private int totalAssets;
@@ -34,11 +35,13 @@ namespace MobileApp.ViewModels
         public MainPageViewModel(
             IServiceProvider serviceProvider,
             IAuthService authService,
-            ISyncService syncService)
+            ISyncService syncService,
+            IAssetService assetService)
         {
             _serviceProvider = serviceProvider;
             _authService = authService;
             _syncService = syncService;
+            _assetService = assetService;
             Title = "Asset Management";
             
             // CRITICAL: Start with IsBusy = false to show cached content immediately
@@ -67,7 +70,7 @@ namespace MobileApp.ViewModels
 
                 var scannedTodayTask = dbContext.Assets
                     .AsNoTracking()
-                    .Where(a => a.DateModified.Date == DateTime.Today)
+                    .Where(a => a.LastScannedAt.HasValue && a.LastScannedAt.Value.Date == DateTime.Today)
                     .CountAsync();
 
                 var pendingSyncTask = _syncService.GetPendingSyncCountAsync();
@@ -138,18 +141,67 @@ namespace MobileApp.ViewModels
         }
 
         /// <summary>
-        /// Navigate to barcode/QR scanner page (opens Add Asset page with scanner)
+        /// Scan asset barcode/QR code and navigate to update page if exists, or show not found message
         /// </summary>
         [RelayCommand]
         private async Task ScanAssetAsync()
         {
             try
             {
-                await Shell.Current.GoToAsync(nameof(AddAssetPage));
+                // Check camera permission
+                var status = await Permissions.CheckStatusAsync<Permissions.Camera>();
+                if (status != PermissionStatus.Granted)
+                {
+                    status = await Permissions.RequestAsync<Permissions.Camera>();
+                    if (status != PermissionStatus.Granted)
+                    {
+                        await Shell.Current.DisplayAlert(
+                            "Permission Denied",
+                            "Camera permission is required to scan barcodes. Please enable it in settings.",
+                            "OK");
+                        return;
+                    }
+                }
+
+                // Create and navigate to scanner page
+                var scannerPage = new Views.BarcodeScannerPage();
+                await Shell.Current.Navigation.PushModalAsync(scannerPage);
+
+                // Wait for scan result
+                var scannedValue = await scannerPage.GetScanResultAsync();
+
+                if (!string.IsNullOrWhiteSpace(scannedValue))
+                {
+                    // Search for asset by digital asset tag or asset tag
+                    using var scope = _serviceProvider.CreateScope();
+                    var dbContext = scope.ServiceProvider.GetRequiredService<MobileData.Data.LocalDbContext>();
+                    
+                    var asset = await dbContext.Assets
+                        .FirstOrDefaultAsync(a => a.DigitalAssetTag == scannedValue || a.AssetTag == scannedValue);
+
+                    if (asset != null)
+                    {
+                        // Update LastScannedAt timestamp to track barcode scans
+                        asset.LastScannedAt = DateTime.UtcNow;
+                        asset.DateModified = DateTime.UtcNow;
+                        await dbContext.SaveChangesAsync();
+                        
+                        // Asset found - navigate to update page
+                        await Shell.Current.GoToAsync($"AddAssetPage?assetId={asset.AssetId}");
+                    }
+                    else
+                    {
+                        // Asset not found
+                        await Shell.Current.DisplayAlert(
+                            "Asset Not Found",
+                            $"No asset found with tag: {scannedValue}",
+                            "OK");
+                    }
+                }
             }
             catch (Exception ex)
             {
-                await Shell.Current.DisplayAlert("Error", $"Failed to navigate: {ex.Message}", "OK");
+                await Shell.Current.DisplayAlert("Error", $"Failed to scan asset: {ex.Message}", "OK");
             }
         }
 
