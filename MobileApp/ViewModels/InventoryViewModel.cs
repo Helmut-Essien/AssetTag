@@ -226,6 +226,7 @@ namespace MobileApp.ViewModels
                             AssetId = asset.AssetId,
                             Name = asset.Name,
                             AssetTag = asset.AssetTag,
+                            DigitalAssetTag = asset.DigitalAssetTag,
                             CategoryName = asset.Category?.Name ?? "Unknown",
                             CategoryIcon = GetCategoryIcon(asset.Category?.Name),
                             LocationName = asset.Location?.Name ?? "Unknown",
@@ -326,6 +327,7 @@ namespace MobileApp.ViewModels
                 filtered = filtered.Where(a =>
                     a.Name.ToLower().Contains(searchLower) ||
                     a.AssetTag.ToLower().Contains(searchLower) ||
+                    (a.DigitalAssetTag?.ToLower().Contains(searchLower) ?? false) ||
                     (a.LocationName?.ToLower().Contains(searchLower) ?? false));
             }
 
@@ -605,6 +607,9 @@ namespace MobileApp.ViewModels
 
         [ObservableProperty]
         private string assetTag = string.Empty;
+
+        [ObservableProperty]
+        private string? digitalAssetTag;
 
         [ObservableProperty]
         private string categoryName = string.Empty;

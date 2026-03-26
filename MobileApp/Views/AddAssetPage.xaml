@@ -3,12 +3,21 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewmodels="clr-namespace:MobileApp.ViewModels"
              xmlns:models="clr-namespace:Shared.Models;assembly=Shared"
+             xmlns:converters="clr-namespace:MobileApp.Converters"
              xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
              x:Class="MobileApp.Views.AddAssetPage"
              x:DataType="viewmodels:AddAssetViewModel"
              Title="{Binding PageTitle}"
              BackgroundColor="#F8F9FA"
              Shell.NavBarIsVisible="False">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:NullableDateTimeConverter x:Key="NullableDateTimeConverter" />
+            <converters:NullableDateDisplayConverter x:Key="NullableDateDisplayConverter" />
+            <converters:IsNullConverter x:Key="IsNullConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
 
     <Grid RowDefinitions="56,*,Auto">
         
@@ -260,11 +269,20 @@
                                    FontFamily="OpenSansSemibold"
                                    FontSize="14"
                                    TextColor="#333333"/>
-                            <DatePicker Date="{Binding PurchaseDate}"
-                                       Format="yyyy-MM-dd"
-                                       TextColor="#333333"
+                            <Grid>
+                                <DatePicker Date="{Binding PurchaseDate, Converter={StaticResource NullableDateTimeConverter}}"
+                                           Format="yyyy-MM-dd"
+                                           TextColor="#333333"
+                                           FontSize="16"
+                                           BackgroundColor="#F8F9FA"
+                                           Opacity="0"/>
+                                <Label Text="{Binding PurchaseDate, Converter={StaticResource NullableDateDisplayConverter}}"
                                        FontSize="16"
-                                       BackgroundColor="#F8F9FA"/>
+                                       TextColor="{Binding PurchaseDate, Converter={StaticResource IsNullConverter}}"
+                                       VerticalOptions="Center"
+                                       Margin="12,0,0,0"
+                                       InputTransparent="True"/>
+                            </Grid>
                         </VerticalStackLayout>
 
                         <!-- Serial Number -->
@@ -392,11 +410,20 @@
                                    FontFamily="OpenSansSemibold"
                                    FontSize="14"
                                    TextColor="#333333"/>
-                            <DatePicker Date="{Binding WarrantyExpiry}"
-                                       Format="yyyy-MM-dd"
-                                       TextColor="#333333"
+                            <Grid>
+                                <DatePicker Date="{Binding WarrantyExpiry, Converter={StaticResource NullableDateTimeConverter}}"
+                                           Format="yyyy-MM-dd"
+                                           TextColor="#333333"
+                                           FontSize="16"
+                                           BackgroundColor="#F8F9FA"
+                                           Opacity="0"/>
+                                <Label Text="{Binding WarrantyExpiry, Converter={StaticResource NullableDateDisplayConverter}}"
                                        FontSize="16"
-                                       BackgroundColor="#F8F9FA"/>
+                                       TextColor="{Binding WarrantyExpiry, Converter={StaticResource IsNullConverter}}"
+                                       VerticalOptions="Center"
+                                       Margin="12,0,0,0"
+                                       InputTransparent="True"/>
+                            </Grid>
                         </VerticalStackLayout>
 
                         <!-- Disposal Date -->
@@ -405,11 +432,20 @@
                                    FontFamily="OpenSansSemibold"
                                    FontSize="14"
                                    TextColor="#333333"/>
-                            <DatePicker Date="{Binding DisposalDate}"
-                                       Format="yyyy-MM-dd"
-                                       TextColor="#333333"
+                            <Grid>
+                                <DatePicker Date="{Binding DisposalDate, Converter={StaticResource NullableDateTimeConverter}}"
+                                           Format="yyyy-MM-dd"
+                                           TextColor="#333333"
+                                           FontSize="16"
+                                           BackgroundColor="#F8F9FA"
+                                           Opacity="0"/>
+                                <Label Text="{Binding DisposalDate, Converter={StaticResource NullableDateDisplayConverter}}"
                                        FontSize="16"
-                                       BackgroundColor="#F8F9FA"/>
+                                       TextColor="{Binding DisposalDate, Converter={StaticResource IsNullConverter}}"
+                                       VerticalOptions="Center"
+                                       Margin="12,0,0,0"
+                                       InputTransparent="True"/>
+                            </Grid>
                         </VerticalStackLayout>
 
                         <!-- Disposal Value -->

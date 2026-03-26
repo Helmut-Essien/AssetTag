@@ -185,23 +185,24 @@ namespace MobileApp.ViewModels
 
                 if (!string.IsNullOrWhiteSpace(scannedValue))
                 {
-                    // Search for asset by digital asset tag or asset tag and update LastScannedAt
+                    // Search for asset by digital asset tag or asset tag
                     using var scope = _serviceProvider.CreateScope();
                     var dbContext = scope.ServiceProvider.GetRequiredService<MobileData.Data.LocalDbContext>();
                     
-                    // Find asset without AsNoTracking so we can update it
+                    // Find asset with AsNoTracking for read-only access
                     var asset = await dbContext.Assets
+                        .AsNoTracking()
                         .FirstOrDefaultAsync(a => a.DigitalAssetTag == scannedValue || a.AssetTag == scannedValue);
 
                     if (asset != null)
                     {
-                        // Update LastScannedAt timestamp to track barcode scans
-                        asset.LastScannedAt = DateTime.UtcNow;
-                        asset.DateModified = DateTime.UtcNow;
-                        
+                        // Update LastScannedAt using raw SQL to avoid triggering sync queue
+                        // This is a read-only tracking field that shouldn't create pending changes
                         try
                         {
-                            await dbContext.SaveChangesAsync();
+                            await dbContext.Database.ExecuteSqlRawAsync(
+                                "UPDATE Assets SET LastScannedAt = {0} WHERE AssetId = {1}",
+                                DateTime.UtcNow, asset.AssetId);
                         }
                         catch (Exception ex)
                         {
@@ -209,7 +210,7 @@ namespace MobileApp.ViewModels
                             // Continue to navigation even if update fails
                         }
                         
-                        // Asset found - navigate to update page
+                        // Asset found - navigate to view/edit page
                         await Shell.Current.GoToAsync($"AddAssetPage?assetId={asset.AssetId}");
                     }
                     else
