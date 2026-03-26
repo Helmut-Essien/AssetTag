@@ -55,6 +55,8 @@ namespace MobileApp.ViewModels
         {
             try
             {
+                IsBusy = true;
+                
                 using var scope = _serviceProvider.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
 
@@ -128,6 +130,10 @@ namespace MobileApp.ViewModels
                     Categories = 0;
                     LastSync = "Error loading";
                 });
+            }
+            finally
+            {
+                IsBusy = false;
             }
         }
 

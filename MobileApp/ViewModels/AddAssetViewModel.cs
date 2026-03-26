@@ -94,6 +94,15 @@ public partial class AddAssetViewModel : BaseViewModel
     [ObservableProperty]
     private string busyMessage = "Loading...";
 
+    [ObservableProperty]
+    private bool isEditMode = false;
+
+    [ObservableProperty]
+    private string pageTitle = "Add Asset";
+
+    [ObservableProperty]
+    private string saveButtonText = "Save";
+
     public AddAssetViewModel(
         IAssetService assetService,
         ILocationService locationService,
@@ -121,12 +130,81 @@ public partial class AddAssetViewModel : BaseViewModel
             IsBusy = true;
             BusyMessage = "Loading form data...";
 
+            // Set mode to Add
+            IsEditMode = false;
+            PageTitle = "Add Asset";
+            SaveButtonText = "Save";
+
             // Load categories, locations, and departments from local database
             await LoadFormDataAsync();
         }
         catch (Exception ex)
         {
             await Shell.Current.DisplayAlert("Error", $"Failed to load form data: {ex.Message}", "OK");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// Load an existing asset for editing
+    /// </summary>
+    public async Task LoadAssetAsync(string assetId)
+    {
+        if (IsBusy) return;
+
+        try
+        {
+            IsBusy = true;
+            BusyMessage = "Loading asset...";
+
+            // Set mode to Edit
+            IsEditMode = true;
+            PageTitle = "Update Asset";
+            SaveButtonText = "Update";
+
+            // Load form data first
+            await LoadFormDataAsync();
+
+            // Load the asset
+            var asset = await _assetService.GetAssetByIdAsync(assetId);
+            if (asset == null)
+            {
+                await Shell.Current.DisplayAlert("Error", "Asset not found", "OK");
+                return;
+            }
+
+            // Populate form fields - required fields
+            AssetTag = asset.AssetTag;
+            Name = asset.Name;
+            SelectedStatus = asset.Status;
+            SelectedCondition = asset.Condition;
+            Quantity = asset.Quantity;
+
+            // Populate nullable fields
+            DigitalAssetTag = asset.DigitalAssetTag;
+            Description = asset.Description;
+            SerialNumber = asset.SerialNumber;
+            PurchaseDate = asset.PurchaseDate;
+            PurchasePrice = asset.PurchasePrice;
+            CostPerUnit = asset.CostPerUnit;
+            VendorName = asset.VendorName;
+            InvoiceNumber = asset.InvoiceNumber;
+            WarrantyExpiry = asset.WarrantyExpiry;
+            DisposalDate = asset.DisposalDate;
+            DisposalValue = asset.DisposalValue;
+            Remarks = asset.Remarks;
+
+            // Select the matching category, location, and department
+            SelectedCategory = Categories.FirstOrDefault(c => c.CategoryId == asset.CategoryId);
+            SelectedLocation = Locations.FirstOrDefault(l => l.LocationId == asset.LocationId);
+            SelectedDepartment = Departments.FirstOrDefault(d => d.DepartmentId == asset.DepartmentId);
+        }
+        catch (Exception ex)
+        {
+            await Shell.Current.DisplayAlert("Error", $"Failed to load asset: {ex.Message}", "OK");
         }
         finally
         {
@@ -248,7 +326,7 @@ public partial class AddAssetViewModel : BaseViewModel
 
 
     /// <summary>
-    /// Save the new asset
+    /// Save the asset (upsert: creates new or updates existing based on AssetTag/DigitalAssetTag)
     /// </summary>
     [RelayCommand]
     private async Task SaveAssetAsync()
@@ -291,7 +369,7 @@ public partial class AddAssetViewModel : BaseViewModel
             IsBusy = true;
             BusyMessage = "Saving asset...";
 
-            var newAsset = new Asset
+            var asset = new Asset
             {
                 AssetTag = AssetTag.Trim(),
                 DigitalAssetTag = string.IsNullOrWhiteSpace(DigitalAssetTag) ? null : DigitalAssetTag.Trim(),
@@ -317,11 +395,12 @@ public partial class AddAssetViewModel : BaseViewModel
                 DateModified = DateTime.UtcNow
             };
 
-            var (success, message) = await _assetService.CreateAssetAsync(newAsset);
+            var (success, message, isUpdate) = await _assetService.UpsertAssetAsync(asset);
 
             if (success)
             {
-                await Shell.Current.DisplayAlert("Success", message, "OK");
+                var actionText = isUpdate ? "updated" : "created";
+                await Shell.Current.DisplayAlert("Success", $"Asset {actionText} successfully", "OK");
                 await Shell.Current.GoToAsync("..");
             }
             else

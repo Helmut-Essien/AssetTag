@@ -33,6 +33,11 @@ public interface IAssetService
     Task<(bool Success, string Message)> UpdateAssetAsync(Asset asset);
 
     /// <summary>
+    /// Upsert an asset - creates if new, updates if exists based on AssetTag or DigitalAssetTag
+    /// </summary>
+    Task<(bool Success, string Message, bool IsUpdate)> UpsertAssetAsync(Asset asset);
+
+    /// <summary>
     /// Delete an asset (works offline, syncs when online)
     /// </summary>
     Task<(bool Success, string Message)> DeleteAssetAsync(string assetId);

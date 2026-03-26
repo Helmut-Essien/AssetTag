@@ -221,7 +221,7 @@ namespace MobileApp.ViewModels
                     var list = new List<AssetItemViewModel>(page.Count);
                     foreach (var asset in page)
                     {
-                        list.Add(new AssetItemViewModel
+                        var item = new AssetItemViewModel(OnAssetTapped)
                         {
                             AssetId = asset.AssetId,
                             Name = asset.Name,
@@ -231,7 +231,8 @@ namespace MobileApp.ViewModels
                             LocationName = asset.Location?.Name ?? "Unknown",
                             IsPendingSync = _pendingSyncIds.Contains(asset.AssetId),
                             DateModified = asset.DateModified
-                        });
+                        };
+                        list.Add(item);
                     }
 
                     return list;
@@ -460,6 +461,18 @@ namespace MobileApp.ViewModels
         }
 
         /// <summary>
+        /// Callback for when an asset item is tapped (optimized for direct binding)
+        /// </summary>
+        private void OnAssetTapped(AssetItemViewModel asset)
+        {
+            // Execute on UI thread
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                await ViewAssetDetailsAsync(asset);
+            });
+        }
+
+        /// <summary>
         /// Navigate to asset details
         /// </summary>
         [RelayCommand]
@@ -469,12 +482,8 @@ namespace MobileApp.ViewModels
 
             try
             {
-                // TODO: Navigate to asset details page when implemented
-                await Shell.Current.DisplayAlert(
-                    "Asset Details",
-                    $"Opening details for {asset.Name}...",
-                    "OK");
-                // await Shell.Current.GoToAsync($"AssetDetailsPage?assetId={asset.AssetId}");
+                // Navigate to AddAssetPage with asset ID for editing
+                await Shell.Current.GoToAsync($"AddAssetPage?assetId={asset.AssetId}");
             }
             catch (Exception ex)
             {
@@ -499,26 +508,26 @@ namespace MobileApp.ViewModels
         }
 
         /// <summary>
-        /// Get category icon based on category name
+        /// Get category icon based on category name (Material Design icon name)
         /// </summary>
         private string GetCategoryIcon(string? categoryName)
         {
             if (string.IsNullOrEmpty(categoryName))
-                return "📦";
+                return "Inventory2";
 
             return categoryName.ToLower() switch
             {
-                var c when c.Contains("laptop") || c.Contains("computer") => "💻",
-                var c when c.Contains("furniture") || c.Contains("chair") || c.Contains("desk") => "🪑",
-                var c when c.Contains("printer") => "🖨️",
-                var c when c.Contains("phone") || c.Contains("mobile") => "📱",
-                var c when c.Contains("monitor") || c.Contains("screen") || c.Contains("display") => "🖥️",
-                var c when c.Contains("tool") => "🔧",
-                var c when c.Contains("vehicle") || c.Contains("car") => "🚗",
-                var c when c.Contains("camera") => "📷",
-                var c when c.Contains("network") || c.Contains("router") => "🌐",
-                var c when c.Contains("server") => "🖧",
-                _ => "📦"
+                var c when c.Contains("laptop") || c.Contains("computer") => "Laptop",
+                var c when c.Contains("furniture") || c.Contains("chair") || c.Contains("desk") => "Chair",
+                var c when c.Contains("printer") => "Print",
+                var c when c.Contains("phone") || c.Contains("mobile") => "Smartphone",
+                var c when c.Contains("monitor") || c.Contains("screen") || c.Contains("display") => "Monitor",
+                var c when c.Contains("tool") => "Build",
+                var c when c.Contains("vehicle") || c.Contains("car") => "DirectionsCar",
+                var c when c.Contains("camera") => "CameraAlt",
+                var c when c.Contains("network") || c.Contains("router") => "Router",
+                var c when c.Contains("server") => "Dns",
+                _ => "Inventory2"
             };
         }
 
@@ -537,6 +546,13 @@ namespace MobileApp.ViewModels
     /// </summary>
     public partial class AssetItemViewModel : ObservableObject
     {
+        private readonly Action<AssetItemViewModel> _onTapped;
+
+        public AssetItemViewModel(Action<AssetItemViewModel> onTapped)
+        {
+            _onTapped = onTapped;
+        }
+
         [ObservableProperty]
         private string assetId = string.Empty;
 
@@ -564,5 +580,11 @@ namespace MobileApp.ViewModels
         public string DisplayTag => $"ID: #{AssetTag}";
         public string DisplayLocation => $"📍 {LocationName}";
         public string SyncStatusColor => IsPendingSync ? "#FFC107" : "Transparent";
+
+        [RelayCommand]
+        private void Tap()
+        {
+            _onTapped?.Invoke(this);
+        }
     }
 }

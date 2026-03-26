@@ -6,7 +6,7 @@
              xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
              x:Class="MobileApp.Views.AddAssetPage"
              x:DataType="viewmodels:AddAssetViewModel"
-             Title="Add Asset"
+             Title="{Binding PageTitle}"
              BackgroundColor="#F8F9FA"
              Shell.NavBarIsVisible="False">
 
@@ -31,7 +31,7 @@
                 
                 <!-- Title -->
                 <Label Grid.Column="1"
-                       Text="Add Asset"
+                       Text="{Binding PageTitle}"
                        FontFamily="OpenSansSemibold"
                        FontSize="20"
                        TextColor="White"
@@ -481,7 +481,7 @@
                     Command="{Binding CancelCommand}"/>
             
             <Button Grid.Column="1"
-                    Text="Save Asset"
+                    Text="{Binding SaveButtonText}"
                     BackgroundColor="#005A9C"
                     TextColor="White"
                     CornerRadius="8"
