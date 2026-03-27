@@ -58,9 +58,13 @@ public partial class BarcodeScannerPage : ContentPage
                     // Haptic feedback not supported on all devices
                 }
 
-                // Return the scanned value and close the scanner
-                // The calling code will handle what to do with the result
+                // Set the result first so the calling code receives it
                 _scanResultTcs.TrySetResult(barcode.Value);
+                
+                // Small delay to ensure the result is received before closing
+                await Task.Delay(100);
+                
+                // Now close the modal
                 await Navigation.PopModalAsync();
             }
             catch (Exception ex)

@@ -183,8 +183,14 @@ namespace MobileApp.ViewModels
                 // Wait for scan result
                 var scannedValue = await scannerPage.GetScanResultAsync();
 
+                _logger.LogInformation("Scan completed. Scanned value: '{ScannedValue}'", scannedValue ?? "NULL");
+
+                // Give extra time for modal to fully close and UI to settle
+                await Task.Delay(500);
+
                 if (!string.IsNullOrWhiteSpace(scannedValue))
                 {
+                    _logger.LogInformation("Processing scanned value: {ScannedValue}", scannedValue);
                     // Search for asset by digital asset tag or asset tag
                     using var scope = _serviceProvider.CreateScope();
                     var dbContext = scope.ServiceProvider.GetRequiredService<MobileData.Data.LocalDbContext>();
@@ -211,7 +217,7 @@ namespace MobileApp.ViewModels
                         }
                         
                         // Asset found - navigate to view/edit page
-                        await Shell.Current.GoToAsync($"AddAssetPage?assetId={asset.AssetId}");
+                        await Shell.Current.GoToAsync($"{nameof(AddAssetPage)}?assetId={asset.AssetId}");
                     }
                     else
                     {
