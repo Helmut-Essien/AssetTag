@@ -51,11 +51,11 @@
         <VerticalStackLayout Grid.Row="1" Padding="16,12" Spacing="12">
             
             <!-- Search Bar -->
-            <Frame BackgroundColor="White" 
-                   CornerRadius="24" 
+            <Frame BackgroundColor="White"
+                   CornerRadius="24"
                    Padding="12,8"
                    HasShadow="True">
-                <Grid ColumnDefinitions="24,*,24">
+                <Grid ColumnDefinitions="24,*,24,24">
                     <!-- Search Icon -->
                     <Image Grid.Column="0"
                            WidthRequest="20"
@@ -79,8 +79,19 @@
                            VerticalOptions="Center"
                            Margin="8,0"/>
                     
-                    <!-- Clear Button (visible when text exists) -->
+                    <!-- Scan Button -->
                     <Button Grid.Column="2"
+                            ImageSource="{mi:Material Icon=QrCodeScanner, IconColor=#005A9C}"
+                            BackgroundColor="Transparent"
+                            Command="{Binding ScanToSearchCommand}"
+                            VerticalOptions="Center"
+                            WidthRequest="24"
+                            HeightRequest="24"
+                            Padding="0"
+                            Margin="4,0"/>
+                    
+                    <!-- Clear Button (visible when text exists) -->
+                    <Button Grid.Column="3"
                             ImageSource="{mi:Material Icon=Close, IconColor=#666666}"
                             BackgroundColor="Transparent"
                             Command="{Binding ClearFiltersCommand}"
@@ -173,7 +184,7 @@
             <!-- Asset List (CollectionView) - Show when NOT busy AND has assets -->
             <RefreshView x:Name="AssetListView"
                          x:DataType="viewmodels:InventoryViewModel"
-                         IsRefreshing="False"
+                         IsRefreshing="{Binding IsBusy}"
                          Command="{Binding RefreshCommand}"
                          IsVisible="{Binding HasAssets}">
                 <CollectionView x:DataType="viewmodels:InventoryViewModel" ItemsSource="{Binding FilteredAssets}"
@@ -190,9 +201,8 @@
                                    CornerRadius="12"
                                    BackgroundColor="White"
                                    HasShadow="True">
-                                    <Frame.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.ViewAssetDetailsCommand}"
-                                                          CommandParameter="{Binding}"/>
+                                <Frame.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding TapCommand}"/>
                                 </Frame.GestureRecognizers>
                                 
                                 <Grid ColumnDefinitions="4,56,*,24" 
@@ -215,10 +225,17 @@
                                            HorizontalOptions="Center"
                                            VerticalOptions="Center"
                                            Margin="8,0">
-                                        <Label Text="{Binding CategoryIcon}"
-                                               FontSize="24"
+                                        <Image WidthRequest="24"
+                                               HeightRequest="24"
                                                HorizontalOptions="Center"
-                                               VerticalOptions="Center"/>
+                                               VerticalOptions="Center">
+                                            <Image.Source>
+                                                <FontImageSource FontFamily="MaterialRegular"
+                                                               Glyph="{Binding CategoryIcon}"
+                                                               Color="#005A9C"
+                                                               Size="24"/>
+                                            </Image.Source>
+                                        </Image>
                                     </Frame>
                                     
                                     <!-- Content Area -->

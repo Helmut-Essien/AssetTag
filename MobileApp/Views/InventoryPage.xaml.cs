@@ -27,16 +27,19 @@ namespace MobileApp.Views
         {
             base.OnAppearing();
 
-            // CRITICAL: Only load data ONCE when page is first created
-            // Since this page is cached and reused, we should NOT reload on every OnAppearing
+            // Load data on first appearance
             if (!_hasLoadedOnce)
             {
                 _hasLoadedOnce = true;
                 _viewModel.IsBusy = true;
                 _ = LoadDataAsync();
             }
-            // else: Page is cached - show existing data immediately
-            // User can manually refresh if needed via pull-to-refresh
+            else
+            {
+                // Reload data when returning to the page (e.g., after adding/updating an asset)
+                // This ensures the list is always up-to-date
+                _ = LoadDataAsync();
+            }
         }
 
         private async Task LoadDataAsync()

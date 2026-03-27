@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MobileData.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using MobileApp.Services;
 using MobileApp.Views;
 
@@ -15,6 +16,8 @@ namespace MobileApp.ViewModels
         private readonly IServiceProvider _serviceProvider;
         private readonly IAuthService _authService;
         private readonly ISyncService _syncService;
+        private readonly IAssetService _assetService;
+        private readonly ILogger<MainPageViewModel> _logger;
 
         [ObservableProperty]
         private int totalAssets;
@@ -31,14 +34,27 @@ namespace MobileApp.ViewModels
         [ObservableProperty]
         private string lastSync = "Never synced";
 
+        [ObservableProperty]
+        private bool isSyncing;
+
+        [ObservableProperty]
+        private double syncProgress;
+
+        [ObservableProperty]
+        private string syncStatusText = "";
+
         public MainPageViewModel(
             IServiceProvider serviceProvider,
             IAuthService authService,
-            ISyncService syncService)
+            ISyncService syncService,
+            IAssetService assetService,
+            ILogger<MainPageViewModel> logger)
         {
             _serviceProvider = serviceProvider;
             _authService = authService;
             _syncService = syncService;
+            _assetService = assetService;
+            _logger = logger;
             Title = "Asset Management";
             
             // CRITICAL: Start with IsBusy = false to show cached content immediately
@@ -55,6 +71,8 @@ namespace MobileApp.ViewModels
         {
             try
             {
+                IsBusy = true;
+                
                 using var scope = _serviceProvider.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
 
@@ -65,7 +83,7 @@ namespace MobileApp.ViewModels
 
                 var scannedTodayTask = dbContext.Assets
                     .AsNoTracking()
-                    .Where(a => a.DateModified.Date == DateTime.Today)
+                    .Where(a => a.LastScannedAt.HasValue && a.LastScannedAt.Value.Date == DateTime.Today)
                     .CountAsync();
 
                 var pendingSyncTask = _syncService.GetPendingSyncCountAsync();
@@ -129,21 +147,91 @@ namespace MobileApp.ViewModels
                     LastSync = "Error loading";
                 });
             }
+            finally
+            {
+                IsBusy = false;
+            }
         }
 
         /// <summary>
-        /// Navigate to barcode/QR scanner page (opens Add Asset page with scanner)
+        /// Scan asset barcode/QR code and navigate to update page if exists, or show not found message
         /// </summary>
         [RelayCommand]
         private async Task ScanAssetAsync()
         {
             try
             {
-                await Shell.Current.GoToAsync(nameof(AddAssetPage));
+                // Check camera permission
+                var status = await Permissions.CheckStatusAsync<Permissions.Camera>();
+                if (status != PermissionStatus.Granted)
+                {
+                    status = await Permissions.RequestAsync<Permissions.Camera>();
+                    if (status != PermissionStatus.Granted)
+                    {
+                        await Shell.Current.DisplayAlert(
+                            "Permission Denied",
+                            "Camera permission is required to scan barcodes. Please enable it in settings.",
+                            "OK");
+                        return;
+                    }
+                }
+
+                // Create and navigate to scanner page
+                var scannerPage = new Views.BarcodeScannerPage();
+                await Shell.Current.Navigation.PushModalAsync(scannerPage);
+
+                // Wait for scan result
+                var scannedValue = await scannerPage.GetScanResultAsync();
+
+                _logger.LogInformation("Scan completed. Scanned value: '{ScannedValue}'", scannedValue ?? "NULL");
+
+                // Give extra time for modal to fully close and UI to settle
+                await Task.Delay(500);
+
+                if (!string.IsNullOrWhiteSpace(scannedValue))
+                {
+                    _logger.LogInformation("Processing scanned value: {ScannedValue}", scannedValue);
+                    // Search for asset by digital asset tag or asset tag
+                    using var scope = _serviceProvider.CreateScope();
+                    var dbContext = scope.ServiceProvider.GetRequiredService<MobileData.Data.LocalDbContext>();
+                    
+                    // Find asset with AsNoTracking for read-only access
+                    var asset = await dbContext.Assets
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(a => a.DigitalAssetTag == scannedValue || a.AssetTag == scannedValue);
+
+                    if (asset != null)
+                    {
+                        // Update LastScannedAt using raw SQL to avoid triggering sync queue
+                        // This is a read-only tracking field that shouldn't create pending changes
+                        try
+                        {
+                            await dbContext.Database.ExecuteSqlRawAsync(
+                                "UPDATE Assets SET LastScannedAt = {0} WHERE AssetId = {1}",
+                                DateTime.UtcNow, asset.AssetId);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to update LastScannedAt for asset {AssetId}", asset.AssetId);
+                            // Continue to navigation even if update fails
+                        }
+                        
+                        // Asset found - navigate to view/edit page
+                        await Shell.Current.GoToAsync($"{nameof(AddAssetPage)}?assetId={asset.AssetId}");
+                    }
+                    else
+                    {
+                        // Asset not found
+                        await Shell.Current.DisplayAlert(
+                            "Asset Not Found",
+                            $"No asset found with tag: {scannedValue}",
+                            "OK");
+                    }
+                }
             }
             catch (Exception ex)
             {
-                await Shell.Current.DisplayAlert("Error", $"Failed to navigate: {ex.Message}", "OK");
+                await Shell.Current.DisplayAlert("Error", $"Failed to scan asset: {ex.Message}", "OK");
             }
         }
 
@@ -180,19 +268,53 @@ namespace MobileApp.ViewModels
         }
 
         /// <summary>
-        /// Sync local data with the server
+        /// Sync local data with the server with progress tracking
         /// </summary>
         [RelayCommand]
         private async Task SyncDataAsync()
         {
-            if (IsBusy) return;
+            if (IsBusy || IsSyncing) return;
 
             try
             {
                 IsBusy = true;
+                IsSyncing = true;
+                SyncProgress = 0;
+                SyncStatusText = "Preparing sync...";
+
+                // Simulate progress updates during sync
+                var progressTask = Task.Run(async () =>
+                {
+                    for (int i = 0; i <= 90; i += 10)
+                    {
+                        if (!IsSyncing) break;
+                        
+                        await MainThread.InvokeOnMainThreadAsync(() =>
+                        {
+                            SyncProgress = i / 100.0;
+                            if (i < 30)
+                                SyncStatusText = "Pushing local changes...";
+                            else if (i < 60)
+                                SyncStatusText = "Pulling server updates...";
+                            else
+                                SyncStatusText = "Finalizing sync...";
+                        });
+                        
+                        await Task.Delay(300);
+                    }
+                });
 
                 // Perform full bidirectional sync (enqueue to central sync queue)
                 var (success, message) = await _syncService.EnqueueFullSyncAsync();
+
+                // Complete progress
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    SyncProgress = 1.0;
+                    SyncStatusText = success ? "Sync complete!" : "Sync failed";
+                });
+
+                await Task.Delay(500); // Brief pause to show completion
 
                 // Show result to user
                 await Shell.Current.DisplayAlert(
@@ -206,6 +328,9 @@ namespace MobileApp.ViewModels
             }
             finally
             {
+                IsSyncing = false;
+                SyncProgress = 0;
+                SyncStatusText = "";
                 IsBusy = false;
                 
                 // Reload dashboard data AFTER IsBusy is set to false and dialog is dismissed

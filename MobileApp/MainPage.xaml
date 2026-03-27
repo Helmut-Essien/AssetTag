@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:MobileApp.ViewModels"
              xmlns:controls="clr-namespace:MobileApp.Controls"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
              x:Class="MobileApp.MainPage"
              x:DataType="vm:MainPageViewModel"
@@ -23,13 +24,20 @@
             </Grid.ColumnDefinitions>
             
             <!-- Title -->
-            <Label Grid.Row="0" Grid.Column="0"
-                   Text="Asset Management"
-                   FontFamily="OpenSansRegular"
-                   FontSize="22"
-                   FontAttributes="Bold"
-                   TextColor="White"
-                   VerticalOptions="Center"/>
+            <VerticalStackLayout Grid.Row="0" Grid.Column="0"
+                                 Spacing="2"
+                                 VerticalOptions="Center">
+                <Label Text="Asset Management"
+                       FontFamily="OpenSansRegular"
+                       FontSize="22"
+                       FontAttributes="Bold"
+                       TextColor="White"/>
+                <Label Text="Field Operations"
+                       FontFamily="OpenSansRegular"
+                       FontSize="12"
+                       TextColor="White"
+                       Opacity="0.8"/>
+            </VerticalStackLayout>
             
             <!-- Settings Icon Button -->
             <Border Grid.Row="0" Grid.Column="1"
@@ -217,8 +225,8 @@
                                 <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
                                     <!-- Progress Indicator (visible when syncing) -->
                                     <ActivityIndicator Grid.Column="0"
-                                                     IsRunning="{Binding IsBusy}"
-                                                     IsVisible="{Binding IsBusy}"
+                                                     IsRunning="{Binding IsSyncing}"
+                                                     IsVisible="{Binding IsSyncing}"
                                                      Color="White"
                                                      WidthRequest="20"
                                                      HeightRequest="20"
@@ -236,39 +244,21 @@
                                 </Border.GestureRecognizers>
                             </Border>
                             
-                            <!-- Reset Sync State Button -->
-                            <Border BackgroundColor="#FF6B6B"
-                                    Stroke="Transparent"
-                                    Padding="24,12"
-                                    HorizontalOptions="Center"
-                                    MinimumWidthRequest="200">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="8"/>
-                                </Border.StrokeShape>
-                                <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
-                                    <Image Grid.Column="0"
-                                           WidthRequest="16"
-                                           HeightRequest="16"
-                                           VerticalOptions="Center">
-                                        <Image.Source>
-                                            <FontImageSource FontFamily="MaterialRegular"
-                                                           Glyph="{mi:Material Icon=RestartAlt}"
-                                                           Color="White"
-                                                           Size="16"/>
-                                        </Image.Source>
-                                    </Image>
-                                    <Label Grid.Column="1"
-                                           Text="Reset Sync State"
-                                           FontFamily="OpenSansRegular"
-                                           FontSize="14"
-                                           FontAttributes="Bold"
-                                           TextColor="White"
-                                           VerticalOptions="Center"/>
-                                </Grid>
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding ResetSyncStateCommand}"/>
-                                </Border.GestureRecognizers>
-                            </Border>
+                            <!-- Progress Bar (visible when syncing) -->
+                            <VerticalStackLayout Spacing="8"
+                                               IsVisible="{Binding IsSyncing}"
+                                               HorizontalOptions="Center"
+                                               MinimumWidthRequest="250">
+                                <ProgressBar Progress="{Binding SyncProgress}"
+                                           ProgressColor="#00796B"
+                                           HeightRequest="6"
+                                           HorizontalOptions="FillAndExpand"/>
+                                <Label Text="{Binding SyncStatusText}"
+                                       FontFamily="OpenSansRegular"
+                                       FontSize="12"
+                                       HorizontalOptions="Center"
+                                       TextColor="#666666"/>
+                            </VerticalStackLayout>
                         </VerticalStackLayout>
                     </Border>
 
@@ -466,6 +456,78 @@
                 </Grid>
             </ScrollView>
         </RefreshView>
+
+        <!-- Sync Overlay - Blocks all interaction during sync -->
+        <Grid Grid.RowSpan="2"
+              IsVisible="{Binding IsSyncing}"
+              BackgroundColor="#CC000000"
+              InputTransparent="False">
+            <VerticalStackLayout Spacing="24"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"
+                               Padding="40">
+                <Border BackgroundColor="White"
+                        Stroke="Transparent"
+                        Padding="40,50"
+                        HorizontalOptions="Center"
+                        Shadow="{Shadow Brush=Black, Opacity=0.3, Radius=20, Offset='0,4'}">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="16"/>
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="24" HorizontalOptions="Center">
+                        <!-- Sync Icon -->
+                        <Image WidthRequest="64" HeightRequest="64" HorizontalOptions="Center">
+                            <Image.Source>
+                                <FontImageSource FontFamily="MaterialRegular"
+                                               Glyph="{mi:Material Icon=Sync}"
+                                               Color="#00796B"
+                                               Size="64"/>
+                            </Image.Source>
+                            <Image.Behaviors>
+                                <toolkit:IconTintColorBehavior TintColor="#00796B"/>
+                            </Image.Behaviors>
+                        </Image>
+                        
+                        <!-- Syncing Text -->
+                        <Label Text="Syncing Data"
+                               FontFamily="OpenSansRegular"
+                               FontSize="22"
+                               FontAttributes="Bold"
+                               HorizontalOptions="Center"
+                               TextColor="#333333"/>
+                        
+                        <!-- Progress Bar -->
+                        <VerticalStackLayout Spacing="12" MinimumWidthRequest="280">
+                            <ProgressBar Progress="{Binding SyncProgress}"
+                                       ProgressColor="#00796B"
+                                       HeightRequest="8"
+                                       HorizontalOptions="FillAndExpand"/>
+                            <Label Text="{Binding SyncStatusText}"
+                                   FontFamily="OpenSansRegular"
+                                   FontSize="14"
+                                   HorizontalOptions="Center"
+                                   TextColor="#666666"/>
+                        </VerticalStackLayout>
+                        
+                        <!-- Activity Indicator -->
+                        <ActivityIndicator IsRunning="{Binding IsSyncing}"
+                                         Color="#00796B"
+                                         WidthRequest="32"
+                                         HeightRequest="32"
+                                         HorizontalOptions="Center"/>
+                        
+                        <!-- Please Wait Message -->
+                        <Label Text="Please wait while we sync your data"
+                               FontFamily="OpenSansRegular"
+                               FontSize="13"
+                               HorizontalOptions="Center"
+                               TextColor="#999999"
+                               MaximumWidthRequest="280"
+                               HorizontalTextAlignment="Center"/>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </Grid>
 
     </Grid>
 

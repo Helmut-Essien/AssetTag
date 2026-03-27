@@ -221,17 +221,19 @@ namespace MobileApp.ViewModels
                     var list = new List<AssetItemViewModel>(page.Count);
                     foreach (var asset in page)
                     {
-                        list.Add(new AssetItemViewModel
+                        var item = new AssetItemViewModel(OnAssetTapped)
                         {
                             AssetId = asset.AssetId,
                             Name = asset.Name,
                             AssetTag = asset.AssetTag,
+                            DigitalAssetTag = asset.DigitalAssetTag,
                             CategoryName = asset.Category?.Name ?? "Unknown",
                             CategoryIcon = GetCategoryIcon(asset.Category?.Name),
                             LocationName = asset.Location?.Name ?? "Unknown",
                             IsPendingSync = _pendingSyncIds.Contains(asset.AssetId),
                             DateModified = asset.DateModified
-                        });
+                        };
+                        list.Add(item);
                     }
 
                     return list;
@@ -325,6 +327,7 @@ namespace MobileApp.ViewModels
                 filtered = filtered.Where(a =>
                     a.Name.ToLower().Contains(searchLower) ||
                     a.AssetTag.ToLower().Contains(searchLower) ||
+                    (a.DigitalAssetTag?.ToLower().Contains(searchLower) ?? false) ||
                     (a.LocationName?.ToLower().Contains(searchLower) ?? false));
             }
 
@@ -460,6 +463,18 @@ namespace MobileApp.ViewModels
         }
 
         /// <summary>
+        /// Callback for when an asset item is tapped (optimized for direct binding)
+        /// </summary>
+        private void OnAssetTapped(AssetItemViewModel asset)
+        {
+            // Execute on UI thread
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                await ViewAssetDetailsAsync(asset);
+            });
+        }
+
+        /// <summary>
         /// Navigate to asset details
         /// </summary>
         [RelayCommand]
@@ -469,12 +484,8 @@ namespace MobileApp.ViewModels
 
             try
             {
-                // TODO: Navigate to asset details page when implemented
-                await Shell.Current.DisplayAlert(
-                    "Asset Details",
-                    $"Opening details for {asset.Name}...",
-                    "OK");
-                // await Shell.Current.GoToAsync($"AssetDetailsPage?assetId={asset.AssetId}");
+                // Navigate to AddAssetPage with asset ID for editing
+                await Shell.Current.GoToAsync($"AddAssetPage?assetId={asset.AssetId}");
             }
             catch (Exception ex)
             {
@@ -499,26 +510,70 @@ namespace MobileApp.ViewModels
         }
 
         /// <summary>
-        /// Get category icon based on category name
+        /// Scan barcode to search for asset in inventory
+        /// </summary>
+        [RelayCommand]
+        private async Task ScanToSearchAsync()
+        {
+            try
+            {
+                // Check camera permission
+                var status = await Permissions.CheckStatusAsync<Permissions.Camera>();
+                if (status != PermissionStatus.Granted)
+                {
+                    status = await Permissions.RequestAsync<Permissions.Camera>();
+                    if (status != PermissionStatus.Granted)
+                    {
+                        await Shell.Current.DisplayAlert(
+                            "Permission Denied",
+                            "Camera permission is required to scan barcodes. Please enable it in settings.",
+                            "OK");
+                        return;
+                    }
+                }
+
+                // Create and navigate to scanner page
+                var scannerPage = new Views.BarcodeScannerPage();
+                await Shell.Current.Navigation.PushModalAsync(scannerPage);
+
+                // Wait for scan result
+                var scannedValue = await scannerPage.GetScanResultAsync();
+
+                if (!string.IsNullOrWhiteSpace(scannedValue))
+                {
+                    // Set the scanned value as search text to filter the inventory
+                    SearchText = scannedValue;
+                }
+            }
+            catch (Exception ex)
+            {
+                await Shell.Current.DisplayAlert("Error", $"Failed to scan barcode: {ex.Message}", "OK");
+            }
+        }
+
+        /// <summary>
+        /// Get category icon based on category name (Material Design icon Unicode)
+        /// Returns the actual Unicode character for Material Icons font
         /// </summary>
         private string GetCategoryIcon(string? categoryName)
         {
             if (string.IsNullOrEmpty(categoryName))
-                return "📦";
+                return "\ue1b9"; // Inventory2 (default)
 
             return categoryName.ToLower() switch
             {
-                var c when c.Contains("laptop") || c.Contains("computer") => "💻",
-                var c when c.Contains("furniture") || c.Contains("chair") || c.Contains("desk") => "🪑",
-                var c when c.Contains("printer") => "🖨️",
-                var c when c.Contains("phone") || c.Contains("mobile") => "📱",
-                var c when c.Contains("monitor") || c.Contains("screen") || c.Contains("display") => "🖥️",
-                var c when c.Contains("tool") => "🔧",
-                var c when c.Contains("vehicle") || c.Contains("car") => "🚗",
-                var c when c.Contains("camera") => "📷",
-                var c when c.Contains("network") || c.Contains("router") => "🌐",
-                var c when c.Contains("server") => "🖧",
-                _ => "📦"
+                var c when c.Contains("building") => "\ue0c8", // Business/Building
+                var c when c.Contains("computer") || c.Contains("accessories") => "\ue31e", // Laptop/Computer
+                var c when c.Contains("furniture") || c.Contains("fitting") => "\ue8cc", // Chair/Furniture
+                var c when c.Contains("library") || c.Contains("book") || c.Contains("material") => "\ue02f", // Book/Library
+                var c when c.Contains("loose") || c.Contains("tool") => "\ue869", // Build/Tools
+                var c when c.Contains("motor") || c.Contains("vehicle") => "\ue531", // DirectionsCar/Vehicle
+                var c when c.Contains("office") || c.Contains("equipment") => "\ue8ad", // Print/Office Equipment
+                var c when c.Contains("plant") || c.Contains("equipment") => "\ue5d1", // Precision Manufacturing/Plants
+                var c when c.Contains("road") || c.Contains("curvert") => "\ue52f", // DirectionsRailway/Roads
+                var c when c.Contains("software") => "\ue30a", // Code/Software
+                var c when c.Contains("teaching") || c.Contains("aid") || c.Contains("mat") => "\uf02d", // School/Teaching
+                _ => "\ue1b9" // Inventory2 (default for unknown categories)
             };
         }
 
@@ -537,6 +592,13 @@ namespace MobileApp.ViewModels
     /// </summary>
     public partial class AssetItemViewModel : ObservableObject
     {
+        private readonly Action<AssetItemViewModel> _onTapped;
+
+        public AssetItemViewModel(Action<AssetItemViewModel> onTapped)
+        {
+            _onTapped = onTapped;
+        }
+
         [ObservableProperty]
         private string assetId = string.Empty;
 
@@ -547,10 +609,13 @@ namespace MobileApp.ViewModels
         private string assetTag = string.Empty;
 
         [ObservableProperty]
+        private string? digitalAssetTag;
+
+        [ObservableProperty]
         private string categoryName = string.Empty;
 
         [ObservableProperty]
-        private string categoryIcon = "📦";
+        private string categoryIcon = "\ue1b9"; // Inventory2 Unicode (default)
 
         [ObservableProperty]
         private string locationName = string.Empty;
@@ -562,7 +627,13 @@ namespace MobileApp.ViewModels
         private DateTime dateModified;
 
         public string DisplayTag => $"ID: #{AssetTag}";
-        public string DisplayLocation => $"📍 {LocationName}";
+        public string DisplayLocation => LocationName;
         public string SyncStatusColor => IsPendingSync ? "#FFC107" : "Transparent";
+
+        [RelayCommand]
+        private void Tap()
+        {
+            _onTapped?.Invoke(this);
+        }
     }
 }

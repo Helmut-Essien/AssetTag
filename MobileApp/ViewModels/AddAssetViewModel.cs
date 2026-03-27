@@ -94,6 +94,18 @@ public partial class AddAssetViewModel : BaseViewModel
     [ObservableProperty]
     private string busyMessage = "Loading...";
 
+    [ObservableProperty]
+    private bool isEditMode = false;
+
+    [ObservableProperty]
+    private string pageTitle = "Add Asset";
+
+    [ObservableProperty]
+    private string saveButtonText = "Save";
+
+    // Store the asset ID when editing an existing asset
+    private string? _editingAssetId;
+
     public AddAssetViewModel(
         IAssetService assetService,
         ILocationService locationService,
@@ -121,12 +133,85 @@ public partial class AddAssetViewModel : BaseViewModel
             IsBusy = true;
             BusyMessage = "Loading form data...";
 
+            // Set mode to Add
+            IsEditMode = false;
+            PageTitle = "Add Asset";
+            SaveButtonText = "Save";
+
             // Load categories, locations, and departments from local database
             await LoadFormDataAsync();
         }
         catch (Exception ex)
         {
             await Shell.Current.DisplayAlert("Error", $"Failed to load form data: {ex.Message}", "OK");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// Load an existing asset for editing
+    /// </summary>
+    public async Task LoadAssetAsync(string assetId)
+    {
+        if (IsBusy) return;
+
+        try
+        {
+            IsBusy = true;
+            BusyMessage = "Loading asset...";
+
+            // Store the asset ID for editing
+            _editingAssetId = assetId;
+
+            // Set mode to Edit
+            IsEditMode = true;
+            PageTitle = "Update Asset";
+            SaveButtonText = "Update";
+
+            // Load form data first
+            await LoadFormDataAsync();
+
+            // Load the asset
+            var asset = await _assetService.GetAssetByIdAsync(assetId);
+            if (asset == null)
+            {
+                await Shell.Current.DisplayAlert("Error", "Asset not found", "OK");
+                _editingAssetId = null;
+                return;
+            }
+
+            // Populate form fields - required fields
+            AssetTag = asset.AssetTag;
+            Name = asset.Name;
+            SelectedStatus = asset.Status;
+            SelectedCondition = asset.Condition;
+            Quantity = asset.Quantity;
+
+            // Populate nullable fields
+            DigitalAssetTag = asset.DigitalAssetTag;
+            Description = asset.Description;
+            SerialNumber = asset.SerialNumber;
+            PurchaseDate = asset.PurchaseDate;
+            PurchasePrice = asset.PurchasePrice;
+            CostPerUnit = asset.CostPerUnit;
+            VendorName = asset.VendorName;
+            InvoiceNumber = asset.InvoiceNumber;
+            WarrantyExpiry = asset.WarrantyExpiry;
+            DisposalDate = asset.DisposalDate;
+            DisposalValue = asset.DisposalValue;
+            Remarks = asset.Remarks;
+
+            // Select the matching category, location, and department
+            SelectedCategory = Categories.FirstOrDefault(c => c.CategoryId == asset.CategoryId);
+            SelectedLocation = Locations.FirstOrDefault(l => l.LocationId == asset.LocationId);
+            SelectedDepartment = Departments.FirstOrDefault(d => d.DepartmentId == asset.DepartmentId);
+        }
+        catch (Exception ex)
+        {
+            await Shell.Current.DisplayAlert("Error", $"Failed to load asset: {ex.Message}", "OK");
         }
         finally
         {
@@ -207,6 +292,7 @@ public partial class AddAssetViewModel : BaseViewModel
 
     /// <summary>
     /// Scan barcode or QR code for digital asset tag using optimized ZXing.Net.Maui implementation
+    /// Checks if the scanned tag already exists and offers to load that asset
     /// </summary>
     [RelayCommand]
     private async Task ScanBarcodeAsync()
@@ -237,7 +323,44 @@ public partial class AddAssetViewModel : BaseViewModel
 
             if (!string.IsNullOrWhiteSpace(scannedValue))
             {
-                DigitalAssetTag = scannedValue;
+                // Check if an asset with this digital tag or asset tag already exists
+                using var scope = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+                    .CreateScope(Application.Current!.Handler!.MauiContext!.Services);
+                var dbContext = scope.ServiceProvider.GetRequiredService<MobileData.Data.LocalDbContext>();
+                
+                var existingAsset = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+                    .FirstOrDefaultAsync(
+                        dbContext.Assets,
+                        a => a.DigitalAssetTag == scannedValue || a.AssetTag == scannedValue);
+
+                if (existingAsset != null)
+                {
+                    // Asset already exists - ask user what to do
+                    var loadExisting = await Shell.Current.DisplayAlert(
+                        "Asset Already Exists",
+                        $"An asset with tag '{scannedValue}' already exists:\n\n" +
+                        $"Name: {existingAsset.Name}\n" +
+                        $"Asset Tag: {existingAsset.AssetTag}\n\n" +
+                        "Would you like to load and edit this existing asset instead?",
+                        "Yes, Load It",
+                        "No, Use Tag Anyway");
+
+                    if (loadExisting)
+                    {
+                        // Load the existing asset for editing
+                        await LoadAssetAsync(existingAsset.AssetId);
+                    }
+                    else
+                    {
+                        // User wants to use the tag anyway (maybe for a different field)
+                        DigitalAssetTag = scannedValue;
+                    }
+                }
+                else
+                {
+                    // No existing asset - just populate the field
+                    DigitalAssetTag = scannedValue;
+                }
             }
         }
         catch (Exception ex)
@@ -248,7 +371,7 @@ public partial class AddAssetViewModel : BaseViewModel
 
 
     /// <summary>
-    /// Save the new asset
+    /// Save the asset (creates new or updates existing based on edit mode)
     /// </summary>
     [RelayCommand]
     private async Task SaveAssetAsync()
@@ -291,7 +414,7 @@ public partial class AddAssetViewModel : BaseViewModel
             IsBusy = true;
             BusyMessage = "Saving asset...";
 
-            var newAsset = new Asset
+            var asset = new Asset
             {
                 AssetTag = AssetTag.Trim(),
                 DigitalAssetTag = string.IsNullOrWhiteSpace(DigitalAssetTag) ? null : DigitalAssetTag.Trim(),
@@ -317,11 +440,29 @@ public partial class AddAssetViewModel : BaseViewModel
                 DateModified = DateTime.UtcNow
             };
 
-            var (success, message) = await _assetService.CreateAssetAsync(newAsset);
+            bool success;
+            string message;
+
+            if (IsEditMode && !string.IsNullOrEmpty(_editingAssetId))
+            {
+                // Update existing asset
+                asset.AssetId = _editingAssetId;
+                (success, message) = await _assetService.UpdateAssetAsync(asset);
+            }
+            else
+            {
+                // Create new asset
+                (success, message) = await _assetService.CreateAssetAsync(asset);
+            }
 
             if (success)
             {
-                await Shell.Current.DisplayAlert("Success", message, "OK");
+                var actionText = IsEditMode ? "updated" : "created";
+                await Shell.Current.DisplayAlert("Success", $"Asset {actionText} successfully", "OK");
+                
+                // Clear the editing asset ID
+                _editingAssetId = null;
+                
                 await Shell.Current.GoToAsync("..");
             }
             else

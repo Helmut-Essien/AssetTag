@@ -178,6 +178,100 @@ public class AssetService : IAssetService
         }
     }
 
+    public async Task<(bool Success, string Message, bool IsUpdate)> UpsertAssetAsync(Asset asset)
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
+
+            // Check if asset exists by AssetTag or DigitalAssetTag
+            Asset? existingAsset = null;
+
+            // First, try to find by AssetTag (primary identifier)
+            if (!string.IsNullOrWhiteSpace(asset.AssetTag))
+            {
+                existingAsset = await dbContext.Assets
+                    .FirstOrDefaultAsync(a => a.AssetTag == asset.AssetTag);
+            }
+
+            // If not found by AssetTag and DigitalAssetTag is provided, try that
+            if (existingAsset == null && !string.IsNullOrWhiteSpace(asset.DigitalAssetTag))
+            {
+                existingAsset = await dbContext.Assets
+                    .FirstOrDefaultAsync(a => a.DigitalAssetTag == asset.DigitalAssetTag);
+            }
+
+            bool isUpdate = existingAsset != null;
+
+            if (isUpdate)
+            {
+                // Update existing asset
+                existingAsset!.AssetTag = asset.AssetTag;
+                existingAsset.Name = asset.Name;
+                existingAsset.Description = asset.Description;
+                existingAsset.CategoryId = asset.CategoryId;
+                existingAsset.LocationId = asset.LocationId;
+                existingAsset.DepartmentId = asset.DepartmentId;
+                existingAsset.PurchaseDate = asset.PurchaseDate;
+                existingAsset.PurchasePrice = asset.PurchasePrice;
+                existingAsset.CurrentValue = asset.CurrentValue;
+                existingAsset.Status = asset.Status;
+                existingAsset.AssignedToUserId = asset.AssignedToUserId;
+                existingAsset.SerialNumber = asset.SerialNumber;
+                existingAsset.DigitalAssetTag = asset.DigitalAssetTag;
+                existingAsset.Condition = asset.Condition;
+                existingAsset.VendorName = asset.VendorName;
+                existingAsset.InvoiceNumber = asset.InvoiceNumber;
+                existingAsset.Quantity = asset.Quantity;
+                existingAsset.CostPerUnit = asset.CostPerUnit;
+                existingAsset.UsefulLifeYears = asset.UsefulLifeYears;
+                existingAsset.WarrantyExpiry = asset.WarrantyExpiry;
+                existingAsset.DisposalDate = asset.DisposalDate;
+                existingAsset.DisposalValue = asset.DisposalValue;
+                existingAsset.Remarks = asset.Remarks;
+                existingAsset.DateModified = DateTime.UtcNow;
+
+                await dbContext.SaveChangesAsync();
+
+                _logger.LogInformation("Updated asset {AssetId} ({AssetTag}) via upsert",
+                    existingAsset.AssetId, existingAsset.AssetTag);
+
+                // Enqueue a push sync request (fire-and-forget)
+                _ = _syncService.EnqueuePushAsync();
+
+                return (true, "Asset updated successfully", true);
+            }
+            else
+            {
+                // Create new asset
+                if (string.IsNullOrEmpty(asset.AssetId))
+                {
+                    asset.AssetId = Ulid.NewUlid().ToString();
+                }
+
+                asset.CreatedAt = DateTime.UtcNow;
+                asset.DateModified = DateTime.UtcNow;
+
+                dbContext.Assets.Add(asset);
+                await dbContext.SaveChangesAsync();
+
+                _logger.LogInformation("Created asset {AssetId} ({AssetTag}) via upsert",
+                    asset.AssetId, asset.AssetTag);
+
+                // Enqueue a push sync request (fire-and-forget)
+                _ = _syncService.EnqueuePushAsync();
+
+                return (true, "Asset created successfully", false);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error upserting asset");
+            return (false, $"Error saving asset: {ex.Message}", false);
+        }
+    }
+
     public async Task<(bool Success, string Message)> DeleteAssetAsync(string assetId)
     {
         try
@@ -196,7 +290,7 @@ public class AssetService : IAssetService
             dbContext.Assets.Remove(asset);
             await dbContext.SaveChangesAsync(); // Automatically queues to SyncQueue
 
-            _logger.LogInformation("Deleted asset {AssetId} ({AssetTag}) offline", 
+            _logger.LogInformation("Deleted asset {AssetId} ({AssetTag}) offline",
                 assetId, assetTag);
 
             // Enqueue a push sync request (fire-and-forget)
