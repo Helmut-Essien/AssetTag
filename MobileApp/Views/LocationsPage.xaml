@@ -62,7 +62,7 @@
                            HeightRequest="20"
                            VerticalOptions="Center">
                         <Image.Source>
-                            <FontImageSource FontFamily="MaterialRegular"
+                            <FontImageSource FontFamily="MaterialIcons-Regular"
                                            Glyph="{mi:Material Icon=Search}"
                                            Color="#666666"
                                            Size="20"/>
@@ -105,7 +105,7 @@
                     <HorizontalStackLayout Spacing="4">
                         <Image WidthRequest="12" HeightRequest="12" VerticalOptions="Center">
                             <Image.Source>
-                                <FontImageSource FontFamily="MaterialRegular"
+                                <FontImageSource FontFamily="MaterialIcons-Regular"
                                                Glyph="{mi:Material Icon=Sync}"
                                                Color="#005A9C"
                                                Size="12"/>
@@ -178,15 +178,9 @@
                                            Margin="8,0">
                                         <Image WidthRequest="24"
                                                HeightRequest="24"
+                                               Source="{mi:Material Icon={Binding LocationIcon}, IconColor=#4CAF50}"
                                                HorizontalOptions="Center"
-                                               VerticalOptions="Center">
-                                            <Image.Source>
-                                                <FontImageSource FontFamily="MaterialRegular"
-                                                               Glyph="{Binding LocationIcon}"
-                                                               Color="#4CAF50"
-                                                               Size="24"/>
-                                            </Image.Source>
-                                        </Image>
+                                               VerticalOptions="Center"/>
                                     </Frame>
                                     
                                     <!-- Content Area -->
@@ -213,7 +207,7 @@
                                                    IsVisible="{Binding HasCoordinates}"
                                                    VerticalOptions="Center">
                                                 <Image.Source>
-                                                    <FontImageSource FontFamily="MaterialRegular"
+                                                    <FontImageSource FontFamily="MaterialIcons-Regular"
                                                                    Glyph="{mi:Material Icon=GpsFixed}"
                                                                    Color="#4CAF50"
                                                                    Size="12"/>
@@ -230,7 +224,7 @@
                                            VerticalOptions="Center"
                                            Margin="0,0,8,0">
                                         <Image.Source>
-                                            <FontImageSource FontFamily="MaterialRegular"
+                                            <FontImageSource FontFamily="MaterialIcons-Regular"
                                                            Glyph="{mi:Material Icon=ChevronRight}"
                                                            Color="#999999"
                                                            Size="24"/>
@@ -284,7 +278,7 @@
                 <!-- Empty Icon -->
                 <Image WidthRequest="64" HeightRequest="64" HorizontalOptions="Center">
                     <Image.Source>
-                        <FontImageSource FontFamily="MaterialRegular"
+                        <FontImageSource FontFamily="MaterialIcons-Regular"
                                        Glyph="{mi:Material Icon=LocationOff}"
                                        Color="#CCCCCC"
                                        Size="64"/>
