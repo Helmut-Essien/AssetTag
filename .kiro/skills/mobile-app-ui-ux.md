@@ -11,6 +11,17 @@
 
 ---
 
+## UX Workflow
+
+When updating AssetTag mobile UI, apply a lightweight design-system approach:
+- identify the feature goal, user context, and preferred visual style before editing screens
+- match new layouts to existing brand palette, semantic colors, typography scale, and 4pt spacing
+- reuse app resource tokens and avoid hard-coded colors outside `Resources/Styles/Styles.xaml`
+- prefer simple component patterns (cards, buttons, search bars, filters) over complex custom controls
+- validate changes against Shell navigation, tab caching behavior, and page lifecycle expectations
+
+---
+
 ## Color System
 
 ### Primary Colors
