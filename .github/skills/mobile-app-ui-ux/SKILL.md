@@ -1,3 +1,8 @@
+---
+name: mobile-app-ui-ux
+description: "Use when working on AssetTag MobileApp UI/UX, page layout, theming, or mobile screen flow. Helps preserve current MAUI design patterns and accessibility while updating views or styles."
+---
+
 # Mobile App UI/UX Design System & Guidelines
 
 ## Design Philosophy
