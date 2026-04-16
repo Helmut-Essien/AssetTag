@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MobileApp.Services;
+using MauiIcons.Material;
 using System.Collections.ObjectModel;
 using SharedLocation = Shared.Models.Location;
 
@@ -486,7 +487,7 @@ public partial class LocationItemViewModel : ObservableObject
         }
     }
 
-    public string LocationIcon => "LocationOn"; // LocationOn icon name
+    public MaterialIcons LocationIcon => MaterialIcons.LocationOn;
     
     public bool HasCoordinates => Latitude.HasValue && Longitude.HasValue;
 

@@ -4,6 +4,7 @@
              xmlns:viewmodels="clr-namespace:MobileApp.ViewModels"
              xmlns:controls="clr-namespace:MobileApp.Controls"
              xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
+             xmlns:mci="clr-namespace:MauiIcons.Core;assembly=MauiIcons.Core"
              x:Class="MobileApp.Views.LocationsPage"
              x:Name="RootPage"
              x:DataType="viewmodels:LocationsViewModel"
@@ -178,9 +179,9 @@
                                            Margin="8,0">
                                         <Image WidthRequest="24"
                                                HeightRequest="24"
-                                               Source="{mi:Material Icon={Binding LocationIcon}, IconColor=#4CAF50}"
                                                HorizontalOptions="Center"
-                                               VerticalOptions="Center"/>
+                                               VerticalOptions="Center"
+                                               mci:MauiIcon.Value="{mi:Material Icon={Binding LocationIcon}, IconColor=#4CAF50}"/>
                                     </Frame>
                                     
                                     <!-- Content Area -->
