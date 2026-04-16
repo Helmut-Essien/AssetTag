@@ -3,6 +3,8 @@ using CommunityToolkit.Mvvm.Input;
 using MobileData.Data;
 using Microsoft.EntityFrameworkCore;
 using MobileApp.Services;
+using MauiIcons.Material;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
@@ -323,12 +325,11 @@ namespace MobileApp.ViewModels
             // Apply search filter
             if (!string.IsNullOrWhiteSpace(SearchText))
             {
-                var searchLower = SearchText.ToLower();
                 filtered = filtered.Where(a =>
-                    a.Name.ToLower().Contains(searchLower) ||
-                    a.AssetTag.ToLower().Contains(searchLower) ||
-                    (a.DigitalAssetTag?.ToLower().Contains(searchLower) ?? false) ||
-                    (a.LocationName?.ToLower().Contains(searchLower) ?? false));
+                    a.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                    a.AssetTag.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                    (a.DigitalAssetTag?.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    a.LocationName.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
             }
 
             // Apply pending sync filter
@@ -552,28 +553,29 @@ namespace MobileApp.ViewModels
         }
 
         /// <summary>
-        /// Get category icon based on category name (Material Design icon name)
-        /// Returns the icon name as string for use with MauiIcons.Material
+        /// Get category icon based on category name (Material Design icon enum)
+        /// Returns the MaterialIcons enum value for the category.
         /// </summary>
-        private string GetCategoryIcon(string? categoryName)
+        private MaterialIcons GetCategoryIcon(string? categoryName)
         {
             if (string.IsNullOrEmpty(categoryName))
-                return "Inventory2"; // Default
+                return MaterialIcons.Inventory; // Default
 
-            return categoryName.ToLower() switch
+            var lower = categoryName.ToLowerInvariant();
+            return lower switch
             {
-                var c when c.Contains("building") => "Business",
-                var c when c.Contains("computer") || c.Contains("accessories") => "Computer",
-                var c when c.Contains("furniture") || c.Contains("fitting") => "Chair",
-                var c when c.Contains("library") || c.Contains("book") || c.Contains("material") => "Book",
-                var c when c.Contains("loose") || c.Contains("tool") => "Build",
-                var c when c.Contains("motor") || c.Contains("vehicle") => "DirectionsCar",
-                var c when c.Contains("office") || c.Contains("equipment") => "Print",
-                var c when c.Contains("plant") || c.Contains("equipment") => "PrecisionManufacturing",
-                var c when c.Contains("road") || c.Contains("curvert") => "DirectionsRailway",
-                var c when c.Contains("software") => "Code",
-                var c when c.Contains("teaching") || c.Contains("aid") || c.Contains("mat") => "School",
-                _ => "Inventory2" // Default for unknown categories
+                var c when c.Contains("building") => MaterialIcons.Business,
+                var c when c.Contains("computer") || c.Contains("accessories") => MaterialIcons.Computer,
+                var c when c.Contains("furniture") || c.Contains("fitting") => MaterialIcons.Chair,
+                var c when c.Contains("library") || c.Contains("book") || c.Contains("material") => MaterialIcons.Book,
+                var c when c.Contains("loose") || c.Contains("tool") => MaterialIcons.Build,
+                var c when c.Contains("motor") || c.Contains("vehicle") => MaterialIcons.DirectionsCar,
+                var c when c.Contains("office") || c.Contains("equipment") => MaterialIcons.Print,
+                var c when c.Contains("plant") || c.Contains("equipment") => MaterialIcons.PrecisionManufacturing,
+                var c when c.Contains("road") || c.Contains("curvert") => MaterialIcons.DirectionsRailway,
+                var c when c.Contains("software") => MaterialIcons.Code,
+                var c when c.Contains("teaching") || c.Contains("aid") || c.Contains("mat") => MaterialIcons.School,
+                _ => MaterialIcons.Inventory // Default for unknown categories
             };
         }
 
@@ -615,7 +617,7 @@ namespace MobileApp.ViewModels
         private string categoryName = string.Empty;
 
         [ObservableProperty]
-        private string categoryIcon = "Inventory2"; // Default icon name
+        private MaterialIcons categoryIcon = MaterialIcons.Inventory;
 
         [ObservableProperty]
         private string locationName = string.Empty;
