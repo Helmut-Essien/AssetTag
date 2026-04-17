@@ -46,8 +46,22 @@ jobs:
               - 'Shared/**'
               - '.github/workflows/**'
 
+  get-mobile-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from csproj
+        id: version
+        run: |
+          VERSION=$(grep -oP '<ApplicationDisplayVersion>\K[^<]+' MobileApp/MobileApp.csproj)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Mobile version from csproj: $VERSION"
+
   build-and-publish:
-    needs: detect-changes
+    needs: [detect-changes, get-mobile-version]
     runs-on: ubuntu-latest
     if: needs.detect-changes.outputs.api-changed == 'true' || needs.detect-changes.outputs.portal-changed == 'true'
     steps:
@@ -108,9 +122,9 @@ jobs:
               "Token": "$GITHUB_TOKEN"
             },
             "MobileApp": {
-              "LatestVersion": "1.0.${{ github.run_number }}",
+              "LatestVersion": "${{ needs.get-mobile-version.outputs.version }}",
               "MinimumSupportedVersion": "1.0.0",
-              "DownloadUrl": "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/download/mobile-v1.0.${{ github.run_number }}/MUGAssets-v1.0.${{ github.run_number }}.apk"
+              "DownloadUrl": "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/download/mobile-v${{ needs.get-mobile-version.outputs.version }}/MUGAssets-v${{ needs.get-mobile-version.outputs.version }}.apk"
             },
             "Logging": {
               "LogLevel": {
@@ -293,7 +307,7 @@ jobs:
   # BUILD ANDROID APK
   # ========================================
   build-android:
-    needs: detect-changes
+    needs: [detect-changes, get-mobile-version]
     if: needs.detect-changes.outputs.mobile-changed == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -374,8 +388,8 @@ jobs:
             -p:AndroidSigningKeyAlias="$KEY_ALIAS" \
             -p:AndroidSigningKeyPass="$KEY_PASS" \
             -p:AndroidKeyStore=true \
-            -p:ApplicationVersion=${{ github.run_number }} \
-            -p:ApplicationDisplayVersion="1.0.${{ github.run_number }}" \
+            -p:ApplicationVersion=${{ needs.get-mobile-version.outputs.version }} \
+            -p:ApplicationDisplayVersion="${{ needs.get-mobile-version.outputs.version }}" \
             -p:AndroidPackageFormat=apk \
             --output ./publish/android \
             -v:n
@@ -426,20 +440,20 @@ jobs:
           
           echo "Found signed APK: $APK_FILE"
           echo "APK size: $(ls -lh "$APK_FILE" | awk '{print $5}')"
-          cp "$APK_FILE" "./MUGAssets-v1.0.${{ github.run_number }}.apk"
+          cp "$APK_FILE" "./MUGAssets-v${{ needs.get-mobile-version.outputs.version }}.apk"
 
       # Upload the renamed APK as a workflow artifact for the next job
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: ./MUGAssets-v1.0.${{ github.run_number }}.apk
+          path: ./MUGAssets-v${{ needs.get-mobile-version.outputs.version }}.apk
 
   # ========================================
   # PUBLISH APK TO GITHUB RELEASES
   # ========================================
   release-android:
-    needs: [detect-changes, build-android]
+    needs: [detect-changes, build-android, get-mobile-version]
     if: needs.detect-changes.outputs.mobile-changed == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -456,12 +470,12 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: mobile-v1.0.${{ github.run_number }}
-          name: "MUG Assets v1.0.${{ github.run_number }} (Pre-release)"
+          tag_name: mobile-v${{ needs.get-mobile-version.outputs.version }}
+          name: "MUG Assets v${{ needs.get-mobile-version.outputs.version }} (Pre-release)"
           body: |
             ## MUG Assets Android Release (Pre-release)
 
-            **Version:** 1.0.${{ github.run_number }}
+            **Version:** ${{ needs.get-mobile-version.outputs.version }}
             **Built from:** ${{ github.sha }}
 
             ⚠️ **This is a pre-release version for testing purposes.**
@@ -472,11 +486,11 @@ jobs:
             - Improved stability
 
             ### How to install (sideloading)
-            1. Download `MUGAssets-v1.0.${{ github.run_number }}.apk` below
+            1. Download `MUGAssets-v${{ needs.get-mobile-version.outputs.version }}.apk` below
             2. Transfer to your Android device
             3. On the device: **Settings → Apps → Special app access → Install unknown apps**
             4. Enable installs from your file manager or browser, then open the APK
-          files: ./apk-release/MUGAssets-v1.0.${{ github.run_number }}.apk
+          files: ./apk-release/MUGAssets-v${{ needs.get-mobile-version.outputs.version }}.apk
           prerelease: true
           make_latest: "false"
           generate_release_notes: false
