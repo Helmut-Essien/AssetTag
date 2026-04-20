@@ -11,6 +11,7 @@ public record CategoryCreateDTO
     [Display(Name = "Description")]
     public string? Description { get; init; }
     
+    [Required(ErrorMessage = "Depreciation rate is required")]
     [Display(Name = "Depreciation Rate (%)")]
     [Range(0, 100, ErrorMessage = "Depreciation rate must be between 0 and 100%")]
     public decimal? DepreciationRate { get; init; }

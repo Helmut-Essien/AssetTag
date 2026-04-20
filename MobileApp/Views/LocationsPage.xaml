@@ -4,6 +4,7 @@
              xmlns:viewmodels="clr-namespace:MobileApp.ViewModels"
              xmlns:controls="clr-namespace:MobileApp.Controls"
              xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
+             xmlns:mci="clr-namespace:MauiIcons.Core;assembly=MauiIcons.Core"
              x:Class="MobileApp.Views.LocationsPage"
              x:Name="RootPage"
              x:DataType="viewmodels:LocationsViewModel"
@@ -62,7 +63,7 @@
                            HeightRequest="20"
                            VerticalOptions="Center">
                         <Image.Source>
-                            <FontImageSource FontFamily="MaterialRegular"
+                            <FontImageSource FontFamily="MaterialIcons-Regular"
                                            Glyph="{mi:Material Icon=Search}"
                                            Color="#666666"
                                            Size="20"/>
@@ -105,7 +106,7 @@
                     <HorizontalStackLayout Spacing="4">
                         <Image WidthRequest="12" HeightRequest="12" VerticalOptions="Center">
                             <Image.Source>
-                                <FontImageSource FontFamily="MaterialRegular"
+                                <FontImageSource FontFamily="MaterialIcons-Regular"
                                                Glyph="{mi:Material Icon=Sync}"
                                                Color="#005A9C"
                                                Size="12"/>
@@ -179,14 +180,8 @@
                                         <Image WidthRequest="24"
                                                HeightRequest="24"
                                                HorizontalOptions="Center"
-                                               VerticalOptions="Center">
-                                            <Image.Source>
-                                                <FontImageSource FontFamily="MaterialRegular"
-                                                               Glyph="{Binding LocationIcon}"
-                                                               Color="#4CAF50"
-                                                               Size="24"/>
-                                            </Image.Source>
-                                        </Image>
+                                               VerticalOptions="Center"
+                                               mci:MauiIcon.Value="{mi:Material Icon={Binding LocationIcon}, IconColor=#4CAF50}"/>
                                     </Frame>
                                     
                                     <!-- Content Area -->
@@ -213,7 +208,7 @@
                                                    IsVisible="{Binding HasCoordinates}"
                                                    VerticalOptions="Center">
                                                 <Image.Source>
-                                                    <FontImageSource FontFamily="MaterialRegular"
+                                                    <FontImageSource FontFamily="MaterialIcons-Regular"
                                                                    Glyph="{mi:Material Icon=GpsFixed}"
                                                                    Color="#4CAF50"
                                                                    Size="12"/>
@@ -230,7 +225,7 @@
                                            VerticalOptions="Center"
                                            Margin="0,0,8,0">
                                         <Image.Source>
-                                            <FontImageSource FontFamily="MaterialRegular"
+                                            <FontImageSource FontFamily="MaterialIcons-Regular"
                                                            Glyph="{mi:Material Icon=ChevronRight}"
                                                            Color="#999999"
                                                            Size="24"/>
@@ -284,7 +279,7 @@
                 <!-- Empty Icon -->
                 <Image WidthRequest="64" HeightRequest="64" HorizontalOptions="Center">
                     <Image.Source>
-                        <FontImageSource FontFamily="MaterialRegular"
+                        <FontImageSource FontFamily="MaterialIcons-Regular"
                                        Glyph="{mi:Material Icon=LocationOff}"
                                        Color="#CCCCCC"
                                        Size="64"/>

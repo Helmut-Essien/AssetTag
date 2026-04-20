@@ -53,7 +53,7 @@
                        HorizontalOptions="Center"
                        VerticalOptions="Center">
                     <Image.Source>
-                        <FontImageSource FontFamily="MaterialRegular"
+                        <FontImageSource FontFamily="MaterialIcons-Regular"
                                        Glyph="{mi:Material Icon=Settings}"
                                        Color="White"
                                        Size="24"/>
@@ -113,7 +113,7 @@
                             <VerticalStackLayout Spacing="8" HorizontalOptions="Center">
                                 <Image WidthRequest="28" HeightRequest="28" HorizontalOptions="Center">
                                     <Image.Source>
-                                        <FontImageSource FontFamily="MaterialRegular"
+                                        <FontImageSource FontFamily="MaterialIcons-Regular"
                                                        Glyph="{mi:Material Icon=Inventory}"
                                                        Color="#005A9C"
                                                        Size="28"/>
@@ -145,7 +145,7 @@
                             <VerticalStackLayout Spacing="8" HorizontalOptions="Center">
                                 <Image WidthRequest="28" HeightRequest="28" HorizontalOptions="Center">
                                     <Image.Source>
-                                        <FontImageSource FontFamily="MaterialRegular"
+                                        <FontImageSource FontFamily="MaterialIcons-Regular"
                                                        Glyph="{mi:Material Icon=QrCodeScanner}"
                                                        Color="#4CAF50"
                                                        Size="28"/>
@@ -177,7 +177,7 @@
                             <VerticalStackLayout Spacing="8" HorizontalOptions="Center">
                                 <Image WidthRequest="28" HeightRequest="28" HorizontalOptions="Center">
                                     <Image.Source>
-                                        <FontImageSource FontFamily="MaterialRegular"
+                                        <FontImageSource FontFamily="MaterialIcons-Regular"
                                                        Glyph="{mi:Material Icon=SyncProblem}"
                                                        Color="#FFC107"
                                                        Size="28"/>
@@ -292,7 +292,7 @@
                                            HorizontalOptions="Center"
                                            VerticalOptions="Center">
                                         <Image.Source>
-                                            <FontImageSource FontFamily="MaterialRegular"
+                                            <FontImageSource FontFamily="MaterialIcons-Regular"
                                                            Glyph="{mi:Material Icon=AddCircle}"
                                                            Color="#4CAF50"
                                                            Size="24"/>
@@ -319,7 +319,7 @@
                                        HeightRequest="28"
                                        VerticalOptions="Center">
                                     <Image.Source>
-                                        <FontImageSource FontFamily="MaterialRegular"
+                                        <FontImageSource FontFamily="MaterialIcons-Regular"
                                                        Glyph="{mi:Material Icon=ChevronRight}"
                                                        Color="#CCCCCC"
                                                        Size="28"/>
@@ -352,7 +352,7 @@
                                            HorizontalOptions="Center"
                                            VerticalOptions="Center">
                                         <Image.Source>
-                                            <FontImageSource FontFamily="MaterialRegular"
+                                            <FontImageSource FontFamily="MaterialIcons-Regular"
                                                            Glyph="{mi:Material Icon=ListAlt}"
                                                            Color="#005A9C"
                                                            Size="24"/>
@@ -379,7 +379,7 @@
                                        HeightRequest="28"
                                        VerticalOptions="Center">
                                     <Image.Source>
-                                        <FontImageSource FontFamily="MaterialRegular"
+                                        <FontImageSource FontFamily="MaterialIcons-Regular"
                                                        Glyph="{mi:Material Icon=ChevronRight}"
                                                        Color="#CCCCCC"
                                                        Size="28"/>
@@ -412,7 +412,7 @@
                                            HorizontalOptions="Center"
                                            VerticalOptions="Center">
                                         <Image.Source>
-                                            <FontImageSource FontFamily="MaterialRegular"
+                                            <FontImageSource FontFamily="MaterialIcons-Regular"
                                                            Glyph="{mi:Material Icon=QrCodeScanner}"
                                                            Color="#FF9800"
                                                            Size="24"/>
@@ -439,7 +439,7 @@
                                        HeightRequest="28"
                                        VerticalOptions="Center">
                                     <Image.Source>
-                                        <FontImageSource FontFamily="MaterialRegular"
+                                        <FontImageSource FontFamily="MaterialIcons-Regular"
                                                        Glyph="{mi:Material Icon=ChevronRight}"
                                                        Color="#CCCCCC"
                                                        Size="28"/>
@@ -478,7 +478,7 @@
                         <!-- Sync Icon -->
                         <Image WidthRequest="64" HeightRequest="64" HorizontalOptions="Center">
                             <Image.Source>
-                                <FontImageSource FontFamily="MaterialRegular"
+                                <FontImageSource FontFamily="MaterialIcons-Regular"
                                                Glyph="{mi:Material Icon=Sync}"
                                                Color="#00796B"
                                                Size="64"/>

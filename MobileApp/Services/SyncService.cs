@@ -14,8 +14,13 @@ public class SyncService : ISyncService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IAuthService _authService;
     private readonly ILogger<SyncService> _logger;
-    // Semaphore to serialize full sync operations and avoid concurrent DB contention
-    private readonly System.Threading.SemaphoreSlim _syncSemaphore = new(1, 1);
+    
+    // FIX #4: Separate semaphores for each sync operation to prevent race conditions
+    // These ensure only one sync operation of each type runs at a time
+    private readonly SemaphoreSlim _pushSemaphore = new(1, 1);
+    private readonly SemaphoreSlim _pullSemaphore = new(1, 1);
+    private readonly SemaphoreSlim _fullSyncSemaphore = new(1, 1);
+    
     // Channel-based queue to serialize background sync requests
     private readonly Channel<SyncWorkItem> _syncQueue = Channel.CreateUnbounded<SyncWorkItem>(new UnboundedChannelOptions
     {
@@ -25,9 +30,66 @@ public class SyncService : ISyncService
 
     private readonly Task _queueProcessorTask;
 
+    // FIX #2: Maximum retry attempts before marking sync item as permanently failed
+    private const int MAX_RETRY_COUNT = 5;
+
     private record SyncWorkItem(SyncRequestType Type, TaskCompletionSource<(bool Success, string Message)> Tcs);
 
     private enum SyncRequestType { Push, Full }
+
+    // FIX #6: Sync progress event system for real-time UI updates
+    public event EventHandler<SyncProgressEventArgs>? SyncProgressChanged;
+
+    /// <summary>
+    /// Represents the current state and progress of a sync operation
+    /// </summary>
+    public class SyncProgressEventArgs : EventArgs
+    {
+        public SyncPhase Phase { get; set; }
+        public int CurrentItem { get; set; }
+        public int TotalItems { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public double ProgressPercentage => TotalItems > 0 ? (double)CurrentItem / TotalItems * 100 : 0;
+    }
+
+    /// <summary>
+    /// Phases of the sync operation for progress tracking
+    /// </summary>
+    public enum SyncPhase
+    {
+        Starting,
+        PushingChanges,
+        PullingCategories,
+        PullingLocations,
+        PullingDepartments,
+        PullingAssets,
+        Finalizing,
+        Completed,
+        Failed
+    }
+
+    /// <summary>
+    /// Raises sync progress event on main thread for UI updates
+    /// </summary>
+    private void ReportProgress(SyncPhase phase, int current, int total, string message)
+    {
+        var args = new SyncProgressEventArgs
+        {
+            Phase = phase,
+            CurrentItem = current,
+            TotalItems = total,
+            Message = message
+        };
+
+        // FIX #6: Invoke on main thread for UI safety
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            SyncProgressChanged?.Invoke(this, args);
+        });
+
+        _logger.LogDebug("Sync progress: {Phase} - {Current}/{Total} - {Message}",
+            phase, current, total, message);
+    }
 
     public SyncService(
         IServiceProvider serviceProvider,
@@ -45,12 +107,25 @@ public class SyncService : ISyncService
 
     public async Task<(bool Success, string Message)> PushChangesAsync()
     {
+        // FIX #4: Protect push operations with semaphore to prevent concurrent execution
+        // Try to acquire immediately - if already running, skip to avoid queuing
+        var acquired = await _pushSemaphore.WaitAsync(0);
+        if (!acquired)
+        {
+            _logger.LogWarning("Push sync already in progress - skipping concurrent request");
+            return (false, "Push sync already in progress");
+        }
+
         try
         {
+            // FIX #6: Report starting phase
+            ReportProgress(SyncPhase.Starting, 0, 0, "Checking connectivity...");
+
             // Check connectivity
             if (!await _authService.IsConnectedToInternet())
             {
                 _logger.LogWarning("Push sync skipped: No internet connection");
+                ReportProgress(SyncPhase.Failed, 0, 0, "No internet connection");
                 return (false, "No internet connection");
             }
 
@@ -66,10 +141,14 @@ public class SyncService : ISyncService
             if (!pendingItems.Any())
             {
                 _logger.LogInformation("Push sync: No changes to sync");
+                ReportProgress(SyncPhase.Completed, 0, 0, "No changes to sync");
                 return (true, "No changes to sync");
             }
 
+            // FIX #6: Report push phase with total count
             _logger.LogInformation("Push sync: {Count} operations to sync", pendingItems.Count);
+            ReportProgress(SyncPhase.PushingChanges, 0, pendingItems.Count,
+                $"Pushing {pendingItems.Count} changes to server...");
 
             // Prepare request
             var deviceInfo = await GetOrCreateDeviceInfoAsync();
@@ -105,22 +184,51 @@ public class SyncService : ISyncService
                     
                     dbContext.SyncQueue.RemoveRange(successfulItems);
                     
-                    // Increment retry count for failed items
+                    // FIX #2: Increment retry count for failed items and remove those exceeding max retries
                     var failedItems = pendingItems
                         .Where(item => !result.SuccessfulOperationIds.Contains(item.Id))
                         .ToList();
                     
+                    var itemsToRemove = new List<SyncQueueItem>();
+                    var itemsToRetry = new List<SyncQueueItem>();
+                    
                     foreach (var failedItem in failedItems)
                     {
                         failedItem.RetryCount++;
-                        _logger.LogWarning("Sync failed for {EntityType} {EntityId}, retry count: {RetryCount}",
-                            failedItem.EntityType, failedItem.EntityId, failedItem.RetryCount);
+                        
+                        if (failedItem.RetryCount >= MAX_RETRY_COUNT)
+                        {
+                            // FIX #2: Remove permanently failed items to prevent infinite retry loops
+                            itemsToRemove.Add(failedItem);
+                            _logger.LogError(
+                                "Max retry count ({MaxRetries}) exceeded for {EntityType} {EntityId}. " +
+                                "Removing from sync queue. Manual intervention required. " +
+                                "Operation: {Operation}, Data: {JsonData}",
+                                MAX_RETRY_COUNT, failedItem.EntityType, failedItem.EntityId,
+                                failedItem.Operation, failedItem.JsonData);
+                        }
+                        else
+                        {
+                            itemsToRetry.Add(failedItem);
+                            _logger.LogWarning("Sync failed for {EntityType} {EntityId}, retry count: {RetryCount}/{MaxRetries}",
+                                failedItem.EntityType, failedItem.EntityId, failedItem.RetryCount, MAX_RETRY_COUNT);
+                        }
+                    }
+                    
+                    // FIX #2: Remove items that exceeded max retries
+                    if (itemsToRemove.Any())
+                    {
+                        dbContext.SyncQueue.RemoveRange(itemsToRemove);
+                        _logger.LogWarning("Removed {Count} permanently failed items from sync queue", itemsToRemove.Count);
                     }
                     
                     await dbContext.SaveChangesAsync();
 
-                    _logger.LogInformation("Push sync completed: {SuccessCount} synced, {FailureCount} failed",
-                        result.SuccessCount, result.FailureCount);
+                    var message = $"Synced {result.SuccessCount} changes, {itemsToRetry.Count} will retry, {itemsToRemove.Count} permanently failed";
+                    _logger.LogInformation("Push sync completed: {Message}", message);
+
+                    // FIX #6: Report completion
+                    ReportProgress(SyncPhase.Completed, result.SuccessCount, pendingItems.Count, message);
 
                     if (result.Errors.Any())
                     {
@@ -131,7 +239,7 @@ public class SyncService : ISyncService
                         }
                     }
 
-                    return (true, $"Synced {result.SuccessCount} changes, {result.FailureCount} failed");
+                    return (true, message);
                 }
             }
 
@@ -142,6 +250,11 @@ public class SyncService : ISyncService
         {
             _logger.LogError(ex, "Error pushing changes");
             return (false, $"Sync error: {ex.Message}");
+        }
+        finally
+        {
+            // FIX #4: Always release semaphore, even on error
+            _pushSemaphore.Release();
         }
     }
 
@@ -155,6 +268,14 @@ public class SyncService : ISyncService
 
     public async Task<(bool Success, string Message)> PullChangesAsync()
     {
+        // FIX #4: Protect pull operations with semaphore to prevent concurrent execution
+        var acquired = await _pullSemaphore.WaitAsync(0);
+        if (!acquired)
+        {
+            _logger.LogWarning("Pull sync already in progress - skipping concurrent request");
+            return (false, "Pull sync already in progress");
+        }
+
         try
         {
             if (!await _authService.IsConnectedToInternet())
@@ -207,6 +328,11 @@ public class SyncService : ISyncService
                 // ═══════════════════════════════════════════════════════════
                 // STEP 1: Sync Categories FIRST (Assets depend on them)
                 // ═══════════════════════════════════════════════════════════
+                // FIX #6: Report categories phase
+                ReportProgress(SyncPhase.PullingCategories, 0, result.Categories.Count,
+                    $"Syncing {result.Categories.Count} categories...");
+                
+                var categoryIndex = 0;
                 foreach (var categoryDto in result.Categories)
                 {
                     var existing = await dbContext.Categories.FindAsync(categoryDto.CategoryId);
@@ -238,11 +364,17 @@ public class SyncService : ISyncService
                     }
                     
                     totalChanges++;
+                    categoryIndex++;
                 }
 
                 // ═══════════════════════════════════════════════════════════
                 // STEP 2: Sync Locations (Assets depend on them)
                 // ═══════════════════════════════════════════════════════════
+                // FIX #6: Report locations phase
+                ReportProgress(SyncPhase.PullingLocations, 0, result.Locations.Count,
+                    $"Syncing {result.Locations.Count} locations...");
+                
+                var locationIndex = 0;
                 foreach (var locationDto in result.Locations)
                 {
                     var existing = await dbContext.Locations.FindAsync(locationDto.LocationId);
@@ -283,11 +415,17 @@ public class SyncService : ISyncService
                     }
                     
                     totalChanges++;
+                    locationIndex++;
                 }
 
                 // ═══════════════════════════════════════════════════════════
                 // STEP 3: Sync Departments (Assets depend on them)
                 // ═══════════════════════════════════════════════════════════
+                // FIX #6: Report departments phase
+                ReportProgress(SyncPhase.PullingDepartments, 0, result.Departments.Count,
+                    $"Syncing {result.Departments.Count} departments...");
+                
+                var departmentIndex = 0;
                 foreach (var departmentDto in result.Departments)
                 {
                     var existing = await dbContext.Departments.FindAsync(departmentDto.DepartmentId);
@@ -318,6 +456,7 @@ public class SyncService : ISyncService
                     }
                     
                     totalChanges++;
+                    departmentIndex++;
                 }
 
                 // Save reference data changes before processing assets
@@ -328,8 +467,13 @@ public class SyncService : ISyncService
                 // STEP 4: Sync Assets LAST (after all dependencies exist)
                 // Process assets in batches to avoid long-running transactions and memory spikes
                 // ═══════════════════════════════════════════════════════════
+                // FIX #6: Report assets phase
+                ReportProgress(SyncPhase.PullingAssets, 0, result.Assets.Count,
+                    $"Syncing {result.Assets.Count} assets...");
+                
                 const int ASSET_BATCH_SIZE = 200;
                 var assets = result.Assets;
+                var assetIndex = 0;
 
                 for (int offset = 0; offset < assets.Count; offset += ASSET_BATCH_SIZE)
                 {
@@ -419,6 +563,14 @@ public class SyncService : ISyncService
                         }
 
                         totalChanges++;
+                        assetIndex++;
+                        
+                        // FIX #6: Report progress every 10 assets to avoid too many UI updates
+                        if (assetIndex % 10 == 0 || assetIndex == assets.Count)
+                        {
+                            ReportProgress(SyncPhase.PullingAssets, assetIndex, assets.Count,
+                                $"Syncing assets: {assetIndex}/{assets.Count}");
+                        }
                     }
 
                     // Save each batch to keep transactions bounded and avoid big memory/GC spikes
@@ -426,7 +578,80 @@ public class SyncService : ISyncService
                 }
 
                 // ═══════════════════════════════════════════════════════════
-                // STEP 5: Update last sync timestamp ONLY after successful sync
+                // STEP 5: Process deleted items (FIX #5)
+                // Remove entities that were deleted on the server
+                // ═══════════════════════════════════════════════════════════
+                ReportProgress(SyncPhase.Finalizing, 0, result.DeletedItems.Count,
+                    $"Processing {result.DeletedItems.Count} deleted items...");
+                
+                var deletedCount = 0;
+                foreach (var deletedItem in result.DeletedItems)
+                {
+                    try
+                    {
+                        switch (deletedItem.EntityType.ToLower())
+                        {
+                            case "asset":
+                                var asset = await dbContext.Assets.FindAsync(deletedItem.EntityId);
+                                if (asset != null)
+                                {
+                                    dbContext.Assets.Remove(asset);
+                                    deletedCount++;
+                                    _logger.LogInformation("Removed deleted asset {AssetId} from local database", deletedItem.EntityId);
+                                }
+                                break;
+                                
+                            case "category":
+                                var category = await dbContext.Categories.FindAsync(deletedItem.EntityId);
+                                if (category != null)
+                                {
+                                    dbContext.Categories.Remove(category);
+                                    deletedCount++;
+                                    _logger.LogInformation("Removed deleted category {CategoryId} from local database", deletedItem.EntityId);
+                                }
+                                break;
+                                
+                            case "location":
+                                var location = await dbContext.Locations.FindAsync(deletedItem.EntityId);
+                                if (location != null)
+                                {
+                                    dbContext.Locations.Remove(location);
+                                    deletedCount++;
+                                    _logger.LogInformation("Removed deleted location {LocationId} from local database", deletedItem.EntityId);
+                                }
+                                break;
+                                
+                            case "department":
+                                var department = await dbContext.Departments.FindAsync(deletedItem.EntityId);
+                                if (department != null)
+                                {
+                                    dbContext.Departments.Remove(department);
+                                    deletedCount++;
+                                    _logger.LogInformation("Removed deleted department {DepartmentId} from local database", deletedItem.EntityId);
+                                }
+                                break;
+                                
+                            default:
+                                _logger.LogWarning("Unknown entity type for deletion: {EntityType}", deletedItem.EntityType);
+                                break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error deleting {EntityType} {EntityId} from local database",
+                            deletedItem.EntityType, deletedItem.EntityId);
+                    }
+                }
+                
+                // Save deletions
+                if (deletedCount > 0)
+                {
+                    await dbContext.SaveChangesAsync();
+                    _logger.LogInformation("Removed {Count} deleted items from local database", deletedCount);
+                }
+
+                // ═══════════════════════════════════════════════════════════
+                // STEP 6: Update last sync timestamp ONLY after successful sync
                 // BUG FIX #2: Don't update LastSync if there are skipped assets
                 // ═══════════════════════════════════════════════════════════
                 if (skippedAssetIds.Any())
@@ -441,8 +666,9 @@ public class SyncService : ISyncService
                                  $"{result.Categories.Count} categories, " +
                                  $"{result.Locations.Count} locations, " +
                                  $"{result.Departments.Count} departments, " +
-                                 $"{result.Assets.Count - skippedAssetIds.Count} assets " +
-                                              $"({skippedAssetIds.Count} skipped - will retry on next sync)";
+                                 $"{result.Assets.Count - skippedAssetIds.Count} assets, " +
+                                 $"{deletedCount} deleted items " +
+                                 $"({skippedAssetIds.Count} skipped - will retry on next sync)";
                                  
                                  return (true, message);
                              }
@@ -459,12 +685,16 @@ public class SyncService : ISyncService
                                               $"{result.Categories.Count} categories, " +
                                               $"{result.Locations.Count} locations, " +
                                               $"{result.Departments.Count} departments, " +
-                                              $"{result.Assets.Count} assets";
+                                              $"{result.Assets.Count} assets, " +
+                                              $"{deletedCount} deleted items";
              
                                  _logger.LogInformation("Pull sync completed successfully: {Message}", message);
                                  
+                                 // FIX #6: Report completion
+                                 ReportProgress(SyncPhase.Completed, totalChanges, totalChanges, message);
+                                 
                                  return (true, message);
-                             }
+                                          }
                          }
                          finally
                          {
@@ -483,14 +713,19 @@ public class SyncService : ISyncService
             _logger.LogError(ex, "Error pulling changes");
             return (false, $"Pull error: {ex.Message}");
         }
+        finally
+        {
+            // FIX #4: Always release semaphore, even on error
+            _pullSemaphore.Release();
+        }
     }
 
     public async Task<(bool Success, string Message)> FullSyncAsync()
     {
         _logger.LogInformation("Starting full sync (push + pull)");
 
-        // Try to acquire the semaphore immediately to avoid queuing long-running syncs
-        var acquired = await _syncSemaphore.WaitAsync(0).ConfigureAwait(false);
+        // FIX #4: Use dedicated full sync semaphore instead of the old _syncSemaphore
+        var acquired = await _fullSyncSemaphore.WaitAsync(0).ConfigureAwait(false);
         if (!acquired)
         {
             _logger.LogWarning("Full sync already in progress - skipping concurrent request");
@@ -498,7 +733,8 @@ public class SyncService : ISyncService
         }
         try
         {
-
+        // FIX #4: Push and Pull will use their own semaphores internally
+        // This prevents deadlocks while still ensuring thread safety
         // Push first
         var (pushSuccess, pushMessage) = await PushChangesAsync();
             if (!pushSuccess)
@@ -520,7 +756,8 @@ public class SyncService : ISyncService
         }
         finally
         {
-            _syncSemaphore.Release();
+            // FIX #4: Release the full sync semaphore
+            _fullSyncSemaphore.Release();
         }
     }
 
@@ -591,6 +828,189 @@ public class SyncService : ISyncService
                 deviceInfo.DeviceId, deviceInfo.LastSync);
         }
         return deviceInfo;
+    }
+
+    /// <summary>
+    /// ENHANCEMENT #7: Queue an asset patch operation for bandwidth optimization
+    /// Only changed fields are sent to server instead of the entire entity
+    /// </summary>
+    public async Task<(bool Success, string Message)> QueueAssetPatchAsync(string assetId, Dictionary<string, object?> changes)
+    {
+        if (string.IsNullOrEmpty(assetId))
+            return (false, "Asset ID cannot be empty");
+
+        if (changes == null || changes.Count == 0)
+            return (false, "No changes to patch");
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
+
+            // Create patch DTO with only changed fields
+            var patch = new AssetPatchDTO
+            {
+                AssetId = assetId,
+                Changes = changes,
+                DateModified = DateTime.UtcNow
+            };
+
+            // Serialize patch to JSON
+            var jsonData = System.Text.Json.JsonSerializer.Serialize(patch);
+
+            // Create sync queue item
+            var queueItem = new SyncQueueItem
+            {
+                EntityType = "Asset",
+                EntityId = assetId,
+                Operation = "PATCH",  // Server recognizes this operation type
+                JsonData = jsonData,
+                CreatedAt = DateTime.UtcNow,
+                RetryCount = 0
+            };
+
+            dbContext.SyncQueue.Add(queueItem);
+            await dbContext.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "ENHANCEMENT #7: Queued PATCH for asset {AssetId} with {Count} changes ({Bytes} bytes - saves {Savings}% vs UPDATE)",
+                assetId, changes.Count, patch.EstimatedSizeBytes, 
+                ((2000 - patch.EstimatedSizeBytes) / 2000 * 100).ToString("F0"));
+
+            return (true, $"Queued patch with {changes.Count} changes");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error queuing asset patch");
+            return (false, $"Error queuing patch: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// ENHANCEMENT #7: Queue a full asset update
+    /// Use when many fields changed (>50%) or for bulk operations
+    /// </summary>
+    public async Task<(bool Success, string Message)> QueueAssetUpdateAsync(Asset asset)
+    {
+        if (asset == null)
+            return (false, "Asset cannot be null");
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
+
+            // Create update DTO
+            var updateDto = new AssetUpdateDTO
+            {
+                AssetId = asset.AssetId,
+                AssetTag = asset.AssetTag,
+                Name = asset.Name,
+                Description = asset.Description,
+                CategoryId = asset.CategoryId,
+                LocationId = asset.LocationId,
+                DepartmentId = asset.DepartmentId,
+                PurchaseDate = asset.PurchaseDate,
+                PurchasePrice = asset.PurchasePrice,
+                CurrentValue = asset.CurrentValue,
+                Status = asset.Status,
+                AssignedToUserId = asset.AssignedToUserId,
+                SerialNumber = asset.SerialNumber,
+                DigitalAssetTag = asset.DigitalAssetTag,
+                Condition = asset.Condition,
+                VendorName = asset.VendorName,
+                InvoiceNumber = asset.InvoiceNumber,
+                Quantity = asset.Quantity,
+                CostPerUnit = asset.CostPerUnit,
+                UsefulLifeYears = asset.UsefulLifeYears,
+                WarrantyExpiry = asset.WarrantyExpiry,
+                DisposalDate = asset.DisposalDate,
+                DisposalValue = asset.DisposalValue,
+                Remarks = asset.Remarks,
+                DateModified = DateTime.UtcNow
+            };
+
+            var jsonData = System.Text.Json.JsonSerializer.Serialize(updateDto);
+
+            var queueItem = new SyncQueueItem
+            {
+                EntityType = "Asset",
+                EntityId = asset.AssetId,
+                Operation = "UPDATE",
+                JsonData = jsonData,
+                CreatedAt = DateTime.UtcNow,
+                RetryCount = 0
+            };
+
+            dbContext.SyncQueue.Add(queueItem);
+            await dbContext.SaveChangesAsync();
+
+            _logger.LogInformation("Queued UPDATE for asset {AssetId} with all fields", asset.AssetId);
+
+            return (true, "Queued full update");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error queuing asset update");
+            return (false, $"Error queuing update: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// ENHANCEMENT #7: Intelligently detect changed fields and queue appropriate operation
+    /// Automatically chooses PATCH (for few changes) or UPDATE (for many changes)
+    /// </summary>
+    public async Task<(bool Success, string Message)> QueueAssetChangeAsync(Asset current, Asset original)
+    {
+        if (current == null || original == null)
+            return (false, "Both current and original assets required");
+
+        // Detect changed fields
+        var changes = new Dictionary<string, object?>();
+
+        // Check all properties that could be edited by users
+        if (current.Status != original.Status && !string.IsNullOrEmpty(current.Status))
+            changes["Status"] = current.Status;
+
+        if (current.LocationId != original.LocationId && !string.IsNullOrEmpty(current.LocationId))
+            changes["LocationId"] = current.LocationId;
+
+        if (current.Condition != original.Condition && !string.IsNullOrEmpty(current.Condition))
+            changes["Condition"] = current.Condition;
+
+        if (current.AssignedToUserId != original.AssignedToUserId)
+            changes["AssignedToUserId"] = current.AssignedToUserId;
+
+        if (current.CurrentValue != original.CurrentValue && current.CurrentValue.HasValue)
+            changes["CurrentValue"] = current.CurrentValue;
+
+        if (current.Name != original.Name && !string.IsNullOrEmpty(current.Name))
+            changes["Name"] = current.Name;
+
+        if (current.Description != original.Description)
+            changes["Description"] = current.Description;
+
+        if (current.Remarks != original.Remarks)
+            changes["Remarks"] = current.Remarks;
+
+        if (!changes.Any())
+            return (true, "No changes detected");
+
+        // Smart decision: Use PATCH for few changes, UPDATE for many
+        if (changes.Count <= 3)
+        {
+            _logger.LogInformation(
+                "ENHANCEMENT #7: Few changes detected ({Count}), using PATCH for bandwidth optimization",
+                changes.Count);
+            return await QueueAssetPatchAsync(current.AssetId, changes);
+        }
+        else
+        {
+            _logger.LogInformation(
+                "ENHANCEMENT #7: Many changes detected ({Count}), using UPDATE for simplicity",
+                changes.Count);
+            return await QueueAssetUpdateAsync(current);
+        }
     }
 
     /// <summary>

@@ -176,6 +176,10 @@ public record AssetUpdateDTO
 
     [Display(Name = "Remarks")]
     public string? Remarks { get; init; }
+    
+    // FIX #3: Required for timestamp-based conflict resolution
+    [Display(Name = "Date Modified")]
+    public DateTime? DateModified { get; init; }
 }
 
 public record AssetReadDTO

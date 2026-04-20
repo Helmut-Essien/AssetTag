@@ -94,7 +94,7 @@
                     </div>
                     <div class="mb-3">
                         <label asp-for="CreateDto.DepreciationRate" class="form-label"></label>
-                        <input asp-for="CreateDto.DepreciationRate" type="number" step="0.01" min="0" max="100" class="form-control" placeholder="e.g., 20.00 for 20%" />
+                        <input asp-for="CreateDto.DepreciationRate" type="number" step="0.01" min="0" max="100" class="form-control" placeholder="e.g., 20.00 for 20%" required />
                         <span asp-validation-for="CreateDto.DepreciationRate" class="text-danger"></span>
                         <small class="form-text text-muted">Enter annual depreciation rate as a percentage (0-100)</small>
                     </div>
