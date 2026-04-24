@@ -49,16 +49,38 @@ jobs:
   get-mobile-version:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.version.outputs.version }}
+      version-name: ${{ steps.version.outputs.version_name }}
+      version-code: ${{ steps.version.outputs.version_code }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Extract version from csproj
+      - name: Extract mobile version metadata
         id: version
         run: |
-          VERSION=$(grep -oP '<ApplicationDisplayVersion>\K[^<]+' MobileApp/MobileApp.csproj)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Mobile version from csproj: $VERSION"
+          VERSION_NAME=$(grep -oP '<ApplicationDisplayVersion>\K[^<]+' MobileApp/MobileApp.csproj || true)
+          if [ -z "$VERSION_NAME" ]; then
+            VERSION_NAME=$(grep -oP '<AndroidVersionName>\K[^<]+' MobileApp/MobileApp.csproj || true)
+          fi
+
+          VERSION_CODE=$(grep -oP '<ApplicationVersion>\K[^<]+' MobileApp/MobileApp.csproj || true)
+          if [ -z "$VERSION_CODE" ]; then
+            VERSION_CODE=$(grep -oP '<AndroidVersionCode>\K[^<]+' MobileApp/MobileApp.csproj || true)
+          fi
+
+          if [ -z "$VERSION_NAME" ] || [ -z "$VERSION_CODE" ]; then
+            echo "ERROR: Could not determine Android version name/code from MobileApp.csproj"
+            exit 1
+          fi
+
+          if ! [[ "$VERSION_CODE" =~ ^[0-9]+$ ]]; then
+            echo "ERROR: ApplicationVersion/AndroidVersionCode must be an integer. Got: $VERSION_CODE"
+            exit 1
+          fi
+
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+          echo "Mobile version name: $VERSION_NAME"
+          echo "Mobile version code: $VERSION_CODE"
 
   build-and-publish:
     needs: [detect-changes, get-mobile-version]
@@ -122,9 +144,9 @@ jobs:
               "Token": "$GITHUB_TOKEN"
             },
             "MobileApp": {
-              "LatestVersion": "${{ needs.get-mobile-version.outputs.version }}",
+              "LatestVersion": "${{ needs.get-mobile-version.outputs.version-name }}",
               "MinimumSupportedVersion": "1.0.0",
-              "DownloadUrl": "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/download/mobile-v${{ needs.get-mobile-version.outputs.version }}/MUGAssets-v${{ needs.get-mobile-version.outputs.version }}.apk"
+              "DownloadUrl": "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/download/mobile-v${{ needs.get-mobile-version.outputs.version-name }}/MUGAssets-v${{ needs.get-mobile-version.outputs.version-name }}.apk"
             },
             "Logging": {
               "LogLevel": {
@@ -388,8 +410,8 @@ jobs:
             -p:AndroidSigningKeyAlias="$KEY_ALIAS" \
             -p:AndroidSigningKeyPass="$KEY_PASS" \
             -p:AndroidKeyStore=true \
-            -p:ApplicationVersion=${{ needs.get-mobile-version.outputs.version }} \
-            -p:ApplicationDisplayVersion="${{ needs.get-mobile-version.outputs.version }}" \
+            -p:ApplicationVersion=${{ needs.get-mobile-version.outputs.version-code }} \
+            -p:ApplicationDisplayVersion="${{ needs.get-mobile-version.outputs.version-name }}" \
             -p:AndroidPackageFormat=apk \
             --output ./publish/android \
             -v:n
@@ -440,14 +462,14 @@ jobs:
           
           echo "Found signed APK: $APK_FILE"
           echo "APK size: $(ls -lh "$APK_FILE" | awk '{print $5}')"
-          cp "$APK_FILE" "./MUGAssets-v${{ needs.get-mobile-version.outputs.version }}.apk"
+          cp "$APK_FILE" "./MUGAssets-v${{ needs.get-mobile-version.outputs.version-name }}.apk"
 
       # Upload the renamed APK as a workflow artifact for the next job
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: ./MUGAssets-v${{ needs.get-mobile-version.outputs.version }}.apk
+          path: ./MUGAssets-v${{ needs.get-mobile-version.outputs.version-name }}.apk
 
   # ========================================
   # PUBLISH APK TO GITHUB RELEASES
@@ -470,12 +492,12 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: mobile-v${{ needs.get-mobile-version.outputs.version }}
-          name: "MUG Assets v${{ needs.get-mobile-version.outputs.version }} (Pre-release)"
+          tag_name: mobile-v${{ needs.get-mobile-version.outputs.version-name }}
+          name: "MUG Assets v${{ needs.get-mobile-version.outputs.version-name }} (Pre-release)"
           body: |
             ## MUG Assets Android Release (Pre-release)
 
-            **Version:** ${{ needs.get-mobile-version.outputs.version }}
+            **Version:** ${{ needs.get-mobile-version.outputs.version-name }}
             **Built from:** ${{ github.sha }}
 
             ⚠️ **This is a pre-release version for testing purposes.**
@@ -486,11 +508,11 @@ jobs:
             - Improved stability
 
             ### How to install (sideloading)
-            1. Download `MUGAssets-v${{ needs.get-mobile-version.outputs.version }}.apk` below
+            1. Download `MUGAssets-v${{ needs.get-mobile-version.outputs.version-name }}.apk` below
             2. Transfer to your Android device
             3. On the device: **Settings → Apps → Special app access → Install unknown apps**
             4. Enable installs from your file manager or browser, then open the APK
-          files: ./apk-release/MUGAssets-v${{ needs.get-mobile-version.outputs.version }}.apk
+          files: ./apk-release/MUGAssets-v${{ needs.get-mobile-version.outputs.version-name }}.apk
           prerelease: true
           make_latest: "false"
           generate_release_notes: false
