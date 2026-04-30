@@ -6,6 +6,7 @@
              xmlns:converters="clr-namespace:MobileApp.Converters"
              xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
              x:Class="MobileApp.Views.AddAssetPage"
+             x:Name="RootPage"
              x:DataType="viewmodels:AddAssetViewModel"
              Title="{Binding PageTitle}"
              BackgroundColor="#F8F9FA"
@@ -167,15 +168,54 @@
                                FontFamily="OpenSansSemibold"
                                FontSize="14"
                                TextColor="#333333"/>
-                        <Picker ItemsSource="{Binding Locations}"
-                                SelectedItem="{Binding SelectedLocation}"
-                                Title="Select Location"
-                                TextColor="#333333"
-                                FontSize="16">
-                            <Picker.ItemDisplayBinding>
-                                <Binding Path="Name" x:DataType="models:Location"/>
-                            </Picker.ItemDisplayBinding>
-                        </Picker>
+
+                        <Frame BackgroundColor="#F8F9FA"
+                               BorderColor="#E5E7EB"
+                               CornerRadius="10"
+                               Padding="12"
+                               HasShadow="False">
+                            <VerticalStackLayout Spacing="6">
+                                <Label Text="{Binding SelectedLocationDisplay}"
+                                       FontSize="16"
+                                       TextColor="#333333"
+                                       LineBreakMode="TailTruncation"/>
+                                <Label Text="{Binding SelectedLocationContext}"
+                                       FontSize="12"
+                                       TextColor="#666666"
+                                       LineBreakMode="WordWrap"/>
+                            </VerticalStackLayout>
+                        </Frame>
+
+                        <Button Text="Choose location"
+                                Command="{Binding OpenLocationPickerCommand}"
+                                BackgroundColor="#005A9C"
+                                TextColor="White"
+                                CornerRadius="8"
+                                HeightRequest="44"
+                                FontFamily="OpenSansSemibold"/>
+
+                        <Label Text="No locations available. Add one to continue."
+                               FontSize="12"
+                               TextColor="#C62828">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label" Binding="{Binding HasLocations}" Value="True">
+                                    <Setter Property="IsVisible" Value="False"/>
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+
+                        <Button Text="Add location"
+                                Command="{Binding AddLocationCommand}"
+                                BackgroundColor="#E3F2FD"
+                                TextColor="#005A9C"
+                                CornerRadius="8"
+                                HeightRequest="40">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding HasLocations}" Value="True">
+                                    <Setter Property="IsVisible" Value="False"/>
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
                     </VerticalStackLayout>
                 </Frame>
 
@@ -543,6 +583,106 @@
                        TextColor="White"
                        HorizontalOptions="Center"/>
             </VerticalStackLayout>
+        </Grid>
+
+        <!-- Location Selection Overlay -->
+        <Grid Grid.Row="0" Grid.RowSpan="3"
+              IsVisible="{Binding IsLocationPickerOpen}"
+              BackgroundColor="#99000000">
+            <Frame BackgroundColor="White"
+                   CornerRadius="16"
+                   Margin="16,64,16,16"
+                   Padding="16"
+                   HasShadow="True">
+                <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12">
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                        <Label Grid.Column="0"
+                               Text="Select Location"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="18"
+                               TextColor="#333333"
+                               VerticalOptions="Center"/>
+                        <Button Grid.Column="1"
+                                ImageSource="{mi:Material Icon=Close, IconColor=#666666}"
+                                BackgroundColor="Transparent"
+                                Command="{Binding CloseLocationPickerCommand}"
+                                WidthRequest="32"
+                                HeightRequest="32"/>
+                    </Grid>
+
+                    <SearchBar Grid.Row="1"
+                               Placeholder="Search by name, campus, building, room..."
+                               Text="{Binding LocationSearchText}"
+                               TextColor="#333333"
+                               PlaceholderColor="#888888"
+                               CancelButtonColor="#005A9C"
+                               FontSize="14"/>
+
+                    <CollectionView Grid.Row="2"
+                                    ItemsSource="{Binding FilteredLocations}"
+                                    SelectionMode="None">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:Location">
+                                <Frame Padding="12"
+                                       Margin="0,0,0,8"
+                                       CornerRadius="10"
+                                       BorderColor="#E5E7EB"
+                                       HasShadow="False">
+                                    <Frame.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="LocationResult_Tapped"/>
+                                    </Frame.GestureRecognizers>
+                                    <VerticalStackLayout Spacing="4">
+                                        <Label Text="{Binding Name}"
+                                               FontFamily="OpenSansSemibold"
+                                               FontSize="15"
+                                               TextColor="#333333"/>
+                                        <Label FontSize="13"
+                                               TextColor="#666666"
+                                               LineBreakMode="TailTruncation">
+                                            <Label.FormattedText>
+                                                <FormattedString>
+                                                    <Span Text="{Binding Campus}"/>
+                                                    <Span Text=" | "/>
+                                                    <Span Text="{Binding Building}"/>
+                                                    <Span Text=" | Room "/>
+                                                    <Span Text="{Binding Room}"/>
+                                                </FormattedString>
+                                            </Label.FormattedText>
+                                        </Label>
+                                        <Label Text="{Binding Description}"
+                                               FontSize="12"
+                                               TextColor="#888888"
+                                               LineBreakMode="TailTruncation"/>
+                                    </VerticalStackLayout>
+                                </Frame>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                    <Label Grid.Row="2"
+                           IsVisible="True"
+                           Text="No matching locations found."
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center"
+                           InputTransparent="True"
+                           FontSize="13"
+                           TextColor="#666666">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label" Binding="{Binding HasFilteredLocations}" Value="True">
+                                <Setter Property="IsVisible" Value="False"/>
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+
+                    <Button Grid.Row="3"
+                            Text="Close"
+                            Command="{Binding CloseLocationPickerCommand}"
+                            BackgroundColor="#F3F4F6"
+                            TextColor="#333333"
+                            CornerRadius="8"
+                            HeightRequest="44"/>
+                </Grid>
+            </Frame>
         </Grid>
 
     </Grid>
