@@ -1,4 +1,5 @@
 using MobileApp.ViewModels;
+using SharedLocation = Shared.Models.Location;
 
 namespace MobileApp.Views;
 
@@ -35,6 +36,18 @@ public partial class AddAssetPage : ContentPage, IQueryAttributable
             {
                 await viewModel.InitializeAsync();
             }
+        }
+    }
+
+    private void LocationResult_Tapped(object? sender, TappedEventArgs e)
+    {
+        if (BindingContext is not AddAssetViewModel viewModel) return;
+        var selectedLocation = (sender as BindableObject)?.BindingContext as SharedLocation;
+        if (selectedLocation == null) return;
+
+        if (viewModel.SelectLocationCommand.CanExecute(selectedLocation))
+        {
+            viewModel.SelectLocationCommand.Execute(selectedLocation);
         }
     }
 }

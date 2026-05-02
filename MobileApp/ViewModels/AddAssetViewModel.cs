@@ -74,6 +74,18 @@ public partial class AddAssetViewModel : BaseViewModel
     private SharedLocation? selectedLocation;
 
     [ObservableProperty]
+    private bool isLocationPickerOpen;
+
+    [ObservableProperty]
+    private string locationSearchText = string.Empty;
+
+    [ObservableProperty]
+    private List<SharedLocation> filteredLocations = new();
+
+    [ObservableProperty]
+    private SharedLocation? selectedFilteredLocation;
+
+    [ObservableProperty]
     private List<Department> departments = new();
 
     [ObservableProperty]
@@ -83,13 +95,13 @@ public partial class AddAssetViewModel : BaseViewModel
     private List<string> statusOptions = new();
 
     [ObservableProperty]
-    private string selectedStatus = AssetConstants.Status.Available;
+    private string? selectedStatus;
 
     [ObservableProperty]
     private List<string> conditionOptions = new();
 
     [ObservableProperty]
-    private string selectedCondition = AssetConstants.Condition.Good;
+    private string? selectedCondition;
 
     [ObservableProperty]
     private string busyMessage = "Loading...";
@@ -102,6 +114,17 @@ public partial class AddAssetViewModel : BaseViewModel
 
     [ObservableProperty]
     private string saveButtonText = "Save";
+
+    public string SelectedLocationDisplay =>
+        SelectedLocation == null ? "No location selected" : GetLocationDisplayText(SelectedLocation);
+
+    public string SelectedLocationContext =>
+        SelectedLocation == null
+            ? "Tap 'Choose location' to pick where this asset belongs."
+            : GetLocationContextText(SelectedLocation);
+
+    public bool HasLocations => Locations.Count > 0;
+    public bool HasFilteredLocations => FilteredLocations.Count > 0;
 
     // Store the asset ID when editing an existing asset
     private string? _editingAssetId;
@@ -137,6 +160,11 @@ public partial class AddAssetViewModel : BaseViewModel
             IsEditMode = false;
             PageTitle = "Add Asset";
             SaveButtonText = "Save";
+            SelectedCategory = null;
+            SelectedLocation = null;
+            SelectedDepartment = null;
+            SelectedStatus = null;
+            SelectedCondition = null;
 
             // Load categories, locations, and departments from local database
             await LoadFormDataAsync();
@@ -237,10 +265,9 @@ public partial class AddAssetViewModel : BaseViewModel
             Locations = await locationsTask;
             Departments = await departmentsTask;
 
-            // Auto-select first items if available
-            if (Categories.Count > 0) SelectedCategory = Categories[0];
-            if (Locations.Count > 0) SelectedLocation = Locations[0];
-            if (Departments.Count > 0) SelectedDepartment = Departments[0];
+            ApplyLocationFilter();
+
+            OnPropertyChanged(nameof(HasLocations));
         }
         catch (Exception ex)
         {
@@ -409,6 +436,18 @@ public partial class AddAssetViewModel : BaseViewModel
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(SelectedStatus))
+        {
+            await Shell.Current.DisplayAlert("Validation Error", "Please select a status", "OK");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(SelectedCondition))
+        {
+            await Shell.Current.DisplayAlert("Validation Error", "Please select a condition", "OK");
+            return;
+        }
+
         try
         {
             IsBusy = true;
@@ -424,8 +463,8 @@ public partial class AddAssetViewModel : BaseViewModel
                 CategoryId = SelectedCategory.CategoryId,
                 LocationId = SelectedLocation.LocationId,
                 DepartmentId = SelectedDepartment.DepartmentId,
-                Status = SelectedStatus,
-                Condition = SelectedCondition,
+                Status = SelectedStatus!,
+                Condition = SelectedCondition!,
                 PurchaseDate = PurchaseDate,
                 PurchasePrice = PurchasePrice,
                 Quantity = Quantity,
@@ -496,5 +535,129 @@ public partial class AddAssetViewModel : BaseViewModel
         {
             await Shell.Current.GoToAsync("..");
         }
+    }
+
+    [RelayCommand]
+    private async Task OpenLocationPickerAsync()
+    {
+        if (!HasLocations)
+        {
+            var addLocation = await Shell.Current.DisplayAlert(
+                "No Locations Available",
+                "You don't have any saved locations yet. Add a location first, then assign assets to it.",
+                "Add Location",
+                "Cancel");
+
+            if (addLocation)
+            {
+                await Shell.Current.GoToAsync(nameof(Views.AddLocationPage));
+            }
+
+            return;
+        }
+
+        LocationSearchText = string.Empty;
+        ApplyLocationFilter();
+        IsLocationPickerOpen = true;
+    }
+
+    [RelayCommand]
+    private void CloseLocationPicker()
+    {
+        IsLocationPickerOpen = false;
+    }
+
+    [RelayCommand]
+    private void SelectLocation(SharedLocation? location)
+    {
+        if (location == null) return;
+
+        SelectedLocation = location;
+        IsLocationPickerOpen = false;
+    }
+
+    [RelayCommand]
+    private async Task AddLocationAsync()
+    {
+        await Shell.Current.GoToAsync(nameof(Views.AddLocationPage));
+    }
+
+    partial void OnLocationSearchTextChanged(string value)
+    {
+        ApplyLocationFilter();
+    }
+
+    partial void OnSelectedLocationChanged(SharedLocation? value)
+    {
+        OnPropertyChanged(nameof(SelectedLocationDisplay));
+        OnPropertyChanged(nameof(SelectedLocationContext));
+    }
+
+    partial void OnSelectedFilteredLocationChanged(SharedLocation? value)
+    {
+        if (value == null) return;
+
+        SelectLocation(value);
+        SelectedFilteredLocation = null;
+    }
+
+    partial void OnLocationsChanged(List<SharedLocation> value)
+    {
+        ApplyLocationFilter();
+        OnPropertyChanged(nameof(HasLocations));
+    }
+
+    private void ApplyLocationFilter()
+    {
+        var query = LocationSearchText?.Trim();
+        IEnumerable<SharedLocation> source = Locations;
+
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            var search = query.ToLowerInvariant();
+            source = source.Where(location =>
+                location.Name.ToLowerInvariant().Contains(search) ||
+                (!string.IsNullOrWhiteSpace(location.Campus) && location.Campus.ToLowerInvariant().Contains(search)) ||
+                (!string.IsNullOrWhiteSpace(location.Building) && location.Building.ToLowerInvariant().Contains(search)) ||
+                (!string.IsNullOrWhiteSpace(location.Room) && location.Room.ToLowerInvariant().Contains(search)) ||
+                (!string.IsNullOrWhiteSpace(location.Description) && location.Description.ToLowerInvariant().Contains(search)));
+        }
+
+        FilteredLocations = source
+            .OrderBy(location => location.Name)
+            .ToList();
+        OnPropertyChanged(nameof(HasFilteredLocations));
+    }
+
+    private static string GetLocationDisplayText(SharedLocation location)
+    {
+        var parts = new List<string> { location.Name };
+
+        if (!string.IsNullOrWhiteSpace(location.Building))
+            parts.Add(location.Building);
+
+        if (!string.IsNullOrWhiteSpace(location.Room))
+            parts.Add($"Room {location.Room}");
+
+        return string.Join(" | ", parts);
+    }
+
+    private static string GetLocationContextText(SharedLocation location)
+    {
+        var parts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(location.Campus))
+            parts.Add(location.Campus);
+
+        if (!string.IsNullOrWhiteSpace(location.Building))
+            parts.Add(location.Building);
+
+        if (!string.IsNullOrWhiteSpace(location.Room))
+            parts.Add($"Room {location.Room}");
+
+        if (!string.IsNullOrWhiteSpace(location.Description))
+            parts.Add(location.Description);
+
+        return parts.Count == 0 ? "No additional location details available." : string.Join(" | ", parts);
     }
 }

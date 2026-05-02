@@ -176,6 +176,22 @@ public class SyncService : ISyncService
                 
                 if (result != null)
                 {
+                    if (IsInfrastructureSyncFailure(result))
+                    {
+                        var infrastructureError = result.Metrics?.ErrorMessage
+                            ?? result.Errors.FirstOrDefault()?.ErrorMessage
+                            ?? "Server infrastructure failure";
+
+                        _logger.LogError(
+                            "Push sync infrastructure failure. Queue items will remain pending without retry count changes. Error: {Error}",
+                            infrastructureError);
+
+                        ReportProgress(SyncPhase.Failed, 0, pendingItems.Count,
+                            "Server sync failed. Changes will retry later.");
+
+                        return (false, $"Server sync failed: {infrastructureError}");
+                    }
+
                     // BUG FIX #1: Only remove items that were successfully synced
                     // Get the items that succeeded based on the IDs returned from server
                     var successfulItems = pendingItems
@@ -256,6 +272,22 @@ public class SyncService : ISyncService
             // FIX #4: Always release semaphore, even on error
             _pushSemaphore.Release();
         }
+    }
+
+    private static bool IsInfrastructureSyncFailure(SyncPushResponseDTO result)
+    {
+        var messages = result.Errors
+            .Select(error => error.ErrorMessage)
+            .Append(result.Metrics?.ErrorMessage)
+            .OfType<string>()
+            .Where(message => !string.IsNullOrWhiteSpace(message));
+
+        return messages.Any(message =>
+            message.Contains("Infrastructure", StringComparison.OrdinalIgnoreCase) ||
+            message.Contains("transaction failed", StringComparison.OrdinalIgnoreCase) ||
+            message.Contains("execution strategy", StringComparison.OrdinalIgnoreCase) ||
+            message.Contains("transient", StringComparison.OrdinalIgnoreCase) ||
+            message.Contains("timeout", StringComparison.OrdinalIgnoreCase));
     }
 
     public async Task<(bool Success, string Message)> EnqueuePushAsync()
