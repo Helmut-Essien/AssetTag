@@ -59,9 +59,6 @@ public class SyncController : ControllerBase
     {
         // ENHANCEMENT #8: Start metrics collection
         var startTime = DateTime.UtcNow;
-        var successCount = 0;
-        var errors = new List<SyncErrorDTO>();
-        var successfulOperationIds = new List<int>();
         var conflictsDetected = 0;
         long bytesTransferred = 0;
 
@@ -74,137 +71,139 @@ public class SyncController : ControllerBase
             bytesTransferred += operation.JsonData.Length * 2; // UTF-16 encoding
         }
 
-        // FIX #1: Wrap all operations in a single transaction for atomicity
-        // If any operation fails, all changes are rolled back to maintain consistency
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-        
+        var strategy = _context.Database.CreateExecutionStrategy();
+
         try
         {
-            foreach (var operation in request.Operations.OrderBy(o => o.CreatedAt))
+            return await strategy.ExecuteAsync(async () =>
             {
-                try
+                var successCount = 0;
+                var errors = new List<SyncErrorDTO>();
+                var successfulOperationIds = new List<int>();
+
+                // FIX #1: Wrap all operations in a single transaction for atomicity.
+                // The transaction must run inside EF's execution strategy because SQL Server retries are enabled.
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+
+                foreach (var operation in request.Operations.OrderBy(o => o.CreatedAt))
                 {
-                    switch (operation.EntityType.ToLower())
+                    try
                     {
-                        case "asset":
-                            var conflictDetected = await ProcessAssetOperation(operation);
-                            if (conflictDetected) conflictsDetected++;
-                            successCount++;
-                            successfulOperationIds.Add(operation.QueueItemId);
-                            break;
-                        
-                        default:
-                            errors.Add(new SyncErrorDTO
-                            {
-                                EntityId = operation.EntityId,
-                                Operation = operation.Operation,
-                                ErrorMessage = $"Unknown entity type: {operation.EntityType}"
-                            });
-                            break;
+                        switch (operation.EntityType.ToLower())
+                        {
+                            case "asset":
+                                var conflictDetected = await ProcessAssetOperation(operation);
+                                if (conflictDetected) conflictsDetected++;
+                                successCount++;
+                                successfulOperationIds.Add(operation.QueueItemId);
+                                break;
+
+                            default:
+                                throw new InvalidOperationException($"Unknown entity type: {operation.EntityType}");
+                        }
+                    }
+                    catch (InvalidOperationException ex) when (ex.Message.Contains("Conflict"))
+                    {
+                        // ENHANCEMENT #8: Track conflicts separately
+                        conflictsDetected++;
+                        _logger.LogWarning(ex, "Conflict detected for {EntityType} {EntityId}",
+                            operation.EntityType, operation.EntityId);
+
+                        errors.Add(new SyncErrorDTO
+                        {
+                            EntityId = operation.EntityId,
+                            Operation = operation.Operation,
+                            ErrorMessage = ex.Message
+                        });
+
+                        await transaction.RollbackAsync();
+
+                        // ENHANCEMENT #8: Return metrics even on conflict
+                        var conflictMetrics = CreateMetrics(startTime, request.Operations.Count,
+                            0, errors.Count, 0, 0, conflictsDetected, bytesTransferred, false, ex.Message);
+
+                        return Ok(new SyncPushResponseDTO
+                        {
+                            SuccessCount = 0,
+                            FailureCount = errors.Count,
+                            Errors = errors,
+                            SuccessfulOperationIds = new List<int>(),
+                            Metrics = conflictMetrics
+                        });
+                    }
+                    catch (Exception ex) when (!IsInfrastructureException(ex))
+                    {
+                        _logger.LogError(ex, "Validation or data error processing sync operation for {EntityType} {EntityId}",
+                            operation.EntityType, operation.EntityId);
+
+                        errors.Add(new SyncErrorDTO
+                        {
+                            EntityId = operation.EntityId,
+                            Operation = operation.Operation,
+                            ErrorMessage = ex.Message
+                        });
+
+                        // FIX #1: On error, rollback transaction and return partial results
+                        // This prevents inconsistent state where some operations succeed and others fail
+                        await transaction.RollbackAsync();
+
+                        _logger.LogWarning("Transaction rolled back due to operation error. {SuccessCount} operations were not committed.",
+                            successCount);
+
+                        // ENHANCEMENT #8: Return metrics even on error
+                        var errorMetrics = CreateMetrics(startTime, request.Operations.Count,
+                            0, errors.Count, 0, 0, conflictsDetected, bytesTransferred, false, ex.Message);
+
+                        return Ok(new SyncPushResponseDTO
+                        {
+                            SuccessCount = 0, // No operations committed due to rollback
+                            FailureCount = errors.Count,
+                            Errors = errors,
+                            SuccessfulOperationIds = new List<int>(), // Empty - nothing was committed
+                            Metrics = errorMetrics
+                        });
                     }
                 }
-                catch (InvalidOperationException ex) when (ex.Message.Contains("Conflict"))
-                {
-                    // ENHANCEMENT #8: Track conflicts separately
-                    conflictsDetected++;
-                    _logger.LogWarning(ex, "Conflict detected for {EntityType} {EntityId}",
-                        operation.EntityType, operation.EntityId);
-                    
-                    errors.Add(new SyncErrorDTO
-                    {
-                        EntityId = operation.EntityId,
-                        Operation = operation.Operation,
-                        ErrorMessage = ex.Message
-                    });
-                    
-                    await transaction.RollbackAsync();
-                    
-                    // ENHANCEMENT #8: Return metrics even on conflict
-                    var conflictMetrics = CreateMetrics(startTime, request.Operations.Count,
-                        0, errors.Count, 0, 0, conflictsDetected, bytesTransferred, false, ex.Message);
-                    
-                    return Ok(new SyncPushResponseDTO
-                    {
-                        SuccessCount = 0,
-                        FailureCount = errors.Count,
-                        Errors = errors,
-                        SuccessfulOperationIds = new List<int>(),
-                        Metrics = conflictMetrics
-                    });
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error processing sync operation for {EntityType} {EntityId}",
-                        operation.EntityType, operation.EntityId);
-                    
-                    errors.Add(new SyncErrorDTO
-                    {
-                        EntityId = operation.EntityId,
-                        Operation = operation.Operation,
-                        ErrorMessage = ex.Message
-                    });
-                    
-                    // FIX #1: On error, rollback transaction and return partial results
-                    // This prevents inconsistent state where some operations succeed and others fail
-                    await transaction.RollbackAsync();
-                    
-                    _logger.LogWarning("Transaction rolled back due to error. {SuccessCount} operations were not committed.",
-                        successCount);
-                    
-                    // ENHANCEMENT #8: Return metrics even on error
-                    var errorMetrics = CreateMetrics(startTime, request.Operations.Count,
-                        0, errors.Count, 0, 0, conflictsDetected, bytesTransferred, false, ex.Message);
-                    
-                    return Ok(new SyncPushResponseDTO
-                    {
-                        SuccessCount = 0, // No operations committed due to rollback
-                        FailureCount = errors.Count,
-                        Errors = errors,
-                        SuccessfulOperationIds = new List<int>(), // Empty - nothing was committed
-                        Metrics = errorMetrics
-                    });
-                }
-            }
-            
-            // FIX #1: Commit transaction only if ALL operations succeeded
-            await transaction.CommitAsync();
-            
-            _logger.LogInformation("Push sync transaction committed: {SuccessCount} successful, {FailureCount} failed",
-                successCount, errors.Count);
 
-            // ENHANCEMENT #8: Create success metrics
-            var successMetrics = CreateMetrics(startTime, request.Operations.Count,
-                successCount, errors.Count, 0, 0, conflictsDetected, bytesTransferred, true, null);
-            
-            _logger.LogInformation(
-                "Push sync metrics: Duration={Duration}ms, Succeeded={Succeeded}, " +
-                "Failed={Failed}, Conflicts={Conflicts}, Bytes={Bytes}",
-                successMetrics.Duration.TotalMilliseconds,
-                successMetrics.PushOperationsSucceeded,
-                successMetrics.PushOperationsFailed,
-                successMetrics.ConflictsDetected,
-                successMetrics.BytesTransferred);
+                // FIX #1: Commit transaction only if ALL operations succeeded
+                await transaction.CommitAsync();
 
-            return Ok(new SyncPushResponseDTO
-            {
-                SuccessCount = successCount,
-                FailureCount = errors.Count,
-                Errors = errors,
-                SuccessfulOperationIds = successfulOperationIds,
-                Metrics = successMetrics
+                _logger.LogInformation("Push sync transaction committed: {SuccessCount} successful, {FailureCount} failed",
+                    successCount, errors.Count);
+
+                // ENHANCEMENT #8: Create success metrics
+                var successMetrics = CreateMetrics(startTime, request.Operations.Count,
+                    successCount, errors.Count, 0, 0, conflictsDetected, bytesTransferred, true, null);
+
+                _logger.LogInformation(
+                    "Push sync metrics: Duration={Duration}ms, Succeeded={Succeeded}, " +
+                    "Failed={Failed}, Conflicts={Conflicts}, Bytes={Bytes}",
+                    successMetrics.Duration.TotalMilliseconds,
+                    successMetrics.PushOperationsSucceeded,
+                    successMetrics.PushOperationsFailed,
+                    successMetrics.ConflictsDetected,
+                    successMetrics.BytesTransferred);
+
+                return Ok(new SyncPushResponseDTO
+                {
+                    SuccessCount = successCount,
+                    FailureCount = errors.Count,
+                    Errors = errors,
+                    SuccessfulOperationIds = successfulOperationIds,
+                    Metrics = successMetrics
+                });
             });
         }
         catch (Exception ex)
         {
-            // FIX #1: Catch any unexpected errors and ensure rollback
-            _logger.LogError(ex, "Unexpected error during push sync transaction");
-            await transaction.RollbackAsync();
-            
+            // FIX #1: Catch infrastructure errors after EF's execution strategy has retried them.
+            _logger.LogError(ex, "Infrastructure error during push sync transaction");
+
             // ENHANCEMENT #8: Return metrics even on unexpected error
             var unexpectedErrorMetrics = CreateMetrics(startTime, request.Operations.Count,
                 0, request.Operations.Count, 0, 0, conflictsDetected, bytesTransferred, false,
-                $"Transaction failed: {ex.Message}");
-            
+                $"Infrastructure transaction failed: {ex.Message}");
+
             return StatusCode(500, new SyncPushResponseDTO
             {
                 SuccessCount = 0,
@@ -215,13 +214,22 @@ public class SyncController : ControllerBase
                     {
                         EntityId = "TRANSACTION",
                         Operation = "PUSH",
-                        ErrorMessage = $"Transaction failed: {ex.Message}"
+                        ErrorMessage = $"Infrastructure transaction failed: {ex.Message}"
                     }
                 },
                 SuccessfulOperationIds = new List<int>(),
                 Metrics = unexpectedErrorMetrics
             });
         }
+    }
+
+    private static bool IsInfrastructureException(Exception ex)
+    {
+        return ex is TimeoutException ||
+            ex.Message.Contains("execution strategy", StringComparison.OrdinalIgnoreCase) ||
+            ex.Message.Contains("transaction failed", StringComparison.OrdinalIgnoreCase) ||
+            ex.Message.Contains("transient", StringComparison.OrdinalIgnoreCase) ||
+            ex.Message.Contains("timeout", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
