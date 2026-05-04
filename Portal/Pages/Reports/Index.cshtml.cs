@@ -179,7 +179,7 @@ namespace Portal.Pages.Reports
             }
         }
 
-        private async Task<IActionResult> ExportFixedAssetsScheduleToExcel(List<Dictionary<string, object>> reportData, string reportType)
+        private Task<IActionResult> ExportFixedAssetsScheduleToExcel(List<Dictionary<string, object>> reportData, string reportType)
         {
             using var workbook = new XLWorkbook();
             var worksheet = workbook.Worksheets.Add("Fixed Assets Schedule");
@@ -280,11 +280,11 @@ namespace Portal.Pages.Reports
             workbook.SaveAs(stream);
             var content = stream.ToArray();
 
-            return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                $"{reportType}_{DateTime.Now:yyyyMMddHHmmss}.xlsx");
+            return Task.FromResult<IActionResult>(File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"{reportType}_{DateTime.Now:yyyyMMddHHmmss}.xlsx"));
         }
 
-        private async Task<IActionResult> ExportToExcel(List<Dictionary<string, object>> reportData, string reportType)
+        private Task<IActionResult> ExportToExcel(List<Dictionary<string, object>> reportData, string reportType)
         {
             using var workbook = new XLWorkbook();
             var worksheet = workbook.Worksheets.Add("Report");
@@ -334,8 +334,8 @@ namespace Portal.Pages.Reports
             workbook.SaveAs(stream);
             var content = stream.ToArray();
 
-            return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                $"{reportType}_{DateTime.Now:yyyyMMddHHmmss}.xlsx");
+            return Task.FromResult<IActionResult>(File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"{reportType}_{DateTime.Now:yyyyMMddHHmmss}.xlsx"));
         }
 
         private async Task LoadReportAsync(string reportType, int? year = null,

@@ -1,4 +1,5 @@
 using AssetTag.Data;
+using AssetTag.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,11 +17,16 @@ public class SyncController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<SyncController> _logger;
+    private readonly IDistributedLockService _distributedLock;
 
-    public SyncController(ApplicationDbContext context, ILogger<SyncController> logger)
+    public SyncController(
+        ApplicationDbContext context, 
+        ILogger<SyncController> logger,
+        IDistributedLockService distributedLock)
     {
         _context = context;
         _logger = logger;
+        _distributedLock = distributedLock;
     }
 
     private void CreateAssetHistory(string assetId, string action, string description,
@@ -57,29 +63,52 @@ public class SyncController : ControllerBase
     [HttpPost("push")]
     public async Task<ActionResult<SyncPushResponseDTO>> PushChanges([FromBody] SyncPushRequestDTO request)
     {
-        // ENHANCEMENT #8: Start metrics collection
-        var startTime = DateTime.UtcNow;
-        var conflictsDetected = 0;
-        long bytesTransferred = 0;
-
-        _logger.LogInformation("Processing push sync from device {DeviceId} with {Count} operations",
-            request.DeviceId, request.Operations.Count);
-
-        // ENHANCEMENT #8: Calculate approximate bytes transferred
-        foreach (var operation in request.Operations)
+        // ARCHITECTURAL FIX A1: Acquire distributed lock to prevent concurrent sync from multiple devices
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
         {
-            bytesTransferred += operation.JsonData.Length * 2; // UTF-16 encoding
+            return Unauthorized(new { error = "User ID not found" });
         }
 
-        var strategy = _context.Database.CreateExecutionStrategy();
+        var lockKey = $"sync:user:{userId}";
+        var lockAcquired = await _distributedLock.TryAcquireAsync(lockKey, TimeSpan.FromSeconds(30));
+
+        if (!lockAcquired)
+        {
+            _logger.LogWarning("Sync lock already held for user {UserId}. Another device is syncing.", userId);
+            return StatusCode(409, new 
+            { 
+                error = "Another device is currently syncing. Please wait and try again.",
+                retryAfterSeconds = 5
+            });
+        }
 
         try
         {
+            // ENHANCEMENT #8: Start metrics collection
+            var startTime = DateTime.UtcNow;
+            var conflictsDetected = 0;
+            long bytesTransferred = 0;
+
+            _logger.LogInformation("Processing push sync from device {DeviceId} with {Count} operations (lock acquired)",
+                request.DeviceId, request.Operations.Count);
+
+            // ENHANCEMENT #8: Calculate approximate bytes transferred
+            foreach (var operation in request.Operations)
+            {
+                bytesTransferred += operation.JsonData.Length * 2; // UTF-16 encoding
+            }
+
+            var strategy = _context.Database.CreateExecutionStrategy();
+
+            try
+            {
             return await strategy.ExecuteAsync(async () =>
             {
                 var successCount = 0;
                 var errors = new List<SyncErrorDTO>();
                 var successfulOperationIds = new List<int>();
+                var failedOperationId = -1; // FIX #1: Track which operation caused the failure
 
                 // FIX #1: Wrap all operations in a single transaction for atomicity.
                 // The transaction must run inside EF's execution strategy because SQL Server retries are enabled.
@@ -106,8 +135,10 @@ public class SyncController : ControllerBase
                     {
                         // ENHANCEMENT #8: Track conflicts separately
                         conflictsDetected++;
-                        _logger.LogWarning(ex, "Conflict detected for {EntityType} {EntityId}",
-                            operation.EntityType, operation.EntityId);
+                        failedOperationId = operation.QueueItemId; // FIX #1: Track the specific failed operation
+                        
+                        _logger.LogWarning(ex, "Conflict detected for {EntityType} {EntityId} (QueueItemId: {QueueItemId})",
+                            operation.EntityType, operation.EntityId, operation.QueueItemId);
 
                         errors.Add(new SyncErrorDTO
                         {
@@ -118,6 +149,18 @@ public class SyncController : ControllerBase
 
                         await transaction.RollbackAsync();
 
+                        // FIX #1: Return ONLY the failed operation ID and all operations that came after it
+                        // Operations before the failure were rolled back but should be retried
+                        var failedOperationIds = request.Operations
+                            .Where(op => op.QueueItemId >= failedOperationId)
+                            .Select(op => op.QueueItemId)
+                            .ToList();
+                        
+                        _logger.LogWarning(
+                            "Transaction rolled back. Failed operation: {FailedId}. " +
+                            "Marking {Count} operations for retry (failed + subsequent operations)",
+                            failedOperationId, failedOperationIds.Count);
+
                         // ENHANCEMENT #8: Return metrics even on conflict
                         var conflictMetrics = CreateMetrics(startTime, request.Operations.Count,
                             0, errors.Count, 0, 0, conflictsDetected, bytesTransferred, false, ex.Message);
@@ -127,14 +170,16 @@ public class SyncController : ControllerBase
                             SuccessCount = 0,
                             FailureCount = errors.Count,
                             Errors = errors,
-                            SuccessfulOperationIds = new List<int>(),
+                            SuccessfulOperationIds = new List<int>(), // Empty - nothing succeeded
                             Metrics = conflictMetrics
                         });
                     }
                     catch (Exception ex) when (!IsInfrastructureException(ex))
                     {
-                        _logger.LogError(ex, "Validation or data error processing sync operation for {EntityType} {EntityId}",
-                            operation.EntityType, operation.EntityId);
+                        failedOperationId = operation.QueueItemId; // FIX #1: Track the specific failed operation
+                        
+                        _logger.LogError(ex, "Validation or data error processing sync operation for {EntityType} {EntityId} (QueueItemId: {QueueItemId})",
+                            operation.EntityType, operation.EntityId, operation.QueueItemId);
 
                         errors.Add(new SyncErrorDTO
                         {
@@ -147,8 +192,18 @@ public class SyncController : ControllerBase
                         // This prevents inconsistent state where some operations succeed and others fail
                         await transaction.RollbackAsync();
 
-                        _logger.LogWarning("Transaction rolled back due to operation error. {SuccessCount} operations were not committed.",
-                            successCount);
+                        // FIX #1: Return ONLY the failed operation ID and all operations that came after it
+                        // Operations before the failure were rolled back but should be retried
+                        var failedOperationIds = request.Operations
+                            .Where(op => op.QueueItemId >= failedOperationId)
+                            .Select(op => op.QueueItemId)
+                            .ToList();
+
+                        _logger.LogWarning(
+                            "Transaction rolled back due to operation error. Failed operation: {FailedId}. " +
+                            "Marking {Count} operations for retry (failed + subsequent operations). " +
+                            "{SuccessCount} operations before failure were rolled back and will be retried.",
+                            failedOperationId, failedOperationIds.Count, successCount);
 
                         // ENHANCEMENT #8: Return metrics even on error
                         var errorMetrics = CreateMetrics(startTime, request.Operations.Count,
@@ -220,6 +275,13 @@ public class SyncController : ControllerBase
                 SuccessfulOperationIds = new List<int>(),
                 Metrics = unexpectedErrorMetrics
             });
+            }
+        }
+        finally
+        {
+            // ARCHITECTURAL FIX A1: Always release distributed lock
+            await _distributedLock.ReleaseAsync(lockKey);
+            _logger.LogInformation("Released sync lock for user {UserId}", userId);
         }
     }
 
@@ -268,6 +330,7 @@ public class SyncController : ControllerBase
         try
         {
             var lastSync = request.LastSyncTimestamp ?? DateTime.MinValue;
+            var serverSnapshotUtc = DateTime.UtcNow;
 
             _logger.LogInformation("Processing pull sync for device {DeviceId} since {LastSync}",
                 request.DeviceId, lastSync);
@@ -276,12 +339,12 @@ public class SyncController : ControllerBase
             // Note: Don't use .Include() to avoid circular reference issues
             // DTOs will map the foreign key IDs without loading navigation properties
             var assets = await _context.Assets
-                .Where(a => a.DateModified >= lastSync)
+                .Where(a => a.DateModified >= lastSync && a.DateModified <= serverSnapshotUtc)
                 .ToListAsync();
 
             // Get categories that were modified OR are referenced by the assets being synced
             var modifiedCategories = await _context.Categories
-                .Where(c => c.DateModified >= lastSync)
+                .Where(c => c.DateModified >= lastSync && c.DateModified <= serverSnapshotUtc)
                 .ToListAsync();
 
             var referencedCategoryIds = assets
@@ -308,7 +371,7 @@ public class SyncController : ControllerBase
 
             // Get locations that were modified OR are referenced by the assets being synced
             var modifiedLocations = await _context.Locations
-                .Where(l => l.DateModified >= lastSync)
+                .Where(l => l.DateModified >= lastSync && l.DateModified <= serverSnapshotUtc)
                 .ToListAsync();
 
             var referencedLocationIds = assets
@@ -327,7 +390,7 @@ public class SyncController : ControllerBase
 
             // Get departments that were modified OR are referenced by the assets being synced
             var modifiedDepartments = await _context.Departments
-                .Where(d => d.DateModified >= lastSync)
+                .Where(d => d.DateModified >= lastSync && d.DateModified <= serverSnapshotUtc)
                 .ToListAsync();
 
             var referencedDepartmentIds = assets
@@ -346,7 +409,7 @@ public class SyncController : ControllerBase
 
             // FIX #5: Get deleted items since last sync
             var deletedItems = await _context.DeletedItems
-                .Where(d => d.DeletedAt >= lastSync)
+                .Where(d => d.DeletedAt >= lastSync && d.DeletedAt <= serverSnapshotUtc)
                 .OrderBy(d => d.DeletedAt)
                 .ToListAsync();
 
@@ -413,7 +476,7 @@ public class SyncController : ControllerBase
                     d.EntityId,
                     d.DeletedAt
                 )).ToList(),
-                ServerTimestamp = DateTime.UtcNow,
+                ServerTimestamp = serverSnapshotUtc,
                 Metrics = pullMetrics
             });
         }
@@ -445,6 +508,7 @@ public class SyncController : ControllerBase
                     return conflictDetected;
                 }
 
+                var createdAt = operation.CreatedAt == default ? DateTime.UtcNow : operation.CreatedAt;
                 var newAsset = new Asset
                 {
                     AssetId = operation.EntityId, // Use ULID from mobile
@@ -471,8 +535,8 @@ public class SyncController : ControllerBase
                     DisposalDate = createDto.DisposalDate,
                     DisposalValue = createDto.DisposalValue,
                     Remarks = createDto.Remarks,
-                    CreatedAt = DateTime.UtcNow,
-                    DateModified = DateTime.UtcNow
+                    CreatedAt = createdAt,
+                    DateModified = createdAt
                 };
 
                 _context.Assets.Add(newAsset);
@@ -502,23 +566,53 @@ public class SyncController : ControllerBase
                     return conflictDetected;
                 }
 
-                // FIX #3: Timestamp-based conflict resolution
-                // Compare DateModified to prevent older changes from overwriting newer ones
-                if (updateDto.DateModified.HasValue && updateDto.DateModified.Value <= existingAsset.DateModified)
+                // HIGH FIX #4: Enhanced conflict detection - check both timestamp AND content
+                // Only reject if timestamp is older AND content actually differs
+                // IMPORTANT: Properly detect null value changes (intentional field clears)
+                if (updateDto.DateModified.HasValue && updateDto.DateModified.Value < existingAsset.DateModified)
                 {
-                    _logger.LogWarning(
-                        "Conflict detected for asset {AssetId}: Mobile timestamp ({MobileTime}) is older than or equal to server timestamp ({ServerTime}). " +
-                        "Rejecting update to prevent data loss. Mobile needs to pull latest changes.",
-                        operation.EntityId, updateDto.DateModified.Value, existingAsset.DateModified);
+                    // HIGH FIX #4: Check if content actually differs, including null value changes
+                    var hasContentChanges = 
+                        HasFieldChanged(updateDto.Name, existingAsset.Name) ||
+                        HasFieldChanged(updateDto.Status, existingAsset.Status) ||
+                        HasFieldChanged(updateDto.LocationId, existingAsset.LocationId) ||
+                        HasFieldChanged(updateDto.Condition, existingAsset.Condition) ||
+                        HasFieldChanged(updateDto.Description, existingAsset.Description) ||
+                        HasFieldChanged(updateDto.CategoryId, existingAsset.CategoryId) ||
+                        HasFieldChanged(updateDto.DepartmentId, existingAsset.DepartmentId) ||
+                        HasFieldChanged(updateDto.CurrentValue, existingAsset.CurrentValue) ||
+                        HasFieldChanged(updateDto.AssignedToUserId, existingAsset.AssignedToUserId) ||
+                        HasFieldChanged(updateDto.Remarks, existingAsset.Remarks);
                     
-                    throw new InvalidOperationException(
-                        $"Conflict: Server has newer version (Server: {existingAsset.DateModified:O}, Mobile: {updateDto.DateModified:O}). " +
-                        "Please sync to get latest changes before updating.");
+                    if (hasContentChanges)
+                    {
+                        conflictDetected = true;
+                        _logger.LogWarning(
+                            "Conflict detected for asset {AssetId}: Mobile timestamp ({MobileTime}) is older than server timestamp ({ServerTime}) " +
+                            "AND content differs. Rejecting update to prevent data loss. Mobile needs to pull latest changes.",
+                            operation.EntityId, updateDto.DateModified.Value, existingAsset.DateModified);
+                        
+                        throw new InvalidOperationException(
+                            $"Conflict: Server has newer version (Server: {existingAsset.DateModified:O}, Mobile: {updateDto.DateModified:O}) " +
+                            "with different content. Please sync to get latest changes before updating.");
+                    }
+                    else
+                    {
+                        // FIX #4: Same content, different timestamp - allow update (no real conflict)
+                        _logger.LogInformation(
+                            "Asset {AssetId}: Mobile timestamp is older but content is identical. Allowing update (no real conflict).",
+                            operation.EntityId);
+                    }
                 }
 
                 // Store old values for history tracking
+                var oldName = existingAsset.Name;
                 var oldLocationId = existingAsset.LocationId;
                 var oldStatus = existingAsset.Status;
+
+                var changes = new List<string>();
+                if (updateDto.Name != null && updateDto.Name != oldName)
+                    changes.Add($"Name changed from '{oldName}' to '{updateDto.Name}'");
 
                 // FIX #3: Apply updates only if mobile version is newer (Last-Write-Wins with timestamp validation)
                 if (updateDto.AssetTag != null) existingAsset.AssetTag = updateDto.AssetTag;
@@ -547,12 +641,6 @@ public class SyncController : ControllerBase
 
                 // FIX #3: Use mobile's DateModified if provided, otherwise use current server time
                 existingAsset.DateModified = updateDto.DateModified ?? DateTime.UtcNow;
-                
-                // Track changes for history
-                var changes = new List<string>();
-                
-                if (updateDto.Name != null && updateDto.Name != existingAsset.Name)
-                    changes.Add($"Name changed to '{updateDto.Name}'");
                 
                 if (updateDto.LocationId != null && updateDto.LocationId != oldLocationId)
                 {
@@ -598,17 +686,48 @@ public class SyncController : ControllerBase
                     return conflictDetected;
                 }
 
-                // Conflict resolution
-                if (patchDto.DateModified.HasValue && patchDto.DateModified.Value <= assetToPatch.DateModified)
+                // FIX #4: Enhanced conflict detection for PATCH - check both timestamp AND content
+                if (patchDto.DateModified.HasValue && patchDto.DateModified.Value < assetToPatch.DateModified)
                 {
-                    conflictDetected = true;
-                    _logger.LogWarning(
-                        "Conflict detected for asset {AssetId}: Mobile timestamp ({MobileTime}) is older than or equal to server timestamp ({ServerTime})",
-                        operation.EntityId, patchDto.DateModified.Value, assetToPatch.DateModified);
+                    // Check if any of the patched fields actually differ from current values
+                    var hasContentChanges = false;
+                    foreach (var change in patchDto.Changes)
+                    {
+                        var property = typeof(Asset).GetProperty(change.Key);
+                        if (property != null && property.CanRead)
+                        {
+                            var currentValue = property.GetValue(assetToPatch);
+                            var newValue = ConvertPatchValue(change.Value, property.PropertyType);
+                            
+                            // Compare values (handle nulls)
+                            if ((currentValue == null && newValue != null) ||
+                                (currentValue != null && !currentValue.Equals(newValue)))
+                            {
+                                hasContentChanges = true;
+                                break;
+                            }
+                        }
+                    }
                     
-                    throw new InvalidOperationException(
-                        $"Conflict: Server has newer version (Server: {assetToPatch.DateModified:O}, Mobile: {patchDto.DateModified:O}). " +
-                        "Please sync to get latest changes before updating.");
+                    if (hasContentChanges)
+                    {
+                        conflictDetected = true;
+                        _logger.LogWarning(
+                            "Conflict detected for asset {AssetId}: Mobile timestamp ({MobileTime}) is older than server timestamp ({ServerTime}) " +
+                            "AND patched content differs. Rejecting patch to prevent data loss.",
+                            operation.EntityId, patchDto.DateModified.Value, assetToPatch.DateModified);
+                        
+                        throw new InvalidOperationException(
+                            $"Conflict: Server has newer version (Server: {assetToPatch.DateModified:O}, Mobile: {patchDto.DateModified:O}) " +
+                            "with different content. Please sync to get latest changes before updating.");
+                    }
+                    else
+                    {
+                        // FIX #4: Same content, different timestamp - allow patch (no real conflict)
+                        _logger.LogInformation(
+                            "Asset {AssetId}: Mobile timestamp is older but patched content is identical. Allowing patch (no real conflict).",
+                            operation.EntityId);
+                    }
                 }
 
                 // Store old values for history tracking
@@ -620,14 +739,15 @@ public class SyncController : ControllerBase
                 foreach (var change in patchDto.Changes)
                 {
                     var property = typeof(Asset).GetProperty(change.Key);
-                    if (property != null && property.CanWrite)
+                    if (property != null && property.CanWrite && IsSyncPatchableAssetProperty(change.Key))
                     {
                         var oldValue = property.GetValue(assetToPatch);
-                        property.SetValue(assetToPatch, change.Value);
-                        patchChanges.Add($"{change.Key} changed from '{oldValue}' to '{change.Value}'");
+                        var newValue = ConvertPatchValue(change.Value, property.PropertyType);
+                        property.SetValue(assetToPatch, newValue);
+                        patchChanges.Add($"{change.Key} changed from '{oldValue}' to '{newValue}'");
                         
                         _logger.LogDebug("Patched {Property} on asset {AssetId}: {OldValue} -> {NewValue}",
-                            change.Key, operation.EntityId, oldValue, change.Value);
+                            change.Key, operation.EntityId, oldValue, newValue);
                     }
                 }
 
@@ -679,6 +799,72 @@ public class SyncController : ControllerBase
         }
         
         return conflictDetected;
+    }
+
+    private static bool IsSyncPatchableAssetProperty(string propertyName)
+    {
+        return propertyName is
+            nameof(Asset.AssetTag) or
+            nameof(Asset.Name) or
+            nameof(Asset.Description) or
+            nameof(Asset.CategoryId) or
+            nameof(Asset.LocationId) or
+            nameof(Asset.DepartmentId) or
+            nameof(Asset.PurchaseDate) or
+            nameof(Asset.PurchasePrice) or
+            nameof(Asset.CurrentValue) or
+            nameof(Asset.Status) or
+            nameof(Asset.AssignedToUserId) or
+            nameof(Asset.SerialNumber) or
+            nameof(Asset.DigitalAssetTag) or
+            nameof(Asset.Condition) or
+            nameof(Asset.VendorName) or
+            nameof(Asset.InvoiceNumber) or
+            nameof(Asset.Quantity) or
+            nameof(Asset.CostPerUnit) or
+            nameof(Asset.UsefulLifeYears) or
+            nameof(Asset.WarrantyExpiry) or
+            nameof(Asset.DisposalDate) or
+            nameof(Asset.DisposalValue) or
+            nameof(Asset.Remarks);
+    }
+
+    private static object? ConvertPatchValue(object? value, Type targetType)
+    {
+        var nullableType = Nullable.GetUnderlyingType(targetType);
+        var effectiveType = nullableType ?? targetType;
+
+        if (value == null)
+        {
+            if (nullableType != null || !targetType.IsValueType)
+            {
+                return null;
+            }
+
+            throw new InvalidOperationException($"Cannot set non-nullable property of type {targetType.Name} to null.");
+        }
+
+        if (value is JsonElement jsonElement)
+        {
+            if (jsonElement.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            {
+                if (nullableType != null || !targetType.IsValueType)
+                {
+                    return null;
+                }
+
+                throw new InvalidOperationException($"Cannot set non-nullable property of type {targetType.Name} to null.");
+            }
+
+            return jsonElement.Deserialize(effectiveType);
+        }
+
+        if (effectiveType.IsInstanceOfType(value))
+        {
+            return value;
+        }
+
+        return Convert.ChangeType(value, effectiveType);
     }
 
     /// <summary>
@@ -736,4 +922,36 @@ public class SyncController : ControllerBase
         NetBookValue = a.NetBookValue,
         GainLossOnDisposal = a.GainLossOnDisposal
     };
+
+    /// <summary>
+    /// HIGH FIX #4: Helper method to detect field changes including null value changes
+    /// Properly handles intentional field clears (setting to null)
+    /// </summary>
+    private static bool HasFieldChanged<T>(T? newValue, T? oldValue) where T : class
+    {
+        // Both null - no change
+        if (newValue == null && oldValue == null) return false;
+        
+        // One is null, other isn't - this is a change (including intentional clears)
+        if (newValue == null || oldValue == null) return true;
+        
+        // Both non-null - compare values
+        return !newValue.Equals(oldValue);
+    }
+    
+    /// <summary>
+    /// HIGH FIX #4: Overload for nullable value types
+    /// </summary>
+    private static bool HasFieldChanged<T>(T? newValue, T? oldValue) where T : struct
+    {
+        // Both null - no change
+        if (!newValue.HasValue && !oldValue.HasValue) return false;
+        
+        // One is null, other isn't - this is a change
+        if (!newValue.HasValue || !oldValue.HasValue) return true;
+        
+        // Both have values - compare
+        return !newValue.Value.Equals(oldValue.Value);
+    }
+
 }

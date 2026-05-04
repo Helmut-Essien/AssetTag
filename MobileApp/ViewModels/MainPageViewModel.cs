@@ -253,13 +253,15 @@ namespace MobileApp.ViewModels
 
         /// <summary>
         /// Navigate to assets list page
+        /// FIXED: Use absolute route for Shell hierarchy tab navigation
         /// </summary>
         [RelayCommand]
         private async Task ViewAssetsAsync()
         {
             try
             {
-                await Shell.Current.GoToAsync(nameof(InventoryPage));
+                // Navigate to Inventory tab using absolute route
+                await Shell.Current.GoToAsync("//MainTabs/Inventory");
             }
             catch (Exception ex)
             {
@@ -397,13 +399,15 @@ namespace MobileApp.ViewModels
 
         /// <summary>
         /// Navigate to assets page (bottom nav)
+        /// FIXED: Use absolute route for Shell hierarchy tab navigation
         /// </summary>
         [RelayCommand]
         private async Task NavigateToAssetsAsync()
         {
             try
             {
-                await Shell.Current.GoToAsync(nameof(InventoryPage));
+                // Navigate to Inventory tab using absolute route
+                await Shell.Current.GoToAsync("//MainTabs/Inventory");
             }
             catch (Exception ex)
             {
@@ -598,15 +602,15 @@ namespace MobileApp.ViewModels
 
         /// <summary>
         /// Navigate to locations page (bottom nav)
+        /// FIXED: Use absolute route for Shell hierarchy tab navigation
         /// </summary>
         [RelayCommand]
         private async Task NavigateToLocationsAsync()
         {
             try
             {
-                // TODO: Navigate to locations page when implemented
-                await Shell.Current.DisplayAlert("Locations", "Opening locations page...", "OK");
-                // await Shell.Current.GoToAsync("LocationsPage");
+                // Navigate to Locations tab using absolute route
+                await Shell.Current.GoToAsync("//MainTabs/Locations");
             }
             catch (Exception ex)
             {

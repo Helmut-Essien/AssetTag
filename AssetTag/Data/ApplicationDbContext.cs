@@ -16,6 +16,9 @@ namespace AssetTag.Data
         
         // FIX #5: Track deleted items for mobile sync
         public DbSet<DeletedItem> DeletedItems { get; set; }
+        
+        // ARCHITECTURAL FIX A1: Distributed locks for multi-device sync coordination
+        public DbSet<DistributedLock> DistributedLocks { get; set; }
 
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options)

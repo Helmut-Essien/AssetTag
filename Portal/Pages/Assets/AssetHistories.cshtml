@@ -544,7 +544,7 @@
                                             <div class="timeline-marker-sm @Model.GetActionBadgeClass(history.Action)"></div>
                                             <div class="timeline-content-sm">
                                                 <div class="d-flex justify-content-between">
-                                                    <span class="fw-medium">@history.AssetName.Truncate(20)</span>
+                                                    <span class="fw-medium">@(history.AssetName?.Truncate(20) ?? "N/A")</span>
                                                     <small class="text-muted">@history.Timestamp.ToString("HH:mm")</small>
                                                 </div>
                                                 <small class="text-muted">@history.Action by @history.UserFullName</small>

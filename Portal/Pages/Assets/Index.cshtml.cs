@@ -55,7 +55,6 @@ namespace Portal.Pages.Assets
         private Dictionary<string, string> _departmentNames = new();
 
         // Performance cache
-        private static List<AssetReadDTO>? _cachedAssets;
         private static System.DateTime _lastCacheUpdate = System.DateTime.MinValue;
 
         public async Task<IActionResult> OnGetAsync()
@@ -229,8 +228,6 @@ namespace Portal.Pages.Assets
             var response = await _httpClient.PostAsJsonAsync("api/assets", dto);
             if (response.IsSuccessStatusCode)
             {
-                // Invalidate cache on create
-                _cachedAssets = null;
                 return RedirectToPage();
             }
 
@@ -280,8 +277,6 @@ namespace Portal.Pages.Assets
             var response = await _httpClient.PutAsJsonAsync($"api/assets/{dto.AssetId}", dto);
             if (response.IsSuccessStatusCode)
             {
-                // Invalidate cache on update
-                _cachedAssets = null;
                 return RedirectToPage();
             }
 
@@ -319,8 +314,6 @@ namespace Portal.Pages.Assets
             var response = await _httpClient.DeleteAsync($"api/assets/{id}");
             if (response.IsSuccessStatusCode)
             {
-                // Invalidate cache on delete
-                _cachedAssets = null;
                 return RedirectToPage();
             }
             else if (response.StatusCode == HttpStatusCode.Unauthorized)

@@ -486,6 +486,9 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.Configure<EmailService.EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddScoped<IEmailService, EmailService>();
 
+// ARCHITECTURAL FIX A1: Register distributed lock service for multi-device sync coordination
+builder.Services.AddScoped<IDistributedLockService, DatabaseDistributedLockService>();
+
 builder.Configuration.AddEnvironmentVariables();
 
 

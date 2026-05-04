@@ -166,10 +166,10 @@ namespace Portal.Pages.Account
                             content,
                             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-                        IsValidToken = validationResult != null && validationResult.Success;
-                        if (IsValidToken)
+                        IsValidToken = validationResult?.Success == true;
+                        if (validationResult?.Success == true && validationResult.Data != null)
                         {
-                            InvitationRole = validationResult.Data?.Role;
+                            InvitationRole = validationResult.Data.Role;
                         }
                     }
                 }
@@ -277,10 +277,10 @@ namespace Portal.Pages.Account
                             content,
                             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-                        IsValidToken = validationResult != null && validationResult.Success;
-                        if (IsValidToken)
+                        IsValidToken = validationResult?.Success == true;
+                        if (validationResult?.Success == true && validationResult.Data != null)
                         {
-                            InvitationRole = validationResult.Data?.Role;
+                            InvitationRole = validationResult.Data.Role;
                         }
                     }
                 }

@@ -36,7 +36,13 @@ public class CategoriesController : ControllerBase
         if (await _context.Categories.AnyAsync(c => c.Name == dto.Name))
             return Conflict("Category name already exists.");
 
-        var cat = new Category { Name = dto.Name, Description = dto.Description, DepreciationRate = dto.DepreciationRate };
+        var cat = new Category
+        {
+            Name = dto.Name,
+            Description = dto.Description,
+            DepreciationRate = dto.DepreciationRate,
+            DateModified = DateTime.UtcNow
+        };
         _context.Categories.Add(cat);
         await _context.SaveChangesAsync();
 
@@ -58,6 +64,7 @@ public class CategoriesController : ControllerBase
         cat.Name = dto.Name ?? cat.Name;
         cat.Description = dto.Description;
         cat.DepreciationRate = dto.DepreciationRate;
+        cat.DateModified = DateTime.UtcNow;
         await _context.SaveChangesAsync();
         return NoContent();
     }

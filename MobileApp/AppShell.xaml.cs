@@ -23,10 +23,10 @@ namespace MobileApp
             _authService = authService;
             
             // Register routes for Shell navigation (non-tab pages)
+            // FIXED: Removed InventoryPage and LocationsPage - they are tab pages in Shell hierarchy
+            // Tab pages should use absolute routes (//MainTabs/TabName), not registered routes
             Routing.RegisterRoute(nameof(LoginPage), typeof(LoginPage));
             Routing.RegisterRoute(nameof(SettingsPage), typeof(SettingsPage));
-            Routing.RegisterRoute(nameof(InventoryPage), typeof(InventoryPage));
-            Routing.RegisterRoute(nameof(LocationsPage), typeof(LocationsPage));
             Routing.RegisterRoute(nameof(AddLocationPage), typeof(AddLocationPage));
             Routing.RegisterRoute(nameof(EditLocationPage), typeof(EditLocationPage));
             Routing.RegisterRoute(nameof(AddAssetPage), typeof(AddAssetPage));
