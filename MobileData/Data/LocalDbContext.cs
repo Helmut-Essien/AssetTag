@@ -27,6 +27,7 @@ namespace MobileData.Data
         /* ---------------  Optional Sync Tables --------------- */
         public DbSet<SyncQueueItem> SyncQueue => Set<SyncQueueItem>();
         public DbSet<DeviceInfo> DeviceInfo => Set<DeviceInfo>();
+        public DbSet<SkippedAsset> SkippedAssets => Set<SkippedAsset>();
 
         /* ---------------  Path --------------- */
         public LocalDbContext(DbContextOptions<LocalDbContext> options, string dbPath)
@@ -146,6 +147,16 @@ namespace MobileData.Data
                 // This was causing LastSync to reset on app restart.
                 // LastSync should be explicitly managed by the application code,
                 // not automatically set by the database.
+            });
+
+            // FIX #13: Configure SkippedAssets table for tracking sync failures
+            mb.Entity<SkippedAsset>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.AssetId);
+                entity.HasIndex(e => e.SkippedAt);
+                entity.Property(e => e.SkippedAt)
+                      .HasDefaultValueSql("CURRENT_TIMESTAMP");
             });
         }
 
@@ -278,5 +289,22 @@ namespace MobileData.Data
         public string DeviceId { get; set; } = string.Empty;
         public DateTime LastSync { get; set; }
         public string SyncToken { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// FIX #13: Track assets that couldn't be synced due to missing references
+    /// Allows manual review and prevents silent data loss
+    /// </summary>
+    public class SkippedAsset
+    {
+        public int Id { get; set; }
+        public string AssetId { get; set; } = string.Empty;
+        public string AssetTag { get; set; } = string.Empty;
+        public string Reason { get; set; } = string.Empty;
+        public DateTime SkippedAt { get; set; }
+        public int RetryCount { get; set; }
+        public string? MissingCategoryId { get; set; }
+        public string? MissingLocationId { get; set; }
+        public string? MissingDepartmentId { get; set; }
     }
 }

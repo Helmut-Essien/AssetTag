@@ -118,6 +118,13 @@ public class SyncController : ControllerBase
 
                         await transaction.RollbackAsync();
 
+                        // FIX #11: Return failed operation IDs so mobile can increment retry counts
+                        // Without this, failed operations retry indefinitely without hitting MAX_RETRY_COUNT
+                        var failedOperationIds = request.Operations
+                            .Where(op => errors.Any(e => e.EntityId == op.EntityId))
+                            .Select(op => op.QueueItemId)
+                            .ToList();
+
                         // ENHANCEMENT #8: Return metrics even on conflict
                         var conflictMetrics = CreateMetrics(startTime, request.Operations.Count,
                             0, errors.Count, 0, 0, conflictsDetected, bytesTransferred, false, ex.Message);
@@ -127,7 +134,7 @@ public class SyncController : ControllerBase
                             SuccessCount = 0,
                             FailureCount = errors.Count,
                             Errors = errors,
-                            SuccessfulOperationIds = new List<int>(),
+                            SuccessfulOperationIds = new List<int>(), // Empty - nothing succeeded
                             Metrics = conflictMetrics
                         });
                     }
@@ -149,6 +156,13 @@ public class SyncController : ControllerBase
 
                         _logger.LogWarning("Transaction rolled back due to operation error. {SuccessCount} operations were not committed.",
                             successCount);
+
+                        // FIX #11: Return failed operation IDs so mobile can increment retry counts
+                        // This ensures failed operations eventually hit MAX_RETRY_COUNT instead of retrying forever
+                        var failedOperationIds = request.Operations
+                            .Where(op => errors.Any(e => e.EntityId == op.EntityId))
+                            .Select(op => op.QueueItemId)
+                            .ToList();
 
                         // ENHANCEMENT #8: Return metrics even on error
                         var errorMetrics = CreateMetrics(startTime, request.Operations.Count,

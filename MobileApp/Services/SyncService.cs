@@ -8,7 +8,7 @@ using System.Threading.Channels;
 
 namespace MobileApp.Services;
 
-public class SyncService : ISyncService
+public class SyncService : ISyncService, IDisposable
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly IHttpClientFactory _httpClientFactory;
@@ -20,6 +20,8 @@ public class SyncService : ISyncService
     private readonly SemaphoreSlim _pushSemaphore = new(1, 1);
     private readonly SemaphoreSlim _pullSemaphore = new(1, 1);
     private readonly SemaphoreSlim _fullSyncSemaphore = new(1, 1);
+    // FIX #9: Semaphore to prevent race condition in GetOrCreateDeviceInfoAsync
+    private readonly SemaphoreSlim _deviceInfoSemaphore = new(1, 1);
     
     // Channel-based queue to serialize background sync requests
     private readonly Channel<SyncWorkItem> _syncQueue = Channel.CreateUnbounded<SyncWorkItem>(new UnboundedChannelOptions
@@ -29,6 +31,10 @@ public class SyncService : ISyncService
     });
 
     private readonly Task _queueProcessorTask;
+    
+    // FIX #12: Cancellation token for graceful shutdown
+    private readonly CancellationTokenSource _cancellationTokenSource = new();
+    private bool _disposed;
 
     // FIX #2: Maximum retry attempts before marking sync item as permanently failed
     private const int MAX_RETRY_COUNT = 5;
@@ -101,8 +107,41 @@ public class SyncService : ISyncService
         _httpClientFactory = httpClientFactory;
         _authService = authService;
         _logger = logger;
-        // Start background processor for sync queue
-        _queueProcessorTask = Task.Run(ProcessQueueAsync);
+        // Start background processor for sync queue with cancellation support
+        _queueProcessorTask = Task.Run(() => ProcessQueueAsync(_cancellationTokenSource.Token));
+    }
+
+    // FIX #12: Implement IDisposable for graceful shutdown and resource cleanup
+    public void Dispose()
+    {
+        if (_disposed) return;
+
+        try
+        {
+            // Signal cancellation to background task
+            _cancellationTokenSource.Cancel();
+            
+            // Wait for background task to complete (with timeout to prevent hanging)
+            if (!_queueProcessorTask.Wait(TimeSpan.FromSeconds(5)))
+            {
+                _logger.LogWarning("Background sync queue processor did not complete within timeout");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during SyncService disposal");
+        }
+        finally
+        {
+            // Dispose resources
+            _pushSemaphore?.Dispose();
+            _pullSemaphore?.Dispose();
+            _fullSyncSemaphore?.Dispose();
+            _deviceInfoSemaphore?.Dispose();
+            _cancellationTokenSource?.Dispose();
+            
+            _disposed = true;
+        }
     }
 
     public async Task<(bool Success, string Message)> PushChangesAsync()
@@ -524,13 +563,44 @@ public class SyncService : ISyncService
                                 assetDto.AssetId, assetDto.AssetTag, categoryExists, locationExists, departmentExists);
 
                             skippedAssetIds.Add(assetDto.AssetId);
+                            
+                            // FIX #13: Track skipped asset for manual review and potential retry
+                            var existingSkipped = await dbContext.SkippedAssets
+                                .FirstOrDefaultAsync(s => s.AssetId == assetDto.AssetId);
+                            
+                            if (existingSkipped != null)
+                            {
+                                // Update retry count for existing skipped asset
+                                existingSkipped.RetryCount++;
+                                existingSkipped.SkippedAt = DateTime.UtcNow;
+                            }
+                            else
+                            {
+                                // Create new skipped asset record
+                                var skippedAsset = new MobileData.Data.SkippedAsset
+                                {
+                                    AssetId = assetDto.AssetId,
+                                    AssetTag = assetDto.AssetTag,
+                                    Reason = $"Missing references - Category: {categoryExists}, Location: {locationExists}, Department: {departmentExists}",
+                                    SkippedAt = DateTime.UtcNow,
+                                    RetryCount = 1,
+                                    MissingCategoryId = !categoryExists ? assetDto.CategoryId : null,
+                                    MissingLocationId = !locationExists ? assetDto.LocationId : null,
+                                    MissingDepartmentId = !departmentExists ? assetDto.DepartmentId : null
+                                };
+                                dbContext.SkippedAssets.Add(skippedAsset);
+                            }
+                            
                             continue;
                         }
 
+                        // BUG FIX: Check if asset already exists before adding (prevents duplicates)
+                        // This matches the upsert pattern used for Categories, Locations, and Departments
                         var existing = await dbContext.Assets.FindAsync(assetDto.AssetId);
 
                         if (existing != null)
                         {
+                            // UPDATE existing asset
                             existing.AssetTag = assetDto.AssetTag;
                             existing.Name = assetDto.Name;
                             existing.Description = assetDto.Description;
@@ -560,6 +630,7 @@ public class SyncService : ISyncService
                         }
                         else
                         {
+                            // INSERT new asset
                             var newAsset = new Asset
                             {
                                 AssetId = assetDto.AssetId,
@@ -594,6 +665,15 @@ public class SyncService : ISyncService
                             _logger.LogDebug("Added new asset: {AssetName} ({AssetTag})", assetDto.Name, assetDto.AssetTag);
                         }
 
+                        // FIX #13: Remove from skipped assets if it was previously skipped and now synced successfully
+                        var previouslySkipped = await dbContext.SkippedAssets
+                            .FirstOrDefaultAsync(s => s.AssetId == assetDto.AssetId);
+                        if (previouslySkipped != null)
+                        {
+                            dbContext.SkippedAssets.Remove(previouslySkipped);
+                            _logger.LogInformation("Removed asset {AssetId} from skipped assets - now synced successfully", assetDto.AssetId);
+                        }
+
                         totalChanges++;
                         assetIndex++;
                         
@@ -605,13 +685,29 @@ public class SyncService : ISyncService
                         }
                     }
 
-                    // Save each batch to keep transactions bounded and avoid big memory/GC spikes
-                    await dbContext.SaveChangesAsync();
+                    // FIX #14: Save each batch with error handling for partial failures
+                    try
+                    {
+                        await dbContext.SaveChangesAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error saving asset batch at offset {Offset}. Adjusting totalChanges count.", offset);
+                        
+                        // Adjust totalChanges to reflect actual saved count
+                        // Subtract the batch size that failed
+                        var failedBatchSize = batch.Count;
+                        totalChanges -= failedBatchSize;
+                        
+                        // Re-throw to trigger outer error handling
+                        throw;
+                    }
                 }
 
                 // ═══════════════════════════════════════════════════════════
                 // STEP 5: Process deleted items (FIX #5)
                 // Remove entities that were deleted on the server
+                // CRITICAL: Change tracking is already disabled, ensuring deletions don't create sync queue entries
                 // ═══════════════════════════════════════════════════════════
                 ReportProgress(SyncPhase.Finalizing, 0, result.DeletedItems.Count,
                     $"Processing {result.DeletedItems.Count} deleted items...");
@@ -675,7 +771,7 @@ public class SyncService : ISyncService
                     }
                 }
                 
-                // Save deletions
+                // Save deletions (change tracking still disabled - no sync queue entries created)
                 if (deletedCount > 0)
                 {
                     await dbContext.SaveChangesAsync();
@@ -801,30 +897,45 @@ public class SyncService : ISyncService
         return await tcs.Task;
     }
 
-    private async Task ProcessQueueAsync()
+    private async Task ProcessQueueAsync(CancellationToken cancellationToken)
     {
-        await foreach (var work in _syncQueue.Reader.ReadAllAsync())
+        try
         {
-            try
+            await foreach (var work in _syncQueue.Reader.ReadAllAsync(cancellationToken))
             {
-                (bool Success, string Message) result;
-                if (work.Type == SyncRequestType.Push)
+                // Check for cancellation before processing
+                if (cancellationToken.IsCancellationRequested)
                 {
-                    result = await PushChangesAsync();
-                }
-                else
-                {
-                    // Full sync should be serialized via semaphore inside FullSyncAsync
-                    result = await FullSyncAsync();
+                    _logger.LogInformation("Sync queue processor cancelled");
+                    work.Tcs.TrySetCanceled(cancellationToken);
+                    break;
                 }
 
-                work.Tcs.TrySetResult(result);
+                try
+                {
+                    (bool Success, string Message) result;
+                    if (work.Type == SyncRequestType.Push)
+                    {
+                        result = await PushChangesAsync();
+                    }
+                    else
+                    {
+                        // Full sync should be serialized via semaphore inside FullSyncAsync
+                        result = await FullSyncAsync();
+                    }
+
+                    work.Tcs.TrySetResult(result);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error processing sync queue item");
+                    work.Tcs.TrySetException(ex);
+                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error processing sync queue item");
-                work.Tcs.TrySetException(ex);
-            }
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Sync queue processor gracefully shut down");
         }
     }
 
@@ -837,29 +948,38 @@ public class SyncService : ISyncService
 
     private async Task<MobileData.Data.DeviceInfo> GetOrCreateDeviceInfoAsync()
     {
-        using var scope = _serviceProvider.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
-
-        var deviceInfo = await dbContext.DeviceInfo.FirstOrDefaultAsync();
-        if (deviceInfo == null)
+        // FIX #9: Prevent race condition when multiple syncs start simultaneously on first launch
+        await _deviceInfoSemaphore.WaitAsync();
+        try
         {
-            // For first-time install, use a very old date (year 1900) to fetch ALL data from server
-            // This ensures complete initial sync on first app launch
-            var initialSyncDate = new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            
-            deviceInfo = new MobileData.Data.DeviceInfo
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
+
+            var deviceInfo = await dbContext.DeviceInfo.FirstOrDefaultAsync();
+            if (deviceInfo == null)
             {
-                DeviceId = Guid.NewGuid().ToString(),
-                LastSync = initialSyncDate,
-                SyncToken = string.Empty
-            };
-            dbContext.DeviceInfo.Add(deviceInfo);
-            await dbContext.SaveChangesAsync();
-            
-            _logger.LogInformation("Created new device info with ID: {DeviceId}, LastSync: {LastSync} (initial full sync)",
-                deviceInfo.DeviceId, deviceInfo.LastSync);
+                // For first-time install, use a very old date (year 1900) to fetch ALL data from server
+                // This ensures complete initial sync on first app launch
+                var initialSyncDate = new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+                
+                deviceInfo = new MobileData.Data.DeviceInfo
+                {
+                    DeviceId = Guid.NewGuid().ToString(),
+                    LastSync = initialSyncDate,
+                    SyncToken = string.Empty
+                };
+                dbContext.DeviceInfo.Add(deviceInfo);
+                await dbContext.SaveChangesAsync();
+                
+                _logger.LogInformation("Created new device info with ID: {DeviceId}, LastSync: {LastSync} (initial full sync)",
+                    deviceInfo.DeviceId, deviceInfo.LastSync);
+            }
+            return deviceInfo;
         }
-        return deviceInfo;
+        finally
+        {
+            _deviceInfoSemaphore.Release();
+        }
     }
 
     /// <summary>
@@ -1081,24 +1201,34 @@ public class SyncService : ISyncService
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
 
-            // Delete data (this may create SyncQueue operations due to change tracking)
-            dbContext.AssetHistories.RemoveRange(dbContext.AssetHistories);
-            dbContext.Assets.RemoveRange(dbContext.Assets);
-            dbContext.Categories.RemoveRange(dbContext.Categories);
-            dbContext.Locations.RemoveRange(dbContext.Locations);
-            dbContext.Departments.RemoveRange(dbContext.Departments);
+            // FIX #10: Disable change tracking to prevent creating SyncQueue entries for deletions
+            dbContext.ChangeTracker.AutoDetectChangesEnabled = false;
+            
+            try
+            {
+                // Delete data (change tracking disabled - no SyncQueue operations created)
+                dbContext.AssetHistories.RemoveRange(dbContext.AssetHistories);
+                dbContext.Assets.RemoveRange(dbContext.Assets);
+                dbContext.Categories.RemoveRange(dbContext.Categories);
+                dbContext.Locations.RemoveRange(dbContext.Locations);
+                dbContext.Departments.RemoveRange(dbContext.Departments);
 
-            await dbContext.SaveChangesAsync();
+                await dbContext.SaveChangesAsync();
 
-            // NOW clear the SyncQueue (removes any operations created above)
-            // This ensures we don't try to sync deletions of data we're clearing locally
-            dbContext.SyncQueue.RemoveRange(dbContext.SyncQueue);
-            await dbContext.SaveChangesAsync();
+                // Clear the SyncQueue (any pending operations)
+                dbContext.SyncQueue.RemoveRange(dbContext.SyncQueue);
+                await dbContext.SaveChangesAsync();
 
-            // Reset sync state so next pull will fetch all data from server
-            await ResetSyncStateAsync();
+                // Reset sync state so next pull will fetch all data from server
+                await ResetSyncStateAsync();
 
-            _logger.LogInformation("All local data cleared successfully");
+                _logger.LogInformation("All local data cleared successfully");
+            }
+            finally
+            {
+                // Re-enable change tracking for normal operations
+                dbContext.ChangeTracker.AutoDetectChangesEnabled = true;
+            }
         }
         catch (Exception ex)
         {
