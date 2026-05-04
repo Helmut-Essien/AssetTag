@@ -75,6 +75,7 @@ public class LocationsController : ControllerBase
             Room = dto.Room,
             Latitude = dto.Latitude,
             Longitude = dto.Longitude,
+            DateModified = DateTime.UtcNow,
             Assets = new List<Asset>() // satisfy required navigation property
         };
 
@@ -111,6 +112,7 @@ public class LocationsController : ControllerBase
         loc.Room = dto.Room ?? loc.Room;
         loc.Latitude = dto.Latitude ?? loc.Latitude;
         loc.Longitude = dto.Longitude ?? loc.Longitude;
+        loc.DateModified = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
         return NoContent();

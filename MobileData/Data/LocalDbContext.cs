@@ -4,9 +4,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualBasic;
+using Shared.DTOs;
 using Shared.Models;
 using System.IO;
 using Location = Shared.Models.Location;
@@ -28,6 +27,8 @@ namespace MobileData.Data
         public DbSet<SyncQueueItem> SyncQueue => Set<SyncQueueItem>();
         public DbSet<DeviceInfo> DeviceInfo => Set<DeviceInfo>();
         public DbSet<SkippedAsset> SkippedAssets => Set<SkippedAsset>();
+
+        public bool SuppressSyncQueue { get; set; }
 
         /* ---------------  Path --------------- */
         public LocalDbContext(DbContextOptions<LocalDbContext> options, string dbPath)
@@ -179,11 +180,9 @@ namespace MobileData.Data
         public override int SaveChanges()
         {
             // ═══════════════════════════════════════════════════════════
-            // BUG FIX #6: Only queue sync operations when change tracking is enabled
-            // When AutoDetectChangesEnabled is false (during pull sync), skip queuing
-            // to prevent creating SyncQueue entries for data pulled FROM the server
+            // Queue local user changes unless the caller is applying server data.
             // ═══════════════════════════════════════════════════════════
-            if (ChangeTracker.AutoDetectChangesEnabled)
+            if (!SuppressSyncQueue)
             {
                 QueueSyncOperations();
             }
@@ -194,11 +193,9 @@ namespace MobileData.Data
         public override Task<int> SaveChangesAsync(CancellationToken ct = default)
         {
             // ═══════════════════════════════════════════════════════════
-            // BUG FIX #6: Only queue sync operations when change tracking is enabled
-            // When AutoDetectChangesEnabled is false (during pull sync), skip queuing
-            // to prevent creating SyncQueue entries for data pulled FROM the server
+            // Queue local user changes unless the caller is applying server data.
             // ═══════════════════════════════════════════════════════════
-            if (ChangeTracker.AutoDetectChangesEnabled)
+            if (!SuppressSyncQueue)
             {
                 QueueSyncOperations();
             }
@@ -208,11 +205,9 @@ namespace MobileData.Data
 
         private void QueueSyncOperations()
         {
-            // Configure JSON serializer to handle circular references
             var jsonOptions = new JsonSerializerOptions
             {
-                ReferenceHandler = ReferenceHandler.IgnoreCycles,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                DefaultIgnoreCondition = JsonIgnoreCondition.Never,
                 WriteIndented = false
             };
 
@@ -236,24 +231,20 @@ namespace MobileData.Data
 
                 if (entry.Entity is Asset asset)
                 {
+                    var jsonData = operation switch
+                    {
+                        "CREATE" => JsonSerializer.Serialize(ToCreateDto(asset), jsonOptions),
+                        "UPDATE" => JsonSerializer.Serialize(ToPatchDto(asset), jsonOptions),
+                        "DELETE" => JsonSerializer.Serialize(new { asset.AssetId }, jsonOptions),
+                        _ => string.Empty
+                    };
+
                     queueItem = new SyncQueueItem
                     {
                         EntityType = "Asset",
                         EntityId = asset.AssetId,
-                        Operation = operation,
-                        JsonData = JsonSerializer.Serialize(asset, jsonOptions),
-                        CreatedAt = DateTime.UtcNow,
-                        RetryCount = 0
-                    };
-                }
-                else if (entry.Entity is AssetHistory history)
-                {
-                    queueItem = new SyncQueueItem
-                    {
-                        EntityType = "AssetHistory",
-                        EntityId = history.HistoryId.ToString(),
-                        Operation = operation,
-                        JsonData = JsonSerializer.Serialize(history, jsonOptions),
+                        Operation = operation == "UPDATE" ? "PATCH" : operation,
+                        JsonData = jsonData,
                         CreatedAt = DateTime.UtcNow,
                         RetryCount = 0
                     };
@@ -265,6 +256,65 @@ namespace MobileData.Data
                 }
             }
         }
+
+        private static AssetCreateDTO ToCreateDto(Asset asset) => new()
+        {
+            AssetTag = asset.AssetTag,
+            Name = asset.Name,
+            Description = asset.Description,
+            CategoryId = asset.CategoryId,
+            LocationId = asset.LocationId,
+            DepartmentId = asset.DepartmentId,
+            PurchaseDate = asset.PurchaseDate,
+            PurchasePrice = asset.PurchasePrice,
+            CurrentValue = asset.CurrentValue,
+            Status = asset.Status,
+            AssignedToUserId = asset.AssignedToUserId,
+            SerialNumber = asset.SerialNumber,
+            DigitalAssetTag = asset.DigitalAssetTag,
+            Condition = asset.Condition,
+            VendorName = asset.VendorName,
+            InvoiceNumber = asset.InvoiceNumber,
+            Quantity = asset.Quantity,
+            CostPerUnit = asset.CostPerUnit,
+            UsefulLifeYears = asset.UsefulLifeYears,
+            WarrantyExpiry = asset.WarrantyExpiry,
+            DisposalDate = asset.DisposalDate,
+            DisposalValue = asset.DisposalValue,
+            Remarks = asset.Remarks
+        };
+
+        private static AssetPatchDTO ToPatchDto(Asset asset) => new()
+        {
+            AssetId = asset.AssetId,
+            DateModified = asset.DateModified,
+            Changes = new Dictionary<string, object?>
+            {
+                [nameof(Asset.AssetTag)] = asset.AssetTag,
+                [nameof(Asset.Name)] = asset.Name,
+                [nameof(Asset.Description)] = asset.Description,
+                [nameof(Asset.CategoryId)] = asset.CategoryId,
+                [nameof(Asset.LocationId)] = asset.LocationId,
+                [nameof(Asset.DepartmentId)] = asset.DepartmentId,
+                [nameof(Asset.PurchaseDate)] = asset.PurchaseDate,
+                [nameof(Asset.PurchasePrice)] = asset.PurchasePrice,
+                [nameof(Asset.CurrentValue)] = asset.CurrentValue,
+                [nameof(Asset.Status)] = asset.Status,
+                [nameof(Asset.AssignedToUserId)] = asset.AssignedToUserId,
+                [nameof(Asset.SerialNumber)] = asset.SerialNumber,
+                [nameof(Asset.DigitalAssetTag)] = asset.DigitalAssetTag,
+                [nameof(Asset.Condition)] = asset.Condition,
+                [nameof(Asset.VendorName)] = asset.VendorName,
+                [nameof(Asset.InvoiceNumber)] = asset.InvoiceNumber,
+                [nameof(Asset.Quantity)] = asset.Quantity,
+                [nameof(Asset.CostPerUnit)] = asset.CostPerUnit,
+                [nameof(Asset.UsefulLifeYears)] = asset.UsefulLifeYears,
+                [nameof(Asset.WarrantyExpiry)] = asset.WarrantyExpiry,
+                [nameof(Asset.DisposalDate)] = asset.DisposalDate,
+                [nameof(Asset.DisposalValue)] = asset.DisposalValue,
+                [nameof(Asset.Remarks)] = asset.Remarks
+            }
+        };
         
         // BUG FIX #4: Removed UpdateSyncMetadata() method entirely
         // Sync state is tracked in SyncQueue table only, no need for shadow properties

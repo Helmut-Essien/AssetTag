@@ -45,6 +45,7 @@ public class DepartmentsController : ControllerBase
         {
             Name = dto.Name,
             Description = dto.Description,
+            DateModified = DateTime.UtcNow,
             // satisfy required navigation property
             Users = new List<ApplicationUser>()
         };
@@ -72,6 +73,7 @@ public class DepartmentsController : ControllerBase
 
         dep.Name = dto.Name ?? dep.Name;
         dep.Description = dto.Description;
+        dep.DateModified = DateTime.UtcNow;
         await _context.SaveChangesAsync();
         return NoContent();
     }
