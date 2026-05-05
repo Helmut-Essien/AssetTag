@@ -24,10 +24,13 @@ public class SyncService : ISyncService, IDisposable
     private readonly SemaphoreSlim _deviceInfoSemaphore = new(1, 1);
     
     // Channel-based queue to serialize background sync requests
-    private readonly Channel<SyncWorkItem> _syncQueue = Channel.CreateUnbounded<SyncWorkItem>(new UnboundedChannelOptions
+    // Bounded capacity prevents memory exhaustion under rapid-fire Enqueue calls
+    private const int SyncChannelCapacity = 64;
+    private readonly Channel<SyncWorkItem> _syncQueue = Channel.CreateBounded<SyncWorkItem>(new BoundedChannelOptions(SyncChannelCapacity)
     {
         SingleReader = true,
-        SingleWriter = false
+        SingleWriter = false,
+        FullMode = BoundedChannelFullMode.DropOldest
     });
 
     private readonly Task _queueProcessorTask;
@@ -296,7 +299,7 @@ public class SyncService : ISyncService, IDisposable
                         }
                     }
                     
-                    await dbContext.SaveChangesAsync();
+                    await SaveWithRetryAsync(dbContext, "push sync finalization");
 
                     var message = $"Synced {result.SuccessCount} changes, {itemsToRetry.Count} will retry, {itemsBlocked.Count + blockedCount} blocked for review";
                     _logger.LogInformation("Push sync completed: {Message}", message);
@@ -399,7 +402,27 @@ public class SyncService : ISyncService, IDisposable
     {
         var tcs = new TaskCompletionSource<(bool, string)>(TaskCreationOptions.RunContinuationsAsynchronously);
         var item = new SyncWorkItem(SyncRequestType.Push, tcs);
-        await _syncQueue.Writer.WriteAsync(item);
+
+        if (!_syncQueue.Writer.TryWrite(item))
+        {
+            _logger.LogWarning("Sync queue full, dropping oldest pending push request");
+            return (false, "Sync queue busy, try again later");
+        }
+
+        return await tcs.Task;
+    }
+
+    public async Task<(bool Success, string Message)> EnqueueFullSyncAsync()
+    {
+        var tcs = new TaskCompletionSource<(bool, string)>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var item = new SyncWorkItem(SyncRequestType.Full, tcs);
+
+        if (!_syncQueue.Writer.TryWrite(item))
+        {
+            _logger.LogWarning("Sync queue full, dropping oldest pending full sync request");
+            return (false, "Sync queue busy, try again later");
+        }
+
         return await tcs.Task;
     }
 
@@ -917,17 +940,26 @@ public class SyncService : ISyncService, IDisposable
                                     assetDto.AssetId, assetDto.AssetTag);
                                 batchFailureCount++;
                                 
-                                // Track as skipped for retry (outside transaction)
-                                var skippedAsset = new MobileData.Data.SkippedAsset
+                                // Track as skipped for retry
+                                try
                                 {
-                                    AssetId = assetDto.AssetId,
-                                    AssetTag = assetDto.AssetTag,
-                                    Reason = $"Batch save failed, individual save also failed: {individualEx.Message}",
-                                    SkippedAt = DateTime.UtcNow,
-                                    RetryCount = 1
-                                };
-                                dbContext.SkippedAssets.Add(skippedAsset);
-                                await dbContext.SaveChangesAsync(); // Save skipped record outside transaction
+                                    var skippedAsset = new MobileData.Data.SkippedAsset
+                                    {
+                                        AssetId = assetDto.AssetId,
+                                        AssetTag = assetDto.AssetTag,
+                                        Reason = $"Batch save failed, individual save also failed: {individualEx.Message}",
+                                        SkippedAt = DateTime.UtcNow,
+                                        RetryCount = 1
+                                    };
+                                    dbContext.SkippedAssets.Add(skippedAsset);
+                                    await dbContext.SaveChangesAsync();
+                                }
+                                catch (Exception skipEx)
+                                {
+                                    _logger.LogError(skipEx,
+                                        "Failed to save skipped-asset record for {AssetId} ({AssetTag})",
+                                        assetDto.AssetId, assetDto.AssetTag);
+                                }
                             }
                         }
                         
@@ -1168,14 +1200,6 @@ public class SyncService : ISyncService, IDisposable
         }
     }
 
-    public async Task<(bool Success, string Message)> EnqueueFullSyncAsync()
-    {
-        var tcs = new TaskCompletionSource<(bool, string)>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var item = new SyncWorkItem(SyncRequestType.Full, tcs);
-        await _syncQueue.Writer.WriteAsync(item);
-        return await tcs.Task;
-    }
-
     private async Task ProcessQueueAsync(CancellationToken cancellationToken)
     {
         try
@@ -1390,6 +1414,33 @@ public class SyncService : ISyncService, IDisposable
         }
     }
 
+    private static readonly HashSet<string> s_syncableAssetProperties = new(StringComparer.Ordinal)
+    {
+        nameof(Asset.AssetTag),
+        nameof(Asset.Name),
+        nameof(Asset.Description),
+        nameof(Asset.CategoryId),
+        nameof(Asset.LocationId),
+        nameof(Asset.DepartmentId),
+        nameof(Asset.PurchaseDate),
+        nameof(Asset.PurchasePrice),
+        nameof(Asset.CurrentValue),
+        nameof(Asset.Status),
+        nameof(Asset.AssignedToUserId),
+        nameof(Asset.SerialNumber),
+        nameof(Asset.DigitalAssetTag),
+        nameof(Asset.Condition),
+        nameof(Asset.VendorName),
+        nameof(Asset.InvoiceNumber),
+        nameof(Asset.Quantity),
+        nameof(Asset.CostPerUnit),
+        nameof(Asset.UsefulLifeYears),
+        nameof(Asset.WarrantyExpiry),
+        nameof(Asset.DisposalDate),
+        nameof(Asset.DisposalValue),
+        nameof(Asset.Remarks),
+    };
+
     /// <summary>
     /// ENHANCEMENT #7: Intelligently detect changed fields and queue appropriate operation
     /// Automatically chooses PATCH (for few changes) or UPDATE (for many changes)
@@ -1399,52 +1450,56 @@ public class SyncService : ISyncService, IDisposable
         if (current == null || original == null)
             return (false, "Both current and original assets required");
 
-        // Detect changed fields
-        var changes = new Dictionary<string, object?>();
+        var changes = DetectAssetChanges(current, original);
 
-        // Check all properties that could be edited by users
-        if (current.Status != original.Status && !string.IsNullOrEmpty(current.Status))
-            changes["Status"] = current.Status;
-
-        if (current.LocationId != original.LocationId && !string.IsNullOrEmpty(current.LocationId))
-            changes["LocationId"] = current.LocationId;
-
-        if (current.Condition != original.Condition && !string.IsNullOrEmpty(current.Condition))
-            changes["Condition"] = current.Condition;
-
-        if (current.AssignedToUserId != original.AssignedToUserId)
-            changes["AssignedToUserId"] = current.AssignedToUserId;
-
-        if (current.CurrentValue != original.CurrentValue)
-            changes["CurrentValue"] = current.CurrentValue;
-
-        if (current.Name != original.Name && !string.IsNullOrEmpty(current.Name))
-            changes["Name"] = current.Name;
-
-        if (current.Description != original.Description)
-            changes["Description"] = current.Description;
-
-        if (current.Remarks != original.Remarks)
-            changes["Remarks"] = current.Remarks;
-
-        if (!changes.Any())
+        if (changes.Count == 0)
             return (true, "No changes detected");
 
-        // Smart decision: Use PATCH for few changes, UPDATE for many
-        if (changes.Count <= 3)
+        _logger.LogInformation(
+            "ENHANCEMENT #7: Detected {Count} changed field(s), using PATCH",
+            changes.Count);
+        return await QueueAssetPatchAsync(current.AssetId, changes);
+    }
+
+    private static Dictionary<string, object?> DetectAssetChanges(Asset current, Asset original)
+    {
+        var changes = new Dictionary<string, object?>();
+
+        foreach (var prop in s_syncableAssetProperties)
         {
-            _logger.LogInformation(
-                "ENHANCEMENT #7: Few changes detected ({Count}), using PATCH for bandwidth optimization",
-                changes.Count);
-            return await QueueAssetPatchAsync(current.AssetId, changes);
+            var property = typeof(Asset).GetProperty(prop);
+            if (property is not { CanRead: true }) continue;
+
+            var originalValue = property.GetValue(original);
+            var currentValue = property.GetValue(current);
+
+            if (Equals(originalValue, currentValue)) continue;
+
+            changes[prop] = currentValue;
         }
-        else
+
+        return changes;
+    }
+
+    private static async Task SaveWithRetryAsync(MobileData.Data.LocalDbContext dbContext, string operationName)
+    {
+        const int maxRetries = 3;
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
-            _logger.LogInformation(
-                "ENHANCEMENT #7: Many changes detected ({Count}), using UPDATE for simplicity",
-                changes.Count);
-            return await QueueAssetUpdateAsync(current);
+            try
+            {
+                await dbContext.SaveChangesAsync();
+                return;
+            }
+            catch (Exception ex) when (attempt < maxRetries)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(100 * attempt));
+                System.Diagnostics.Debug.WriteLine(
+                    $"SaveWithRetry: {operationName} attempt {attempt} failed, retrying: {ex.Message}");
+            }
         }
+
+        await dbContext.SaveChangesAsync();
     }
 
     /// <summary>

@@ -18,7 +18,7 @@ namespace MobileApp.Services
         private PeriodicTimer? _timer;
         private Task? _timerTask;
         private CancellationTokenSource? _cancellationTokenSource;
-        private bool _isSyncing = false;
+        private readonly SemaphoreSlim _syncGuard = new(1, 1);
         private DateTime _lastSyncAttempt = DateTime.MinValue;
 
         // Performance settings
@@ -95,51 +95,43 @@ namespace MobileApp.Services
 
         private async Task PerformSyncAsync()
         {
-            // Performance check: Prevent concurrent syncs
-            if (_isSyncing)
+            if (!await _syncGuard.WaitAsync(0))
             {
                 _logger.LogDebug("Sync already in progress, skipping");
                 return;
             }
 
-            // Performance check: Rate limiting
-            var timeSinceLastSync = DateTime.UtcNow - _lastSyncAttempt;
-            if (timeSinceLastSync.TotalSeconds < MIN_SECONDS_BETWEEN_SYNCS)
-            {
-                _logger.LogDebug("Sync attempted too soon after last attempt, skipping");
-                return;
-            }
-
-            _isSyncing = true;
-            _lastSyncAttempt = DateTime.UtcNow;
-
             try
             {
-                // Performance check: Network connectivity
+                var timeSinceLastSync = DateTime.UtcNow - _lastSyncAttempt;
+                if (timeSinceLastSync.TotalSeconds < MIN_SECONDS_BETWEEN_SYNCS)
+                {
+                    _logger.LogDebug("Sync attempted too soon after last attempt, skipping");
+                    return;
+                }
+
+                _lastSyncAttempt = DateTime.UtcNow;
+
                 if (Connectivity.NetworkAccess != NetworkAccess.Internet)
                 {
                     _logger.LogDebug("No internet connection, skipping background sync");
                     return;
                 }
 
-                // Performance check: Battery level (only on mobile devices)
                 var batteryLevel = Battery.ChargeLevel;
                 var batteryState = Battery.State;
-                
-                // Skip sync if battery is low and not charging
+
                 if (batteryLevel < MIN_BATTERY_LEVEL && batteryState != BatteryState.Charging)
                 {
                     _logger.LogInformation("Battery level too low ({Level:P0}), skipping background sync", batteryLevel);
                     return;
                 }
 
-                // BUG FIX #3: Always perform sync to pull server changes, not just when we have local changes
-                // Background sync should keep the device up-to-date with server-side changes from other users
                 using var scope = _serviceProvider.CreateScope();
                 var syncService = scope.ServiceProvider.GetRequiredService<ISyncService>();
-                
+
                 var pendingCount = await syncService.GetPendingSyncCountAsync();
-                
+
                 if (pendingCount > 0)
                 {
                     _logger.LogInformation("Background sync starting ({Count} pending operations to push)...", pendingCount);
@@ -148,10 +140,9 @@ namespace MobileApp.Services
                 {
                     _logger.LogDebug("Background sync starting (pull only - no local changes to push)...");
                 }
-                
-                // Enqueue full sync so it goes through the centralized sync queue
+
                 var (success, message) = await syncService.EnqueueFullSyncAsync();
-                
+
                 if (success)
                 {
                     _logger.LogInformation("Background sync completed successfully: {Message}", message);
@@ -167,7 +158,7 @@ namespace MobileApp.Services
             }
             finally
             {
-                _isSyncing = false;
+                _syncGuard.Release();
             }
         }
 
@@ -176,6 +167,7 @@ namespace MobileApp.Services
             Stop();
             _cancellationTokenSource?.Dispose();
             _timerTask?.Dispose();
+            _syncGuard?.Dispose();
         }
     }
 }

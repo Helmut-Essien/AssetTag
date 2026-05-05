@@ -128,6 +128,18 @@ namespace MobileData.Data
 
             // BUG FIX #4: Removed redundant IsPendingSync and LastSyncedUtc shadow properties
             // Sync state is already tracked in SyncQueue table, no need to duplicate it here
+
+            mb.Entity<AssetHistory>()
+              .HasOne(h => h.OldLocation)
+              .WithMany()
+              .HasForeignKey(h => h.OldLocationId)
+              .OnDelete(DeleteBehavior.SetNull);
+
+            mb.Entity<AssetHistory>()
+              .HasOne(h => h.NewLocation)
+              .WithMany()
+              .HasForeignKey(h => h.NewLocationId)
+              .OnDelete(DeleteBehavior.SetNull);
         }
 
         private void ConfigureSyncEntities(ModelBuilder mb)
@@ -136,6 +148,7 @@ namespace MobileData.Data
             mb.Entity<SyncQueueItem>(entity =>
             {
                 entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd();
                 entity.Property(e => e.CreatedAt)
                       .HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.HasIndex(e => new { e.EntityType, e.Operation });
@@ -227,35 +240,112 @@ namespace MobileData.Data
 
                 if (operation == null) continue;
 
-                SyncQueueItem? queueItem = null;
+                if (entry.Entity is not Asset asset) continue;
 
-                if (entry.Entity is Asset asset)
+                SyncQueueItem queueItem;
+
+                if (operation == "CREATE")
                 {
-                    var jsonData = operation switch
+                    queueItem = new SyncQueueItem
                     {
-                        "CREATE" => JsonSerializer.Serialize(ToCreateDto(asset), jsonOptions),
-                        "UPDATE" => JsonSerializer.Serialize(ToPatchDto(asset), jsonOptions),
-                        "DELETE" => JsonSerializer.Serialize(new { asset.AssetId }, jsonOptions),
-                        _ => string.Empty
+                        EntityType = "Asset",
+                        EntityId = asset.AssetId,
+                        Operation = "CREATE",
+                        JsonData = JsonSerializer.Serialize(ToCreateDto(asset), jsonOptions),
+                        CreatedAt = DateTime.UtcNow,
+                        RetryCount = 0
+                    };
+                }
+                else if (operation == "DELETE")
+                {
+                    queueItem = new SyncQueueItem
+                    {
+                        EntityType = "Asset",
+                        EntityId = asset.AssetId,
+                        Operation = "DELETE",
+                        JsonData = JsonSerializer.Serialize(new { asset.AssetId }, jsonOptions),
+                        CreatedAt = DateTime.UtcNow,
+                        RetryCount = 0
+                    };
+                }
+                else // UPDATE → PATCH with only actually-changed fields
+                {
+                    var changedProperties = DetectChangedFields(entry);
+                    if (changedProperties.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    var patchDto = new AssetPatchDTO
+                    {
+                        AssetId = asset.AssetId,
+                        Changes = changedProperties,
+                        DateModified = DateTime.UtcNow
                     };
 
                     queueItem = new SyncQueueItem
                     {
                         EntityType = "Asset",
                         EntityId = asset.AssetId,
-                        Operation = operation == "UPDATE" ? "PATCH" : operation,
-                        JsonData = jsonData,
+                        Operation = "PATCH",
+                        JsonData = JsonSerializer.Serialize(patchDto, jsonOptions),
                         CreatedAt = DateTime.UtcNow,
                         RetryCount = 0
                     };
                 }
 
-                if (queueItem != null)
-                {
-                    SyncQueue.Add(queueItem);
-                }
+                SyncQueue.Add(queueItem);
             }
         }
+
+        private static Dictionary<string, object?> DetectChangedFields(
+            Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry)
+        {
+            var changes = new Dictionary<string, object?>();
+
+            foreach (var property in entry.Properties)
+            {
+                if (!property.IsModified) continue;
+
+                var original = property.OriginalValue;
+                var current = property.CurrentValue;
+
+                if (Equals(original, current)) continue;
+
+                if (!AssetSyncableProperties.Contains(property.Metadata.Name)) continue;
+
+                changes[property.Metadata.Name] = current;
+            }
+
+            return changes;
+        }
+
+        private static readonly HashSet<string> AssetSyncableProperties = new(StringComparer.Ordinal)
+        {
+            nameof(Asset.AssetTag),
+            nameof(Asset.Name),
+            nameof(Asset.Description),
+            nameof(Asset.CategoryId),
+            nameof(Asset.LocationId),
+            nameof(Asset.DepartmentId),
+            nameof(Asset.PurchaseDate),
+            nameof(Asset.PurchasePrice),
+            nameof(Asset.CurrentValue),
+            nameof(Asset.Status),
+            nameof(Asset.AssignedToUserId),
+            nameof(Asset.SerialNumber),
+            nameof(Asset.DigitalAssetTag),
+            nameof(Asset.Condition),
+            nameof(Asset.VendorName),
+            nameof(Asset.InvoiceNumber),
+            nameof(Asset.Quantity),
+            nameof(Asset.CostPerUnit),
+            nameof(Asset.UsefulLifeYears),
+            nameof(Asset.WarrantyExpiry),
+            nameof(Asset.DisposalDate),
+            nameof(Asset.DisposalValue),
+            nameof(Asset.Remarks),
+        };
 
         private static AssetCreateDTO ToCreateDto(Asset asset) => new()
         {
@@ -284,40 +374,7 @@ namespace MobileData.Data
             Remarks = asset.Remarks
         };
 
-        private static AssetPatchDTO ToPatchDto(Asset asset) => new()
-        {
-            AssetId = asset.AssetId,
-            DateModified = asset.DateModified,
-            Changes = new Dictionary<string, object?>
-            {
-                [nameof(Asset.AssetTag)] = asset.AssetTag,
-                [nameof(Asset.Name)] = asset.Name,
-                [nameof(Asset.Description)] = asset.Description,
-                [nameof(Asset.CategoryId)] = asset.CategoryId,
-                [nameof(Asset.LocationId)] = asset.LocationId,
-                [nameof(Asset.DepartmentId)] = asset.DepartmentId,
-                [nameof(Asset.PurchaseDate)] = asset.PurchaseDate,
-                [nameof(Asset.PurchasePrice)] = asset.PurchasePrice,
-                [nameof(Asset.CurrentValue)] = asset.CurrentValue,
-                [nameof(Asset.Status)] = asset.Status,
-                [nameof(Asset.AssignedToUserId)] = asset.AssignedToUserId,
-                [nameof(Asset.SerialNumber)] = asset.SerialNumber,
-                [nameof(Asset.DigitalAssetTag)] = asset.DigitalAssetTag,
-                [nameof(Asset.Condition)] = asset.Condition,
-                [nameof(Asset.VendorName)] = asset.VendorName,
-                [nameof(Asset.InvoiceNumber)] = asset.InvoiceNumber,
-                [nameof(Asset.Quantity)] = asset.Quantity,
-                [nameof(Asset.CostPerUnit)] = asset.CostPerUnit,
-                [nameof(Asset.UsefulLifeYears)] = asset.UsefulLifeYears,
-                [nameof(Asset.WarrantyExpiry)] = asset.WarrantyExpiry,
-                [nameof(Asset.DisposalDate)] = asset.DisposalDate,
-                [nameof(Asset.DisposalValue)] = asset.DisposalValue,
-                [nameof(Asset.Remarks)] = asset.Remarks
-            }
-        };
-        
-        // BUG FIX #4: Removed UpdateSyncMetadata() method entirely
-        // Sync state is tracked in SyncQueue table only, no need for shadow properties
+
     }
 
     /* ---------------  Optional Sync Classes --------------- */
