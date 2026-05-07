@@ -1,16 +1,26 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-    
         {
-            "name": ".NET MAUI",
-            "type": "maui",
+            "name": "AssetTag",
+            "type": "dotnet",
             "request": "launch",
-            "preLaunchTask": "maui: Build"
+            "projectPath": "${workspaceFolder}/AssetTag/AssetTag.csproj",
+            "launchProfile": "https"
+        },
+        {
+            "name": "Portal",
+            "type": "dotnet",
+            "request": "launch",
+            "projectPath": "${workspaceFolder}/Portal/Portal.csproj",
+            "launchProfile": "https"
         }
-
+    ],
+    "compounds": [
+        {
+            "name": "Launch AssetTag + Portal",
+            "configurations": ["AssetTag", "Portal"],
+            "stopAll": true
+        }
     ]
 }

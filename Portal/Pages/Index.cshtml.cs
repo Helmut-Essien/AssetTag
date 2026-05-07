@@ -503,7 +503,6 @@ namespace Portal.Pages
         public int AvailableAssets { get; set; }
         public int InUseAssets { get; set; }
         public int UnderMaintenanceAssets { get; set; }
-        public int RetiredAssets { get; set; }
         public int LostAssets { get; set; }
         public decimal TotalAssetValue { get; set; }
         public decimal TotalAcquisitionCost { get; set; }
@@ -657,7 +656,6 @@ namespace Portal.Pages
             AvailableAssets = data.AvailableAssets;
             InUseAssets = data.InUseAssets;
             UnderMaintenanceAssets = data.UnderMaintenanceAssets;
-            RetiredAssets = data.RetiredAssets;
             LostAssets = data.LostAssets;
             TotalAssetValue = data.TotalAssetValue;
             TotalAcquisitionCost = data.TotalAcquisitionCost;
@@ -687,7 +685,6 @@ namespace Portal.Pages
             AvailableAssets = 0;
             InUseAssets = 0;
             UnderMaintenanceAssets = 0;
-            RetiredAssets = 0;
             LostAssets = 0;
             TotalAssetValue = 0;
             TotalAcquisitionCost = 0;
@@ -717,7 +714,6 @@ namespace Portal.Pages
             AvailableAssets = _cache.AvailableAssets;
             InUseAssets = _cache.InUseAssets;
             UnderMaintenanceAssets = _cache.UnderMaintenanceAssets;
-            RetiredAssets = _cache.RetiredAssets;
             LostAssets = _cache.LostAssets;
             TotalAssetValue = _cache.TotalAssetValue;
             TotalAcquisitionCost = _cache.TotalAcquisitionCost;
@@ -741,7 +737,6 @@ namespace Portal.Pages
             _cache.AvailableAssets = AvailableAssets;
             _cache.InUseAssets = InUseAssets;
             _cache.UnderMaintenanceAssets = UnderMaintenanceAssets;
-            _cache.RetiredAssets = RetiredAssets;
             _cache.LostAssets = LostAssets;
             _cache.TotalAssetValue = TotalAssetValue;
             _cache.TotalAcquisitionCost = TotalAcquisitionCost;
@@ -771,7 +766,6 @@ namespace Portal.Pages
         public int AvailableAssets { get; set; }
         public int InUseAssets { get; set; }
         public int UnderMaintenanceAssets { get; set; }
-        public int RetiredAssets { get; set; }
         public int LostAssets { get; set; }
         public decimal TotalAssetValue { get; set; }
         public decimal TotalAcquisitionCost { get; set; }

@@ -101,6 +101,9 @@ public record AssetUpdateDTO
     [Display(Name = "Asset Tag")]
     public string? AssetTag { get; init; }
 
+    [Display(Name = "Old Asset Tag")]
+    public string? OldAssetTag { get; init; }
+
     [Display(Name = "Asset Name")]
     public string? Name { get; init; }
 
@@ -189,6 +192,9 @@ public record AssetReadDTO
 
     [Display(Name = "Asset Tag")]
     public string AssetTag { get; init; } = string.Empty;
+
+    [Display(Name = "Old Asset Tag")]
+    public string? OldAssetTag { get; init; }
 
     [Display(Name = "Asset Name")]
     public string Name { get; init; } = string.Empty;

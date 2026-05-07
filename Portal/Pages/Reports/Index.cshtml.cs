@@ -119,11 +119,14 @@ namespace Portal.Pages.Reports
             return Page();
         }
 
-        public async Task<IActionResult> OnPostExportReportAsync(string format, string reportType)
+        public async Task<IActionResult> OnPostExportReportAsync(string format, string reportType,
+            DateTime? startDate = null, DateTime? endDate = null)
         {
             try
             {
-                var reportData = await _reportsService.GetReportAsync(reportType);
+                StartDate = startDate;
+                EndDate = endDate;
+                var reportData = await _reportsService.GetReportAsync(reportType, null, startDate, endDate);
 
                 if (!reportData.Any())
                 {
@@ -187,12 +190,33 @@ namespace Portal.Pages.Reports
             var currentRow = 1;
             var headers = reportData.First().Keys.ToList();
 
-            // Add title
-            worksheet.Cell(currentRow, 1).Value = "FIXED ASSETS SCHEDULE";
+            // Add institution name
+            worksheet.Cell(currentRow, 1).Value = "METHODIST UNIVERSITY GHANA";
             worksheet.Range(currentRow, 1, currentRow, headers.Count).Merge();
             worksheet.Cell(currentRow, 1).Style.Font.Bold = true;
             worksheet.Cell(currentRow, 1).Style.Font.FontSize = 14;
             worksheet.Cell(currentRow, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            currentRow++;
+
+            // Add title
+            worksheet.Cell(currentRow, 1).Value = "FIXED ASSETS SCHEDULE";
+            worksheet.Range(currentRow, 1, currentRow, headers.Count).Merge();
+            worksheet.Cell(currentRow, 1).Style.Font.Bold = true;
+            worksheet.Cell(currentRow, 1).Style.Font.FontSize = 16;
+            worksheet.Cell(currentRow, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            currentRow++;
+            
+            // Date range subtitle
+            var dateRange = StartDate.HasValue && EndDate.HasValue
+                ? $"{StartDate:dd MMM yyyy} — {EndDate:dd MMM yyyy}"
+                : "";
+            if (!string.IsNullOrEmpty(dateRange))
+            {
+                worksheet.Cell(currentRow, 1).Value = dateRange;
+                worksheet.Range(currentRow, 1, currentRow, headers.Count).Merge();
+                worksheet.Cell(currentRow, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                worksheet.Cell(currentRow, 1).Style.Font.FontSize = 11;
+            }
             currentRow += 2;
 
             // Add headers
@@ -201,7 +225,7 @@ namespace Portal.Pages.Reports
                 var cell = worksheet.Cell(currentRow, i + 1);
                 cell.Value = headers[i];
                 cell.Style.Font.Bold = true;
-                cell.Style.Fill.BackgroundColor = XLColor.DarkGray;
+                cell.Style.Fill.BackgroundColor = XLColor.Black;
                 cell.Style.Font.FontColor = XLColor.White;
                 cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
                 cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;

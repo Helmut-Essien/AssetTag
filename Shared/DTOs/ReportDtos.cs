@@ -24,7 +24,6 @@ namespace Shared.DTOs
         public int AvailableCount { get; set; }
         public int MaintenanceCount { get; set; }
         public int DisposedCount { get; set; }
-        public int RetiredCount { get; set; }
         public int OtherCount { get; set; }
     }
 
@@ -162,5 +161,70 @@ namespace Shared.DTOs
         public string DisplayName => DepreciationRate.HasValue
             ? $"{CategoryName} ({DepreciationRate:0.##}%)"
             : CategoryName;
+    }
+
+    /// <summary>
+    /// DTO for a disposed asset with gain/loss calculation
+    /// </summary>
+    public class DisposedAssetDto
+    {
+        public string AssetId { get; set; } = string.Empty;
+        public string AssetTag { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string CategoryName { get; set; } = string.Empty;
+        public DateTime? DisposalDate { get; set; }
+        public decimal PurchasePrice { get; set; }
+        public decimal AccumulatedDepreciation { get; set; }
+        public decimal NetBookValueAtDisposal { get; set; }
+        public decimal DisposalValue { get; set; }
+        public decimal GainLossOnDisposal { get; set; }
+    }
+
+    /// <summary>
+    /// DTO for Fixed Assets Schedule with active assets, disposals, and summary
+    /// </summary>
+    public class FixedAssetsReportResponse
+    {
+        public List<CategoryColumnDto> Categories { get; set; } = new();
+        public List<FixedAssetsScheduleDto> ActiveAssetRows { get; set; } = new();
+        public DisposalsSectionDto? DisposalsSection { get; set; }
+        public FixedAssetsReportSummaryDto? Summary { get; set; }
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+    }
+
+    /// <summary>
+    /// DTO for disposals section of the report
+    /// </summary>
+    public class DisposalsSectionDto
+    {
+        public List<DisposedAssetDto> DisposedAssets { get; set; } = new();
+        public DisposalsSummaryDto Totals { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Totals for disposed assets section
+    /// </summary>
+    public class DisposalsSummaryDto
+    {
+        public decimal TotalPurchasePrice { get; set; }
+        public decimal TotalAccumulatedDepreciation { get; set; }
+        public decimal TotalNetBookValue { get; set; }
+        public decimal TotalDisposalValue { get; set; }
+        public decimal TotalGainLoss { get; set; }
+    }
+
+    /// <summary>
+    /// Summary/reconciliation for the fixed assets report
+    /// </summary>
+    public class FixedAssetsReportSummaryDto
+    {
+        public decimal OpeningBalance { get; set; }
+        public decimal Additions { get; set; }
+        public decimal DepreciationCharge { get; set; }
+        public decimal DisposalCost { get; set; }
+        public decimal DisposalProceeds { get; set; }
+        public decimal ClosingBalance { get; set; }
+        public string Reconciliation { get; set; } = string.Empty; // For debugging: should equal 0
     }
 }

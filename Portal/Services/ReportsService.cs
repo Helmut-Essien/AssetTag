@@ -87,7 +87,7 @@ namespace Portal.Services
             var results = new List<Dictionary<string, object>>();
             
             if (!jsonElement.TryGetProperty("categories", out var categoriesElement) ||
-                !jsonElement.TryGetProperty("rows", out var rowsElement))
+                !jsonElement.TryGetProperty("activeAssetRows", out var rowsElement))
             {
                 return results;
             }
@@ -105,7 +105,7 @@ namespace Portal.Services
                 categories.Add((id, displayName));
             }
 
-            // Parse rows
+            // Parse active assets schedule rows
             foreach (var row in rowsElement.EnumerateArray())
             {
                 var dict = new Dictionary<string, object>();
@@ -139,7 +139,7 @@ namespace Portal.Services
                 
                 results.Add(dict);
             }
-            
+
             return results;
         }
 

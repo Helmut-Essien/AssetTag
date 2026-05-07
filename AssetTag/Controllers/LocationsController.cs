@@ -125,6 +125,17 @@ public class LocationsController : ControllerBase
         var loc = await _context.Locations.FindAsync(id);
         if (loc is null) return NotFound();
 
+        // Check if any assets or asset histories reference this location
+        if (await _context.Assets.AnyAsync(a => a.LocationId == id))
+        {
+            return BadRequest("Cannot delete this location because it is still assigned to one or more assets. Reassign or remove the assets first.");
+        }
+
+        if (await _context.AssetHistories.AnyAsync(h => h.OldLocationId == id || h.NewLocationId == id))
+        {
+            return BadRequest("Cannot delete this location because it is referenced in one or more asset history records. Clear the history first.");
+        }
+
         _context.Locations.Remove(loc);
         await _context.SaveChangesAsync();
         return NoContent();
