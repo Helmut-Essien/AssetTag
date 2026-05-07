@@ -85,6 +85,17 @@ public class DepartmentsController : ControllerBase
         var dep = await _context.Departments.FindAsync(id);
         if (dep is null) return NotFound();
 
+        // Check if any assets or users reference this department
+        if (await _context.Assets.AnyAsync(a => a.DepartmentId == id))
+        {
+            return BadRequest("Cannot delete this department because it is still assigned to one or more assets. Reassign or remove the assets first.");
+        }
+
+        if (await _context.Users.AnyAsync(u => u.DepartmentId == id))
+        {
+            return BadRequest("Cannot delete this department because it is still assigned to one or more users. Reassign or remove the users first.");
+        }
+
         _context.Departments.Remove(dep);
         await _context.SaveChangesAsync();
         return NoContent();

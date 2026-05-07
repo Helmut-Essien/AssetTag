@@ -100,14 +100,49 @@ namespace Portal.Pages.Departments
         {
             if (string.IsNullOrEmpty(id))
             {
+                TempData["ErrorMessage"] = "Invalid department ID.";
                 return RedirectToPage();
             }
 
             var response = await _httpClient.DeleteAsync($"api/departments/{id}");
+
             if (response.IsSuccessStatusCode)
             {
+                TempData["SuccessMessage"] = "Department deleted successfully.";
                 return RedirectToPage();
             }
+
+            // Handle specific errors
+            string errorMsg = "Failed to delete department.";
+
+            if (response.StatusCode == HttpStatusCode.BadRequest ||
+                response.StatusCode == HttpStatusCode.Conflict)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+
+                if (errorContent.Contains("REFERENCE constraint") ||
+                    errorContent.Contains("FK_Assets_Departments") ||
+                    errorContent.Contains("FK_AspNetUsers_Departments") ||
+                    errorContent.Contains("in use") ||
+                    errorContent.Contains("assigned to"))
+                {
+                    errorMsg = "Cannot delete this department because it is still assigned to one or more assets or users. Reassign or remove them first.";
+                }
+                else
+                {
+                    errorMsg += $" ({response.StatusCode}) - {errorContent}";
+                }
+            }
+            else if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                errorMsg = "Department not found.";
+            }
+            else
+            {
+                errorMsg += $" Unexpected error ({response.StatusCode}).";
+            }
+
+            TempData["ErrorMessage"] = errorMsg;
 
             await OnGetAsync();
             return Page();

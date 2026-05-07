@@ -105,14 +105,49 @@ namespace Portal.Pages.Locations
         {
             if (string.IsNullOrEmpty(id))
             {
+                TempData["ErrorMessage"] = "Invalid location ID.";
                 return RedirectToPage();
             }
 
             var response = await _httpClient.DeleteAsync($"api/locations/{id}");
+
             if (response.IsSuccessStatusCode)
             {
+                TempData["SuccessMessage"] = "Location deleted successfully.";
                 return RedirectToPage();
             }
+
+            // Handle specific errors
+            string errorMsg = "Failed to delete location.";
+
+            if (response.StatusCode == HttpStatusCode.BadRequest ||
+                response.StatusCode == HttpStatusCode.Conflict)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+
+                if (errorContent.Contains("REFERENCE constraint") ||
+                    errorContent.Contains("FK_Assets_Locations") ||
+                    errorContent.Contains("FK_AssetHistories_Locations") ||
+                    errorContent.Contains("in use") ||
+                    errorContent.Contains("assigned to"))
+                {
+                    errorMsg = "Cannot delete this location because it is still assigned to one or more assets. Reassign or remove the assets first.";
+                }
+                else
+                {
+                    errorMsg += $" ({response.StatusCode}) - {errorContent}";
+                }
+            }
+            else if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                errorMsg = "Location not found.";
+            }
+            else
+            {
+                errorMsg += $" Unexpected error ({response.StatusCode}).";
+            }
+
+            TempData["ErrorMessage"] = errorMsg;
 
             await OnGetAsync();
             return Page();
