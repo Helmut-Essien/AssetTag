@@ -50,9 +50,10 @@
                                 <option value="">All Status</option>
                                 <option value="Available">Available</option>
                                 <option value="In Use">In Use</option>
-                                <option value="Maintenance">Maintenance</option>
-                                <option value="Retired">Retired</option>
+                                <option value="Under Maintenance">Under Maintenance</option>
+                                <option value="Disposed">Disposed</option>
                                 <option value="Lost">Lost</option>
+                                <option value="Stolen">Stolen</option>
                             </select>
                         </div>
                     </div>
@@ -353,7 +354,6 @@
             "Available" => "bg-success",
             "In Use" => "bg-primary",
             "Under Maintenance" => "bg-warning",
-            "Retired" => "bg-secondary",
             "Lost" => "bg-danger",
             _ => "bg-secondary"
         };
@@ -462,7 +462,6 @@
                                     <option value="Available">Available</option>
                                     <option value="In Use">In Use</option>
                                     <option value="Under Maintenance">Under Maintenance</option>
-                                    <option value="Retired">Retired</option>
                                     <option value="Lost">Lost</option>
                                 </select>
                                 <span asp-validation-for="CreateDto.Status" class="text-danger"></span>
@@ -644,7 +643,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form method="post" asp-page-handler="Update">
+                <form method="post" asp-page-handler="Update" onsubmit="return validateDisposalFields()">
                     <div asp-validation-summary="All" class="text-danger mb-3"></div>
                     <input type="hidden" asp-for="UpdateDto.AssetId" />
 
@@ -720,12 +719,13 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label asp-for="UpdateDto.Status" class="form-label"></label>
-                                <select asp-for="UpdateDto.Status" class="form-select">
+                                <select asp-for="UpdateDto.Status" class="form-select" id="statusSelect" onchange="toggleDisposalFields()">
                                     <option value="Available">Available</option>
                                     <option value="In Use">In Use</option>
                                     <option value="Under Maintenance">Under Maintenance</option>
-                                    <option value="Retired">Retired</option>
+                                    <option value="Disposed">Disposed</option>
                                     <option value="Lost">Lost</option>
+                                    <option value="Stolen">Stolen</option>
                                 </select>
                                 <span asp-validation-for="UpdateDto.Status" class="text-danger"></span>
                             </div>
@@ -850,8 +850,12 @@
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label asp-for="UpdateDto.DisposalDate" class="form-label"></label>
-                                <input asp-for="UpdateDto.DisposalDate" type="date" class="form-control" />
+                                <label asp-for="UpdateDto.DisposalDate" class="form-label">
+                                    Disposal Date
+                                    <span class="text-danger" id="disposalDateRequired" style="display: none;">*</span>
+                                </label>
+                                <input asp-for="UpdateDto.DisposalDate" type="date" class="form-control" id="disposalDateInput" />
+                                <small class="text-muted" id="disposalDateHelper">Optional - only required if status is Disposed</small>
                                 <span asp-validation-for="UpdateDto.DisposalDate" class="text-danger"></span>
                             </div>
                         </div>
@@ -860,8 +864,12 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label asp-for="UpdateDto.DisposalValue" class="form-label"></label>
-                                <input asp-for="UpdateDto.DisposalValue" type="number" step="0.01" class="form-control" />
+                                <label asp-for="UpdateDto.DisposalValue" class="form-label">
+                                    Disposal Value
+                                    <span class="text-danger" id="disposalValueRequired" style="display: none;">*</span>
+                                </label>
+                                <input asp-for="UpdateDto.DisposalValue" type="number" step="0.01" class="form-control" id="disposalValueInput" />
+                                <small class="text-muted" id="disposalValueHelper">Optional - only required if status is Disposed</small>
                                 <span asp-validation-for="UpdateDto.DisposalValue" class="text-danger"></span>
                             </div>
                         </div>
@@ -915,7 +923,89 @@
 
             // Initialize Bootstrap modals
             initializeModals();
+            
+            // Initialize disposal field validation on modal open
+            const editModal = document.getElementById('editModal');
+            if (editModal) {
+                editModal.addEventListener('shown.bs.modal', function() {
+                    toggleDisposalFields();
+                });
+            }
         });
+
+        // Toggle disposal fields required state based on status selection
+        function toggleDisposalFields() {
+            const statusSelect = document.getElementById('statusSelect');
+            const disposalDateInput = document.getElementById('disposalDateInput');
+            const disposalValueInput = document.getElementById('disposalValueInput');
+            const disposalDateRequired = document.getElementById('disposalDateRequired');
+            const disposalValueRequired = document.getElementById('disposalValueRequired');
+            const disposalDateHelper = document.getElementById('disposalDateHelper');
+            const disposalValueHelper = document.getElementById('disposalValueHelper');
+
+            if (!statusSelect || !disposalDateInput || !disposalValueInput) return;
+
+            const isDisposed = statusSelect.value === 'Disposed';
+
+            if (isDisposed) {
+                // Make fields required
+                disposalDateInput.required = true;
+                disposalValueInput.required = true;
+                
+                // Show required indicator
+                disposalDateRequired.style.display = 'inline';
+                disposalValueRequired.style.display = 'inline';
+                
+                // Update helper text
+                disposalDateHelper.textContent = 'Required - specify when the asset was disposed';
+                disposalValueHelper.textContent = 'Required - specify the disposal proceeds or salvage value';
+                disposalDateHelper.classList.remove('text-muted');
+                disposalValueHelper.classList.remove('text-muted');
+                disposalDateHelper.classList.add('text-info');
+                disposalValueHelper.classList.add('text-info');
+            } else {
+                // Make fields optional
+                disposalDateInput.required = false;
+                disposalValueInput.required = false;
+                
+                // Hide required indicator
+                disposalDateRequired.style.display = 'none';
+                disposalValueRequired.style.display = 'none';
+                
+                // Update helper text
+                disposalDateHelper.textContent = 'Optional - only required if status is Disposed';
+                disposalValueHelper.textContent = 'Optional - only required if status is Disposed';
+                disposalDateHelper.classList.add('text-muted');
+                disposalValueHelper.classList.add('text-muted');
+                disposalDateHelper.classList.remove('text-info');
+                disposalValueHelper.classList.remove('text-info');
+            }
+        }
+
+        // Validate disposal fields before form submission
+        function validateDisposalFields() {
+            const statusSelect = document.getElementById('statusSelect');
+            const disposalDateInput = document.getElementById('disposalDateInput');
+            const disposalValueInput = document.getElementById('disposalValueInput');
+
+            if (!statusSelect) return true;
+
+            const isDisposed = statusSelect.value === 'Disposed';
+
+            if (isDisposed) {
+                if (!disposalDateInput.value) {
+                    alert('Disposal Date is required when status is set to Disposed');
+                    disposalDateInput.focus();
+                    return false;
+                }
+                if (!disposalValueInput.value) {
+                    alert('Disposal Value is required when status is set to Disposed');
+                    disposalValueInput.focus();
+                    return false;
+                }
+            }
+            return true;
+        }
 
         function initializeFilters() {
             const searchInput = document.getElementById('searchInput');
@@ -1020,7 +1110,7 @@ function populateEditModal(asset) {
     document.getElementById('UpdateDto_DepartmentId').value = asset.departmentId || '';
     document.getElementById('UpdateDto_PurchaseDate').value = asset.purchaseDate ? asset.purchaseDate.split('T')[0] : '';
     document.getElementById('UpdateDto_PurchasePrice').value = asset.purchasePrice || '';
-    document.getElementById('UpdateDto_Status').value = asset.status || '';
+    document.getElementById('statusSelect').value = asset.status || '';
     document.getElementById('UpdateDto_SerialNumber').value = asset.serialNumber || '';
     document.getElementById('UpdateDto_Condition').value = asset.condition || '';
     document.getElementById('UpdateDto_Quantity').value = asset.quantity || '1';
@@ -1033,8 +1123,8 @@ function populateEditModal(asset) {
     document.getElementById('UpdateDto_VendorName').value = asset.vendorName || '';
     document.getElementById('UpdateDto_InvoiceNumber').value = asset.invoiceNumber || '';
     document.getElementById('UpdateDto_WarrantyExpiry').value = asset.warrantyExpiry ? asset.warrantyExpiry.split('T')[0] : '';
-    document.getElementById('UpdateDto_DisposalDate').value = asset.disposalDate ? asset.disposalDate.split('T')[0] : '';
-    document.getElementById('UpdateDto_DisposalValue').value = asset.disposalValue || '';
+    document.getElementById('disposalDateInput').value = asset.disposalDate ? asset.disposalDate.split('T')[0] : '';
+    document.getElementById('disposalValueInput').value = asset.disposalValue || '';
     document.getElementById('UpdateDto_Remarks').value = asset.remarks || '';
 }
 

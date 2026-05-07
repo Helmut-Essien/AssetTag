@@ -75,7 +75,6 @@ public class DashboardController : ControllerBase
             var availableAssets = assets.Count(a => a.Status == "Available");
             var inUseAssets = assets.Count(a => a.Status == "In Use");
             var underMaintenanceAssets = assets.Count(a => a.Status == "Under Maintenance");
-            var retiredAssets = assets.Count(a => a.Status == "Retired");
             var lostAssets = assets.Count(a => a.Status == "Lost");
             
             // Use NetBookValue (automatically depreciated) for total asset value
@@ -157,7 +156,6 @@ public class DashboardController : ControllerBase
                 AvailableAssets = availableAssets,
                 InUseAssets = inUseAssets,
                 UnderMaintenanceAssets = underMaintenanceAssets,
-                RetiredAssets = retiredAssets,
                 LostAssets = lostAssets,
                 TotalAssetValue = totalAssetValue,
                 TotalAcquisitionCost = totalAcquisitionCost,

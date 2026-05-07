@@ -5,13 +5,15 @@
             "name": "AssetTag",
             "type": "dotnet",
             "request": "launch",
-            "projectPath": "${workspaceFolder}/AssetTag/AssetTag.csproj"
+            "projectPath": "${workspaceFolder}/AssetTag/AssetTag.csproj",
+            "launchProfile": "https"
         },
         {
             "name": "Portal",
             "type": "dotnet",
             "request": "launch",
-            "projectPath": "${workspaceFolder}/Portal/Portal.csproj"
+            "projectPath": "${workspaceFolder}/Portal/Portal.csproj",
+            "launchProfile": "https"
         }
     ],
     "compounds": [

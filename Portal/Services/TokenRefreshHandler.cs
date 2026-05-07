@@ -137,6 +137,7 @@ public sealed class TokenRefreshHandler : DelegatingHandler
         //_logger.LogInformation("Both Authorization and X-Auth-Token headers added");
 
         // Make the request
+        
         var response = await base.SendAsync(request, cancellationToken);
 
         // If not unauthorized, return response

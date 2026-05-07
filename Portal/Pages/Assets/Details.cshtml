@@ -72,9 +72,8 @@
                                 <dd>
                                     <span class="badge
                                         @(Model.Asset.Status == "Available" ? "bg-success" :
-                                                                                                                              Model.Asset.Status == "In Use" ? "bg-primary" :
-                                                                                                                              Model.Asset.Status == "Under Maintenance" ? "bg-warning" :
-                                                                                                                              Model.Asset.Status == "Retired" ? "bg-secondary" : "bg-danger")">
+                                                              Model.Asset.Status == "In Use" ? "bg-primary" :
+                                                              Model.Asset.Status == "Under Maintenance" ? "bg-warning" : "bg-danger")">
                                         @Model.Asset.Status
                                     </span>
                                 </dd>

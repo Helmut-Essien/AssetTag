@@ -322,6 +322,11 @@
                             <form method="post" asp-page-handler="ExportReport" class="d-inline me-2">
                                 <input type="hidden" name="format" value="csv">
                                 <input type="hidden" name="reportType" value="@Model.SelectedReportType">
+                                @if (Model.SelectedReportType == "fixed-assets-schedule")
+                                {
+                                    <input type="hidden" name="startDate" value="@(Model.StartDate?.ToString("yyyy-MM-dd") ?? "")">
+                                    <input type="hidden" name="endDate" value="@(Model.EndDate?.ToString("yyyy-MM-dd") ?? "")">
+                                }
                                 <button type="submit" class="btn btn-sm btn-outline-primary">
                                     <i class="bi bi-file-earmark-text me-1"></i>Export to CSV
                                 </button>
@@ -329,6 +334,11 @@
                             <form method="post" asp-page-handler="ExportReport" class="d-inline">
                                 <input type="hidden" name="format" value="excel">
                                 <input type="hidden" name="reportType" value="@Model.SelectedReportType">
+                                @if (Model.SelectedReportType == "fixed-assets-schedule")
+                                {
+                                    <input type="hidden" name="startDate" value="@(Model.StartDate?.ToString("yyyy-MM-dd") ?? "")">
+                                    <input type="hidden" name="endDate" value="@(Model.EndDate?.ToString("yyyy-MM-dd") ?? "")">
+                                }
                                 <button type="submit" class="btn btn-sm btn-success">
                                     <i class="bi bi-file-earmark-excel me-1"></i>Export to Excel
                                 </button>

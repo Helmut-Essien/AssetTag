@@ -14,7 +14,6 @@ namespace Shared.Constants
             public const string InUse = "In Use";
             public const string UnderMaintenance = "Under Maintenance";
             public const string Disposed = "Disposed";
-            public const string Retired = "Retired";
             public const string Lost = "Lost";
             public const string Stolen = "Stolen";
             
@@ -24,7 +23,6 @@ namespace Shared.Constants
                 InUse,
                 UnderMaintenance,
                 Disposed,
-                Retired,
                 Lost,
                 Stolen
             };

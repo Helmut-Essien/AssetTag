@@ -68,6 +68,55 @@ namespace Portal.Pages.Assets
                     ActiveModal = "create";
                 }
 
+                // Check if we need to load an asset for editing
+                if (!string.IsNullOrEmpty(EditAssetId))
+                {
+                    ActiveModal = "edit";
+                    try
+                    {
+                        var assetResponse = await _httpClient.GetAsync($"api/assets/{EditAssetId}");
+                        if (assetResponse.IsSuccessStatusCode)
+                        {
+                            var asset = await assetResponse.Content.ReadFromJsonAsync<AssetReadDTO>();
+                            if (asset != null)
+                            {
+                                // Map asset data to UpdateDto
+                                UpdateDto = new AssetUpdateDTO
+                                {
+                                    AssetId = asset.AssetId,
+                                    AssetTag = asset.AssetTag,
+                                    OldAssetTag = asset.OldAssetTag,
+                                    DigitalAssetTag = asset.DigitalAssetTag,
+                                    Name = asset.Name,
+                                    Description = asset.Description,
+                                    CategoryId = asset.CategoryId,
+                                    LocationId = asset.LocationId,
+                                    DepartmentId = asset.DepartmentId,
+                                    PurchaseDate = asset.PurchaseDate,
+                                    PurchasePrice = asset.PurchasePrice,
+                                    CurrentValue = asset.CurrentValue,
+                                    Status = asset.Status,
+                                    Condition = asset.Condition,
+                                    SerialNumber = asset.SerialNumber,
+                                    VendorName = asset.VendorName,
+                                    InvoiceNumber = asset.InvoiceNumber,
+                                    Quantity = asset.Quantity,
+                                    CostPerUnit = asset.CostPerUnit,
+                                    UsefulLifeYears = asset.UsefulLifeYears,
+                                    WarrantyExpiry = asset.WarrantyExpiry,
+                                    DisposalDate = asset.DisposalDate,
+                                    DisposalValue = asset.DisposalValue,
+                                    Remarks = asset.Remarks
+                                };
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error but continue
+                        System.Diagnostics.Debug.WriteLine($"Error loading asset for edit: {ex.Message}");
+                    }
+                }
 
                 // Build query parameters for API call
                 var queryParams = new List<string>();

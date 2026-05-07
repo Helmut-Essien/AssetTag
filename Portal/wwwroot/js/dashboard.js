@@ -16,7 +16,6 @@ class DashboardManager {
                 'Available': '#059669',
                 'In Use': '#2563eb',
                 'Under Maintenance': '#d97706',
-                'Retired': '#71717a',
                 'Lost': '#e11d48',
                 'Unknown': '#6b7280',
                 'No Data': '#9ca3af'

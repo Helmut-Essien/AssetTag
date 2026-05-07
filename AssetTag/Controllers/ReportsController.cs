@@ -90,12 +90,10 @@ public class ReportsController : ControllerBase
                     AvailableCount = g.Count(a => a.Status == AssetConstants.Status.Available),
                     MaintenanceCount = g.Count(a => a.Status == AssetConstants.Status.UnderMaintenance),
                     DisposedCount = g.Count(a => a.Status == AssetConstants.Status.Disposed),
-                    RetiredCount = g.Count(a => a.Status == AssetConstants.Status.Retired),
                     OtherCount = g.Count(a => a.Status != AssetConstants.Status.InUse
                         && a.Status != AssetConstants.Status.Available
                         && a.Status != AssetConstants.Status.UnderMaintenance
-                        && a.Status != AssetConstants.Status.Disposed
-                        && a.Status != AssetConstants.Status.Retired)
+                        && a.Status != AssetConstants.Status.Disposed)
                 })
                 .OrderByDescending(r => r.TotalValue)
                 .ToList();
@@ -281,15 +279,16 @@ public class ReportsController : ControllerBase
 
             if (!categories.Any())
             {
-                return Ok(new {
-                    categories = new List<CategoryColumnDto>(),
-                    rows = new List<FixedAssetsScheduleDto>(),
-                    startDate = start,
-                    endDate = end
+                return Ok(new FixedAssetsReportResponse
+                {
+                    Categories = new List<CategoryColumnDto>(),
+                    ActiveAssetRows = new List<FixedAssetsScheduleDto>(),
+                    StartDate = start,
+                    EndDate = end
                 });
             }
 
-            // Get all assets with their categories
+            // Get ALL assets with their categories (including disposed)
             var assets = await _context.Assets
                 .Include(a => a.Category)
                 .Include(a => a.AssetHistories)
@@ -306,10 +305,22 @@ public class ReportsController : ControllerBase
                 DepreciationRate = c.DepreciationRate
             }).ToList();
 
-            // Group assets by category
-            var assetsByCategory = assets.GroupBy(a => a.CategoryId).ToDictionary(g => g.Key, g => g.ToList());
+            // SEPARATE: Active assets (NOT disposed) vs Disposed assets (in period)
+            var activeAssets = assets
+                .Where(a => a.Status != AssetConstants.Status.Disposed)
+                .ToList();
 
-            // Build rows
+            var disposedAssetsInPeriod = assets
+                .Where(a => a.Status == AssetConstants.Status.Disposed && 
+                           a.DisposalDate.HasValue && 
+                           a.DisposalDate.Value >= start && 
+                           a.DisposalDate.Value <= end)
+                .ToList();
+
+            // Group assets by category
+            var assetsByCategory = activeAssets.GroupBy(a => a.CategoryId).ToDictionary(g => g.Key, g => g.ToList());
+
+            // ===== BUILD ACTIVE ASSETS SCHEDULE =====
             var rows = new List<FixedAssetsScheduleDto>();
 
             // Section Header: Cost/Valuation
@@ -355,7 +366,24 @@ public class ReportsController : ControllerBase
             additionsRow.Total = additionsRow.CategoryValues.Values.Sum(v => v ?? 0);
             rows.Add(additionsRow);
 
-            // Row 3: Balance at end of period
+            // Row 3: Disposals - Cost of assets removed (only for active assets schedule)
+            var disposalsCostRow = new FixedAssetsScheduleDto
+            {
+                RowLabel = "Disposals",
+                CategoryValues = new Dictionary<string, decimal?>()
+            };
+            foreach (var cat in categories)
+            {
+                // Disposed assets cost is tracked separately, but we show it here for reconciliation
+                var disposedCost = disposedAssetsInPeriod
+                    .Where(a => a.CategoryId == cat.CategoryId)
+                    .Sum(a => a.PurchasePrice ?? 0);
+                disposalsCostRow.CategoryValues[cat.CategoryId] = disposedCost > 0 ? -disposedCost : null; // Negative to show removal
+            }
+            disposalsCostRow.Total = disposalsCostRow.CategoryValues.Values.Sum(v => v ?? 0);
+            rows.Add(disposalsCostRow);
+
+            // Row 4: Balance at end of period
             var balEndRow = new FixedAssetsScheduleDto
             {
                 RowLabel = $"Bal: {end:dd MMM, yyyy}",
@@ -367,6 +395,13 @@ public class ReportsController : ControllerBase
                 var value = catAssets
                     .Where(a => a.PurchaseDate.HasValue && a.PurchaseDate.Value <= end)
                     .Sum(a => a.PurchasePrice ?? 0);
+                
+                // Subtract disposed assets cost from the balance
+                var disposedCost = disposedAssetsInPeriod
+                    .Where(a => a.CategoryId == cat.CategoryId)
+                    .Sum(a => a.PurchasePrice ?? 0);
+                value -= disposedCost;
+
                 balEndRow.CategoryValues[cat.CategoryId] = value > 0 ? value : null;
             }
             balEndRow.Total = balEndRow.CategoryValues.Values.Sum(v => v ?? 0);
@@ -382,7 +417,7 @@ public class ReportsController : ControllerBase
                 CategoryValues = new Dictionary<string, decimal?>()
             });
 
-            // Row 4: Depreciation - Balance at start of period
+            // Row 5: Depreciation - Balance at start of period
             var depBalStartRow = new FixedAssetsScheduleDto
             {
                 RowLabel = $"Bal: {start:dd MMM, yyyy}",
@@ -406,7 +441,7 @@ public class ReportsController : ControllerBase
             depBalStartRow.Total = depBalStartRow.CategoryValues.Values.Sum(v => v ?? 0);
             rows.Add(depBalStartRow);
 
-            // Row 5: Charge for the period
+            // Row 6: Charge for the period (on active assets only)
             var chargeRow = new FixedAssetsScheduleDto
             {
                 RowLabel = "Charge for period",
@@ -418,7 +453,6 @@ public class ReportsController : ControllerBase
                 var rate = cat.DepreciationRate!.Value / 100m;
                 
                 decimal periodCharge = 0;
-                var daysInPeriod = (end - start).Days + 1;
                 
                 foreach (var asset in catAssets.Where(a => a.PurchasePrice.HasValue && a.PurchaseDate.HasValue && a.PurchaseDate.Value <= end))
                 {
@@ -438,7 +472,31 @@ public class ReportsController : ControllerBase
             chargeRow.Total = chargeRow.CategoryValues.Values.Sum(v => v ?? 0);
             rows.Add(chargeRow);
 
-            // Row 6: Depreciation balance at end of period
+            // Row 7: Depreciation on disposed assets (for reconciliation)
+            var disposalDepreciationRow = new FixedAssetsScheduleDto
+            {
+                RowLabel = "Disposals",
+                CategoryValues = new Dictionary<string, decimal?>()
+            };
+            foreach (var cat in categories)
+            {
+                var rate = cat.DepreciationRate!.Value / 100m;
+                decimal disposalDepreciation = 0;
+
+                foreach (var asset in disposedAssetsInPeriod.Where(a => a.CategoryId == cat.CategoryId))
+                {
+                    // Depreciation up to disposal date
+                    var yearsOwned = (asset.DisposalDate!.Value - asset.PurchaseDate!.Value).TotalDays / 365.25;
+                    var accumulated = Math.Min(asset.PurchasePrice!.Value * rate * (decimal)yearsOwned, asset.PurchasePrice.Value);
+                    disposalDepreciation += accumulated;
+                }
+
+                disposalDepreciationRow.CategoryValues[cat.CategoryId] = disposalDepreciation > 0 ? -disposalDepreciation : null; // Negative to show removal
+            }
+            disposalDepreciationRow.Total = disposalDepreciationRow.CategoryValues.Values.Sum(v => v ?? 0);
+            rows.Add(disposalDepreciationRow);
+
+            // Row 8: Depreciation balance at end of period
             var depBalEndRow = new FixedAssetsScheduleDto
             {
                 RowLabel = $"Bal: {end:dd MMM, yyyy}",
@@ -465,7 +523,7 @@ public class ReportsController : ControllerBase
             // Empty row separator
             rows.Add(new FixedAssetsScheduleDto { RowLabel = "", CategoryValues = new Dictionary<string, decimal?>() });
 
-            // Row 7: Net Book Value at end of period
+            // Row 9: Net Book Value at end of period
             var nbvRow = new FixedAssetsScheduleDto
             {
                 RowLabel = $"NBV {end:dd MMM, yyyy}",
@@ -481,12 +539,14 @@ public class ReportsController : ControllerBase
             nbvRow.Total = nbvRow.CategoryValues.Values.Sum(v => v ?? 0);
             rows.Add(nbvRow);
 
-            return Ok(new
+            // ===== RETURN RESPONSE (inline disposals only, no separate detail section) =====
+
+            return Ok(new FixedAssetsReportResponse
             {
-                categories = categoryColumns,
-                rows = rows,
-                startDate = start,
-                endDate = end
+                Categories = categoryColumns,
+                ActiveAssetRows = rows,
+                StartDate = start,
+                EndDate = end
             });
         }
         catch (Exception ex)
