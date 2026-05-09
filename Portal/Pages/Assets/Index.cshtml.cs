@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
+using ClosedXML.Excel;
+using System.Text;
 
 namespace Portal.Pages.Assets
 {
@@ -406,15 +408,171 @@ namespace Portal.Pages.Assets
                 : RedirectToPage("/Forbidden");
         }
 
-        public async Task<IActionResult> OnGetExportFilteredAsync()
+        public async Task<IActionResult> OnGetExportAsync(string format)
         {
             await OnGetAsync();
-            var filteredAssets = ApplyFilters(Assets);
 
-            // In a real implementation, you'd generate CSV/Excel here
-            // For now, just return to page with filtered data
-            Assets = filteredAssets;
-            return Page();
+            if (Assets.Count == 0)
+                return Page();
+
+            // Build human-readable column mappings (respect current filter context)
+            var columnNames = new (string Header, string Selector)[]
+            {
+                ("Asset Tag",       "AssetTag"),
+                ("Name",            "Name"),
+                ("Description",     "Description"),
+                ("Category",        "CategoryId"),
+                ("Location",        "LocationId"),
+                ("Department",      "DepartmentId"),
+                ("Status",          "Status"),
+                ("Condition",       "Condition"),
+                ("Serial Number",   "SerialNumber"),
+                ("Digital Asset Tag","DigitalAssetTag"),
+                ("Vendor",          "VendorName"),
+                ("Invoice",         "InvoiceNumber"),
+                ("Purchase Date",   "PurchaseDate"),
+                ("Purchase Price",  "PurchasePrice"),
+                ("Current Value",   "CurrentValue"),
+                ("Quantity",        "Quantity"),
+                ("Cost Per Unit",   "CostPerUnit"),
+                ("Depreciation Rate","DepreciationRate"),
+                ("Net Book Value",  "NetBookValue"),
+                ("Warranty Expiry", "WarrantyExpiry"),
+                ("Disposal Date",   "DisposalDate"),
+                ("Disposal Value",  "DisposalValue"),
+                ("Remarks",         "Remarks"),
+            };
+
+            var dateFormat = "yyyy-MM-dd";
+
+            string GetCellValue(AssetReadDTO a, string prop) => prop switch
+            {
+                "AssetTag"          => a.AssetTag,
+                "Name"              => a.Name,
+                "Description"       => a.Description ?? "",
+                "CategoryId"        => GetCategoryName(a.CategoryId),
+                "LocationId"        => GetLocationName(a.LocationId),
+                "DepartmentId"      => GetDepartmentName(a.DepartmentId),
+                "Status"            => a.Status,
+                "Condition"         => a.Condition,
+                "SerialNumber"      => a.SerialNumber ?? "",
+                "DigitalAssetTag"   => a.DigitalAssetTag ?? "",
+                "VendorName"        => a.VendorName ?? "",
+                "InvoiceNumber"     => a.InvoiceNumber ?? "",
+                "PurchaseDate"      => a.PurchaseDate?.ToString(dateFormat) ?? "",
+                "PurchasePrice"     => a.PurchasePrice?.ToString("F2") ?? "",
+                "CurrentValue"      => a.CurrentValue?.ToString("F2") ?? "",
+                "Quantity"          => a.Quantity.ToString(),
+                "CostPerUnit"       => a.CostPerUnit?.ToString("F2") ?? "",
+                "DepreciationRate"  => a.DepreciationRate?.ToString("F2") ?? "",
+                "NetBookValue"      => a.NetBookValue?.ToString("F2") ?? "",
+                "WarrantyExpiry"    => a.WarrantyExpiry?.ToString(dateFormat) ?? "",
+                "DisposalDate"      => a.DisposalDate?.ToString(dateFormat) ?? "",
+                "DisposalValue"     => a.DisposalValue?.ToString("F2") ?? "",
+                "Remarks"           => a.Remarks ?? "",
+                _ => ""
+            };
+
+            if (format?.ToLower() == "excel")
+            {
+                using var workbook = new XLWorkbook();
+                var ws = workbook.Worksheets.Add("Assets");
+
+                // Headers
+                for (int i = 0; i < columnNames.Length; i++)
+                {
+                    var cell = ws.Cell(1, i + 1);
+                    cell.Value = columnNames[i].Header;
+                    cell.Style.Font.Bold = true;
+                    cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#212529");
+                    cell.Style.Font.FontColor = XLColor.White;
+                    cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                }
+
+                // Data rows
+                for (int r = 0; r < Assets.Count; r++)
+                {
+                    for (int c = 0; c < columnNames.Length; c++)
+                    {
+                        var value = GetCellValue(Assets[r], columnNames[c].Selector);
+                        var cell = ws.Cell(r + 2, c + 1);
+
+                        if (decimal.TryParse(value, out var num))
+                            cell.Value = num;
+                        else
+                            cell.Value = value;
+                    }
+                }
+
+                ws.Columns().AdjustToContents(1, columnNames.Length);
+
+                using var stream = new System.IO.MemoryStream();
+                workbook.SaveAs(stream);
+                return File(stream.ToArray(),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    $"Assets_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
+            }
+            else
+            {
+                // CSV
+                var csv = new StringBuilder();
+
+                csv.AppendLine(string.Join(",", columnNames.Select(c => EscapeCsv(c.Header))));
+
+                foreach (var asset in Assets)
+                {
+                    var values = columnNames.Select(c => EscapeCsv(GetCellValue(asset, c.Selector)));
+                    csv.AppendLine(string.Join(",", values));
+                }
+
+                return File(Encoding.UTF8.GetBytes(csv.ToString()),
+                    "text/csv",
+                    $"Assets_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
+            }
+        }
+
+        private static string EscapeCsv(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return "";
+            if (value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
+                return $"\"{value.Replace("\"", "\"\"")}\"";
+            return value;
+        }
+
+        public async Task<IActionResult> OnPostImportAsync()
+        {
+            var file = Request.Form.Files.GetFile("file");
+            if (file is null || file.Length == 0)
+                return new JsonResult(new { error = "No file uploaded." });
+
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (ext is not ".xlsx")
+                return new JsonResult(new { error = "Only .xlsx files are supported." });
+
+            try
+            {
+                using var content = new MultipartFormDataContent();
+                var streamContent = new StreamContent(file.OpenReadStream());
+                streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+                content.Add(streamContent, "file", file.FileName);
+
+                var response = await _httpClient.PostAsync("api/assets/batch-import", content);
+                var responseBody = await response.Content.ReadAsStringAsync();
+
+                return new ContentResult
+                {
+                    Content = responseBody,
+                    ContentType = "application/json",
+                    StatusCode = (int)response.StatusCode
+                };
+            }
+            catch (Exception ex)
+            {
+                return new JsonResult(new { error = $"Failed to process file: {ex.Message}" })
+                {
+                    StatusCode = 500
+                };
+            }
         }
     }
 }

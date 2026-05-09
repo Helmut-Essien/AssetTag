@@ -16,6 +16,9 @@
     <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createModal">
         <i class="bi bi-plus-lg me-2"></i>Add Asset
     </button>
+    <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#importModal">
+        <i class="bi bi-file-earmark-excel me-2"></i>Import Excel
+    </button>
 </div>
 
     <!-- Search and Filters Section -->
@@ -914,6 +917,62 @@
     </div>
 </div>
 
+<!-- Import Excel Modal -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importModalLabel">Import Assets from Excel</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Select Excel File (.xlsx)</label>
+                    <input type="file" id="importFileInput" class="form-control" accept=".xlsx" />
+                    <small class="text-muted">
+                        Required columns: AssetTag, Name, Category, Location, Department, Status, Condition.
+                        Use names (not IDs) for Category, Location, and Department.
+                    </small>
+                </div>
+
+                <!-- Import Progress -->
+                <div id="importProgress" class="d-none">
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                        <span>Importing...</span>
+                    </div>
+                </div>
+
+                <!-- Import Results -->
+                <div id="importResults" class="d-none">
+                    <div class="alert" id="importAlert" role="alert"></div>
+                    <div id="importErrorTable" class="d-none">
+                        <h6>Errors</h6>
+                        <div class="table-responsive" style="max-height:300px">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-danger">
+                                    <tr>
+                                        <th>Row</th>
+                                        <th>Field</th>
+                                        <th>Message</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="importErrorBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="importBtn" onclick="doImport()">
+                    <i class="bi bi-upload me-1"></i>Import
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script>
         // Performance-optimized search and filter functionality
@@ -1309,6 +1368,101 @@ if (editModal) {
             if (quantityInput) {
                 quantityInput.addEventListener('input', calculateTotalCost);
             }
+            
+            // Reset import modal on close
+            var importModalEl = document.getElementById('importModal');
+            if (importModalEl) {
+                importModalEl.addEventListener('hidden.bs.modal', function() {
+                    document.getElementById('importFileInput').value = '';
+                    document.getElementById('importProgress').classList.add('d-none');
+                    document.getElementById('importResults').classList.add('d-none');
+                    document.getElementById('importErrorTable').classList.add('d-none');
+                    document.getElementById('importBtn').disabled = false;
+                });
+            }
         });
+
+        // Import Excel file
+        async function doImport() {
+            const fileInput = document.getElementById('importFileInput');
+            const importBtn = document.getElementById('importBtn');
+            const progressDiv = document.getElementById('importProgress');
+            const resultsDiv = document.getElementById('importResults');
+            const alertDiv = document.getElementById('importAlert');
+            const errorTable = document.getElementById('importErrorTable');
+            const errorBody = document.getElementById('importErrorBody');
+
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('Please select an Excel file first.');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            if (!file.name.toLowerCase().endsWith('.xlsx')) {
+                alert('Only .xlsx files are supported.');
+                return;
+            }
+
+            // Show progress
+            importBtn.disabled = true;
+            progressDiv.classList.remove('d-none');
+            resultsDiv.classList.add('d-none');
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/Assets?handler=Import', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                // Hide progress
+                progressDiv.classList.add('d-none');
+                resultsDiv.classList.remove('d-none');
+
+                if (!response.ok) {
+                    alertDiv.className = 'alert alert-danger';
+                    alertDiv.textContent = result.error || 'Import failed.';
+                    return;
+                }
+
+                if (result.failureCount === 0) {
+                    alertDiv.className = 'alert alert-success';
+                    alertDiv.textContent = `All ${result.successCount} assets imported successfully!`;
+                    errorTable.classList.add('d-none');
+                    // Reload the page to reflect changes
+                    setTimeout(() => window.location.reload(), 1500);
+                } else if (result.successCount === 0) {
+                    alertDiv.className = 'alert alert-danger';
+                    alertDiv.textContent = `Import failed: all ${result.failureCount} rows had errors.`;
+                } else {
+                    alertDiv.className = 'alert alert-warning';
+                    alertDiv.textContent = `${result.successCount} succeeded, ${result.failureCount} failed out of ${result.totalRows} total rows.`;
+                    // Reload to show new assets
+                    setTimeout(() => window.location.reload(), 2000);
+                }
+
+                // Show error details
+                if (result.errors && result.errors.length > 0) {
+                    errorTable.classList.remove('d-none');
+                    errorBody.innerHTML = result.errors.map(e =>
+                        `<tr><td>${e.row}</td><td>${e.field}</td><td>${e.message}</td></tr>`
+                    ).join('');
+                } else {
+                    errorTable.classList.add('d-none');
+                }
+
+            } catch (err) {
+                progressDiv.classList.add('d-none');
+                resultsDiv.classList.remove('d-none');
+                alertDiv.className = 'alert alert-danger';
+                alertDiv.textContent = 'Network error: ' + err.message;
+            } finally {
+                importBtn.disabled = false;
+            }
+        }
     </script>
 }

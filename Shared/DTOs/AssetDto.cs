@@ -92,6 +92,21 @@ public record AssetCreateDTO
     public string? Remarks { get; init; }
 }
 
+public record AssetImportResultDTO
+{
+    public int TotalRows { get; init; }
+    public int SuccessCount { get; init; }
+    public int FailureCount { get; init; }
+    public List<ImportErrorDTO> Errors { get; init; } = new();
+}
+
+public record ImportErrorDTO
+{
+    public int Row { get; init; }
+    public string Field { get; init; } = string.Empty;
+    public string Message { get; init; } = string.Empty;
+}
+
 public record AssetUpdateDTO
 {
     [Required]
