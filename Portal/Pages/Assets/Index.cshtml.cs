@@ -559,6 +559,14 @@ namespace Portal.Pages.Assets
                 var response = await _httpClient.PostAsync("api/assets/batch-import", content);
                 var responseBody = await response.Content.ReadAsStringAsync();
 
+                if (string.IsNullOrWhiteSpace(responseBody))
+                {
+                    return new JsonResult(new { error = $"API returned {(int)response.StatusCode} with no body." })
+                    {
+                        StatusCode = (int)response.StatusCode
+                    };
+                }
+
                 return new ContentResult
                 {
                     Content = responseBody,

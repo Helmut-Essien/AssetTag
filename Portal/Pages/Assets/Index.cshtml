@@ -1369,7 +1369,7 @@ if (editModal) {
                 quantityInput.addEventListener('input', calculateTotalCost);
             }
             
-            // Reset import modal on close
+            // Reset import modal on close; refresh asset list if import changed data
             var importModalEl = document.getElementById('importModal');
             if (importModalEl) {
                 importModalEl.addEventListener('hidden.bs.modal', function() {
@@ -1378,9 +1378,36 @@ if (editModal) {
                     document.getElementById('importResults').classList.add('d-none');
                     document.getElementById('importErrorTable').classList.add('d-none');
                     document.getElementById('importBtn').disabled = false;
+                    if (importModalEl.dataset.refreshOnClose === 'true') {
+                        importModalEl.dataset.refreshOnClose = 'false';
+                        window.location.reload();
+                    }
                 });
             }
         });
+
+        function getAntiforgeryToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        }
+
+        function parseImportResponse(response, text) {
+            if (!text || !text.trim()) {
+                throw new Error(`Import failed (HTTP ${response.status}): empty response`);
+            }
+            try {
+                return JSON.parse(text);
+            } catch {
+                const preview = text.trim().substring(0, 200);
+                throw new Error(`Import failed (HTTP ${response.status}): invalid response — ${preview}`);
+            }
+        }
+
+        function showImportError(alertDiv, progressDiv, resultsDiv, message) {
+            progressDiv.classList.add('d-none');
+            resultsDiv.classList.remove('d-none');
+            alertDiv.className = 'alert alert-danger';
+            alertDiv.textContent = message;
+        }
 
         // Import Excel file
         async function doImport() {
@@ -1403,49 +1430,61 @@ if (editModal) {
                 return;
             }
 
-            // Show progress
+            const token = getAntiforgeryToken();
+            if (!token) {
+                showImportError(alertDiv, progressDiv, resultsDiv,
+                    'Security token missing. Please refresh the page and try again.');
+                return;
+            }
+
             importBtn.disabled = true;
             progressDiv.classList.remove('d-none');
             resultsDiv.classList.add('d-none');
 
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('__RequestVerificationToken', token);
 
             try {
                 const response = await fetch('/Assets?handler=Import', {
                     method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'RequestVerificationToken': token,
+                        'Accept': 'application/json'
+                    },
                     body: formData
                 });
 
-                const result = await response.json();
+                const text = await response.text();
+                const result = parseImportResponse(response, text);
 
-                // Hide progress
                 progressDiv.classList.add('d-none');
                 resultsDiv.classList.remove('d-none');
 
                 if (!response.ok) {
                     alertDiv.className = 'alert alert-danger';
-                    alertDiv.textContent = result.error || 'Import failed.';
+                    alertDiv.textContent = result.error || `Import failed (HTTP ${response.status}).`;
                     return;
+                }
+
+                const importModalEl = document.getElementById('importModal');
+                if (result.successCount > 0 && importModalEl) {
+                    importModalEl.dataset.refreshOnClose = 'true';
                 }
 
                 if (result.failureCount === 0) {
                     alertDiv.className = 'alert alert-success';
-                    alertDiv.textContent = `All ${result.successCount} assets imported successfully!`;
+                    alertDiv.textContent = `All ${result.successCount} assets imported successfully! Close this dialog to refresh the asset list.`;
                     errorTable.classList.add('d-none');
-                    // Reload the page to reflect changes
-                    setTimeout(() => window.location.reload(), 1500);
                 } else if (result.successCount === 0) {
                     alertDiv.className = 'alert alert-danger';
                     alertDiv.textContent = `Import failed: all ${result.failureCount} rows had errors.`;
                 } else {
                     alertDiv.className = 'alert alert-warning';
-                    alertDiv.textContent = `${result.successCount} succeeded, ${result.failureCount} failed out of ${result.totalRows} total rows.`;
-                    // Reload to show new assets
-                    setTimeout(() => window.location.reload(), 2000);
+                    alertDiv.textContent = `${result.successCount} succeeded, ${result.failureCount} failed out of ${result.totalRows} total rows. Close this dialog to refresh the asset list.`;
                 }
 
-                // Show error details
                 if (result.errors && result.errors.length > 0) {
                     errorTable.classList.remove('d-none');
                     errorBody.innerHTML = result.errors.map(e =>
@@ -1456,10 +1495,7 @@ if (editModal) {
                 }
 
             } catch (err) {
-                progressDiv.classList.add('d-none');
-                resultsDiv.classList.remove('d-none');
-                alertDiv.className = 'alert alert-danger';
-                alertDiv.textContent = 'Network error: ' + err.message;
+                showImportError(alertDiv, progressDiv, resultsDiv, err.message);
             } finally {
                 importBtn.disabled = false;
             }

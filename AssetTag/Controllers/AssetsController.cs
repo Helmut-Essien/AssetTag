@@ -738,53 +738,65 @@ public class AssetsController : ControllerBase
             }
 
             var successCount = 0;
-            var upsertedCount = 0;
-            var createdCount = 0;
 
             if (pendingRows.Count > 0)
             {
-                using var transaction = await _context.Database.BeginTransactionAsync();
+                var strategy = _context.Database.CreateExecutionStrategy();
                 try
                 {
-                    foreach (var (asset, isNew, isUpdated) in pendingRows)
+                    successCount = await strategy.ExecuteAsync(async () =>
                     {
-                        if (isNew)
+                        var createdCount = 0;
+                        var upsertedCount = 0;
+
+                        await using var transaction = await _context.Database.BeginTransactionAsync();
+                        try
                         {
-                            _context.Assets.Add(asset);
-                            await _context.SaveChangesAsync();
+                            foreach (var (asset, isNew, isUpdated) in pendingRows)
+                            {
+                                if (isNew)
+                                {
+                                    _context.Assets.Add(asset);
+                                    await _context.SaveChangesAsync();
 
-                            await CreateAssetHistory(
-                                asset.AssetId,
-                                "CREATE",
-                                $"Asset '{asset.Name}' with tag '{asset.AssetTag}' was created via batch import",
-                                newLocationId: asset.LocationId,
-                                newStatus: asset.Status
-                            );
-                            createdCount++;
+                                    await CreateAssetHistory(
+                                        asset.AssetId,
+                                        "CREATE",
+                                        $"Asset '{asset.Name}' with tag '{asset.AssetTag}' was created via batch import",
+                                        newLocationId: asset.LocationId,
+                                        newStatus: asset.Status
+                                    );
+                                    createdCount++;
+                                }
+                                else if (isUpdated)
+                                {
+                                    await _context.SaveChangesAsync();
+
+                                    await CreateAssetHistory(
+                                        asset.AssetId,
+                                        "UPDATE",
+                                        $"Asset '{asset.Name}' with tag '{asset.AssetTag}' was updated via batch import",
+                                        newLocationId: asset.LocationId,
+                                        newStatus: asset.Status
+                                    );
+                                    upsertedCount++;
+                                }
+                            }
+
+                            await _context.SaveChangesAsync();
+                            await transaction.CommitAsync();
+
+                            return createdCount + upsertedCount;
                         }
-                        else if (isUpdated)
+                        catch
                         {
-                            await _context.SaveChangesAsync();
-
-                            await CreateAssetHistory(
-                                asset.AssetId,
-                                "UPDATE",
-                                $"Asset '{asset.Name}' with tag '{asset.AssetTag}' was updated via batch import",
-                                newLocationId: asset.LocationId,
-                                newStatus: asset.Status
-                            );
-                            upsertedCount++;
+                            await transaction.RollbackAsync();
+                            throw;
                         }
-                    }
-
-                    await _context.SaveChangesAsync();
-                    await transaction.CommitAsync();
-
-                    successCount = createdCount + upsertedCount;
+                    });
                 }
                 catch (Exception ex)
                 {
-                    await transaction.RollbackAsync();
                     return StatusCode(500, new { error = $"Failed to import assets: {ex.Message}" });
                 }
             }
