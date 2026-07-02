@@ -136,9 +136,21 @@ public sealed class TokenRefreshHandler : DelegatingHandler
         //request.Headers.Add("X-Auth-Token", $"Bearer {accessToken}");
         //_logger.LogInformation("Both Authorization and X-Auth-Token headers added");
 
-        // Make the request
-        
-        var response = await base.SendAsync(request, cancellationToken);
+        HttpResponseMessage response;
+        try
+        {
+            response = await base.SendAsync(request, cancellationToken);
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "API request failed because the backend is unreachable: {Url}", request.RequestUri);
+            return CreateApiUnavailableResponse(request);
+        }
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning(ex, "API request timed out or was canceled by the HTTP client: {Url}", request.RequestUri);
+            return CreateApiTimeoutResponse(request);
+        }
 
         // If not unauthorized, return response
         if (response.StatusCode != HttpStatusCode.Unauthorized)
@@ -184,7 +196,20 @@ public sealed class TokenRefreshHandler : DelegatingHandler
 
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", newAccessToken);
             _logger.LogInformation("Retrying request with refreshed token");
-            return await base.SendAsync(request, cancellationToken);
+            try
+            {
+                return await base.SendAsync(request, cancellationToken);
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning(ex, "Retried API request failed because the backend is unreachable: {Url}", request.RequestUri);
+                return CreateApiUnavailableResponse(request);
+            }
+            catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(ex, "Retried API request timed out or was canceled by the HTTP client: {Url}", request.RequestUri);
+                return CreateApiTimeoutResponse(request);
+            }
         }
 
        
@@ -236,10 +261,24 @@ public sealed class TokenRefreshHandler : DelegatingHandler
             using var authClient = _httpClientFactory.CreateClient("AuthApi");
             var refreshRequest = new TokenResponseDTO(string.Empty, refreshToken);
 
-            var refreshResponse = await authClient.PostAsJsonAsync(
-                "api/auth/refresh-token",
-                refreshRequest,
-                cancellationToken);
+            HttpResponseMessage refreshResponse;
+            try
+            {
+                refreshResponse = await authClient.PostAsJsonAsync(
+                    "api/auth/refresh-token",
+                    refreshRequest,
+                    cancellationToken);
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning(ex, "Refresh token request failed because the backend is unreachable for user {UserId}", userId);
+                return false;
+            }
+            catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(ex, "Refresh token request timed out or was canceled by the HTTP client for user {UserId}", userId);
+                return false;
+            }
 
             if (!refreshResponse.IsSuccessStatusCode)
             {
@@ -343,5 +382,23 @@ public sealed class TokenRefreshHandler : DelegatingHandler
         {
             _logger.LogInformation(ex, "Error signing out user");
         }
+    }
+
+    private static HttpResponseMessage CreateApiUnavailableResponse(HttpRequestMessage request)
+    {
+        return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+        {
+            RequestMessage = request,
+            ReasonPhrase = "AssetTag API is unavailable"
+        };
+    }
+
+    private static HttpResponseMessage CreateApiTimeoutResponse(HttpRequestMessage request)
+    {
+        return new HttpResponseMessage(HttpStatusCode.GatewayTimeout)
+        {
+            RequestMessage = request,
+            ReasonPhrase = "AssetTag API request timed out"
+        };
     }
 }

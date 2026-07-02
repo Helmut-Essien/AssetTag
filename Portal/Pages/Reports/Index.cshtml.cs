@@ -22,6 +22,9 @@ namespace Portal.Pages.Reports
         public string GeneratedSql { get; set; } = string.Empty;
         public string SelectedReportType { get; set; } = "assets-by-status";
         public List<ChatMessage> ChatHistory { get; set; } = new();
+        public string LastReportQuestion { get; set; } = string.Empty;
+        public string ResultSummary { get; set; } = string.Empty;
+        public string ResultSummaryMeta { get; set; } = string.Empty;
 
         // Add missing properties
         public bool IsAiConnected { get; set; } = true;
@@ -54,21 +57,17 @@ namespace Portal.Pages.Reports
                 await LoadReportAsync(reportType, year);
             }
 
-            // Initialize chat history from session
-            ChatHistory = HttpContext.Session.GetObject<List<ChatMessage>>("ChatHistory")
-                ?? new List<ChatMessage>();
-
-            if (!ChatHistory.Any())
-            {
-                AddSystemMessage("Welcome to the AI Report Assistant! Ask me questions about your assets.");
-            }
+            LoadChatHistory();
         }
 
         public async Task<IActionResult> OnPostProcessQueryAsync(string chatInput, bool autoQuery = true)
         {
-            if (string.IsNullOrEmpty(chatInput))
+            LoadChatHistory();
+
+            if (string.IsNullOrWhiteSpace(chatInput))
                 return Page();
 
+            LastReportQuestion = chatInput.Trim();
             AddUserMessage(chatInput);
 
             try
@@ -77,20 +76,31 @@ namespace Portal.Pages.Reports
                 {
                     // Generate SQL only
                     GeneratedSql = await _reportsService.GenerateAiQueryAsync(chatInput);
-                    AddAiMessage("I've generated a SQL query for your question. Click 'Run This Query' to execute it.");
+                    if (string.IsNullOrWhiteSpace(GeneratedSql))
+                    {
+                        AddAiMessage("I could not prepare a report for that question. Try asking about assets, departments, locations, warranties, disposals, or values.");
+                    }
+                    else
+                    {
+                        AddAiMessage($"I prepared a read-only report for \"{LastReportQuestion}\". Review it, then show the results.");
+                        ResultSummary = $"Report prepared: {LastReportQuestion}";
+                        ResultSummaryMeta = "Review the report before showing results";
+                    }
                 }
                 else
                 {
                     // Execute query directly
                     var results = await _reportsService.ExecuteAiQueryAsync(chatInput);
                     ReportResults = results;
-                    AddAiMessage($"Found {results.Count} result(s) for your query.");
+                    ResultSummary = BuildResultSummary(chatInput, results.Count);
+                    ResultSummaryMeta = BuildResultSummaryMeta(results.Count);
+                    AddAiMessage(ResultSummary);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing chat query");
-                AddAiMessage($"Sorry, I couldn't process your request: {ex.Message}");
+                AddAiMessage("I could not generate a report for that question. Try asking about assets, departments, warranties, locations, disposals, or values.");
             }
 
             SaveChatHistory();
@@ -99,7 +109,9 @@ namespace Portal.Pages.Reports
 
         public async Task<IActionResult> OnPostRunSqlAsync(string sqlQuery)
         {
-            if (string.IsNullOrEmpty(sqlQuery))
+            LoadChatHistory();
+
+            if (string.IsNullOrWhiteSpace(sqlQuery))
                 return Page();
 
             try
@@ -107,12 +119,15 @@ namespace Portal.Pages.Reports
                 var results = await _reportsService.ExecuteSqlAsync(sqlQuery);
                 ReportResults = results;
                 GeneratedSql = sqlQuery;
-                AddAiMessage($"Executed SQL successfully. Found {results.Count} result(s).");
+                LastReportQuestion = ChatHistory.LastOrDefault(m => m.Role == "user")?.Content ?? "AI-assisted report";
+                ResultSummary = BuildResultSummary(LastReportQuestion, results.Count);
+                ResultSummaryMeta = BuildResultSummaryMeta(results.Count);
+                AddAiMessage(ResultSummary);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error running SQL query");
-                AddAiMessage($"Error executing SQL: {ex.Message}");
+                AddAiMessage("The report was blocked or could not be run. Only read-only report queries are allowed.");
             }
 
             SaveChatHistory();
@@ -414,6 +429,30 @@ namespace Portal.Pages.Reports
             }
 
             HttpContext.Session.SetObject("ChatHistory", ChatHistory);
+        }
+
+        private void LoadChatHistory()
+        {
+            ChatHistory = HttpContext.Session.GetObject<List<ChatMessage>>("ChatHistory")
+                ?? new List<ChatMessage>();
+        }
+
+        private static string BuildResultSummary(string question, int rowCount)
+        {
+            var label = string.IsNullOrWhiteSpace(question) ? "your report" : question.Trim();
+            return rowCount switch
+            {
+                0 => $"No matching records for \"{label}\".",
+                1 => $"1 matching record for \"{label}\".",
+                _ => $"{rowCount} matching records for \"{label}\"."
+            };
+        }
+
+        private static string BuildResultSummaryMeta(int rowCount)
+        {
+            return rowCount == 0
+                ? "Try a broader date range or a less specific question"
+                : "AI-assisted report • Generated just now";
         }
     }
 
