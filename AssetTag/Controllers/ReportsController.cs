@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using AssetTag.Data;
@@ -43,8 +43,6 @@ public class ReportsController : ControllerBase
                 return Ok(new List<AssetsByStatusDto>());
             }
 
-            var totalAssets = assets.Count;
-
             // Group and calculate in memory (NetBookValue is a computed property)
             var results = assets
                 .GroupBy(a => a.Status ?? "Unknown")
@@ -52,9 +50,7 @@ public class ReportsController : ControllerBase
                 {
                     Status = g.Key,
                     Count = g.Count(),
-                    TotalValue = g.Sum(a => a.NetBookValue ?? 0),
-                    AverageValue = g.Any() ? g.Average(a => a.NetBookValue ?? 0) : 0,
-                    Percentage = (decimal)g.Count() / totalAssets * 100
+                    TotalValue = g.Sum(a => a.NetBookValue ?? 0)
                 })
                 .OrderByDescending(r => r.Count)
                 .ToList();
@@ -73,9 +69,10 @@ public class ReportsController : ControllerBase
     {
         try
         {
-            // Fetch all assets with department info first
+            // Fetch all assets with department and category info
             var assets = await _context.Assets
                 .Include(a => a.Department)
+                .Include(a => a.Category)
                 .ToListAsync();
 
             // Group and calculate in memory
@@ -128,10 +125,10 @@ public class ReportsController : ControllerBase
                         : "Unassigned",
                     AssetCount = g.Count(),
                     TotalValue = g.Sum(a => a.NetBookValue ?? 0),
-                    AssetTypes = g.Select(a => a.Category != null ? a.Category.Name : "Unknown")
-                                  .Distinct()
-                                  .Take(10)
-                                  .ToList()
+                    AssetTypes = string.Join(", ",
+                        g.Select(a => a.Category != null ? a.Category.Name : "Unknown")
+                         .Distinct()
+                         .Take(10))
                 })
                 .OrderByDescending(r => r.AssetCount)
                 .ToList();
@@ -167,10 +164,28 @@ public class ReportsController : ControllerBase
                     .FirstOrDefault();
 
                 var maintenanceInterval = AssetConstants.Reports.DefaultMaintenanceIntervalMonths;
-                var nextDue = lastMaintenance?.Timestamp.AddMonths(maintenanceInterval);
-                var daysOverdue = nextDue.HasValue && nextDue.Value < DateTime.UtcNow
-                    ? (DateTime.UtcNow - nextDue.Value).Days
-                    : 0;
+                DateTime? nextDue;
+                int daysOverdue;
+
+                if (lastMaintenance != null)
+                {
+                    nextDue = lastMaintenance.Timestamp.AddMonths(maintenanceInterval);
+                    daysOverdue = nextDue.Value < DateTime.UtcNow
+                        ? (DateTime.UtcNow - nextDue.Value).Days
+                        : 0;
+                }
+                else if (a.PurchaseDate.HasValue)
+                {
+                    nextDue = a.PurchaseDate.Value.AddMonths(maintenanceInterval);
+                    daysOverdue = nextDue.Value < DateTime.UtcNow
+                        ? (DateTime.UtcNow - nextDue.Value).Days
+                        : 0;
+                }
+                else
+                {
+                    nextDue = null;
+                    daysOverdue = int.MaxValue;
+                }
 
                 var priority = daysOverdue > 30 ? "Critical" :
                               daysOverdue > 0 ? "High" :
@@ -184,7 +199,7 @@ public class ReportsController : ControllerBase
                     Status = a.Status,
                     LastMaintenance = lastMaintenance?.Timestamp,
                     NextMaintenanceDue = nextDue,
-                    DaysOverdue = daysOverdue,
+                    DaysOverdue = daysOverdue == int.MaxValue ? 0 : daysOverdue,
                     Priority = priority,
                     Category = a.Category?.Name ?? "Unknown",
                     Department = a.Department?.Name ?? "Unassigned",
@@ -214,15 +229,12 @@ public class ReportsController : ControllerBase
             var sixtyDays = today.AddDays(AssetConstants.Reports.WarrantyExpiryHighDays);
             var ninetyDays = today.AddDays(AssetConstants.Reports.WarrantyExpiryWarningDays);
 
-            // Fetch assets first
             var assets = await _context.Assets
                 .Include(a => a.Category)
                 .Include(a => a.Department)
-                .Where(a => a.WarrantyExpiry.HasValue &&
-                    a.WarrantyExpiry.Value >= today)
+                .Where(a => a.WarrantyExpiry.HasValue)
                 .ToListAsync();
 
-            // Process in memory
             var results = assets
                 .Select(a => new WarrantyExpiryDto
                 {
@@ -234,10 +246,10 @@ public class ReportsController : ControllerBase
                     Category = a.Category != null ? a.Category.Name : "Unknown",
                     Department = a.Department != null ? a.Department.Name : "Unassigned",
                     Status = a.Status,
-                    Priority = a.WarrantyExpiry.Value <= thirtyDays ? "Critical" :
-                              a.WarrantyExpiry.Value <= sixtyDays ? "High" :
-                              a.WarrantyExpiry.Value <= ninetyDays ? "Medium" : "Low",
-                    EstimatedReplacementCost = a.PurchasePrice ?? a.NetBookValue
+                    Priority = a.WarrantyExpiry.Value < today ? "Expired" :
+                               a.WarrantyExpiry.Value <= thirtyDays ? "Critical" :
+                               a.WarrantyExpiry.Value <= sixtyDays ? "High" :
+                               a.WarrantyExpiry.Value <= ninetyDays ? "Medium" : "Low"
                 })
                 .OrderBy(a => a.WarrantyExpiry)
                 .ToList();
@@ -599,6 +611,7 @@ public class ReportsController : ControllerBase
     }
 
     [HttpPost("ai/generate-query")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GenerateAiQuery([FromBody] AiQueryRequest request)
     {
         try
@@ -627,6 +640,7 @@ public class ReportsController : ControllerBase
     }
 
     [HttpPost("ai/execute-query")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> ExecuteAiQuery([FromBody] AiQueryRequest request)
     {
         try
@@ -650,6 +664,7 @@ public class ReportsController : ControllerBase
     }
 
     [HttpPost("ai/execute-sql")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> ExecuteSql([FromBody] ExecuteSqlRequest request)
     {
         try
@@ -671,10 +686,10 @@ public class ReportsController : ControllerBase
                 executedAt = DateTime.UtcNow
             });
         }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("dangerous"))
+        catch (InvalidOperationException ex) when (ex.Message.Contains("dangerous") || ex.Message.Contains("prohibited"))
         {
             _logger.LogWarning($"Attempted to execute dangerous SQL: {request.SqlQuery}");
-            return BadRequest(new { error = "Query contains potentially dangerous operations" });
+            return BadRequest(new { error = ex.Message });
         }
         catch (Exception ex)
         {
@@ -684,6 +699,7 @@ public class ReportsController : ControllerBase
     }
 
     [HttpGet("ai/test-connection")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> TestAiConnection()
     {
         try

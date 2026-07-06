@@ -5,11 +5,12 @@ namespace Shared.DTOs
     /// </summary>
     public class AssetsByStatusDto
     {
+        [System.Text.Json.Serialization.JsonPropertyName("Status")]
         public string Status { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("Count")]
         public int Count { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("Total Value")]
         public decimal TotalValue { get; set; }
-        public decimal AverageValue { get; set; }
-        public decimal Percentage { get; set; }
     }
 
     /// <summary>
@@ -17,13 +18,21 @@ namespace Shared.DTOs
     /// </summary>
     public class AssetsByDepartmentDto
     {
+        [System.Text.Json.Serialization.JsonPropertyName("Department")]
         public string Department { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("Asset Count")]
         public int AssetCount { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("Total Value")]
         public decimal TotalValue { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("In Use")]
         public int InUseCount { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("Available")]
         public int AvailableCount { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("Under Maintenance")]
         public int MaintenanceCount { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("Disposed")]
         public int DisposedCount { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("Other")]
         public int OtherCount { get; set; }
     }
 
@@ -32,10 +41,14 @@ namespace Shared.DTOs
     /// </summary>
     public class AssetsByLocationDto
     {
+        [System.Text.Json.Serialization.JsonPropertyName("Location")]
         public string Location { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("Asset Count")]
         public int AssetCount { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("Total Value")]
         public decimal TotalValue { get; set; }
-        public List<string> AssetTypes { get; set; } = new();
+        [System.Text.Json.Serialization.JsonPropertyName("Asset Types")]
+        public string AssetTypes { get; set; } = string.Empty;
     }
 
     /// <summary>
@@ -43,16 +56,27 @@ namespace Shared.DTOs
     /// </summary>
     public class MaintenanceScheduleDto
     {
+        [System.Text.Json.Serialization.JsonPropertyName("Asset Tag")]
         public string AssetTag { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("Name")]
         public string Name { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("Condition")]
         public string Condition { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("Status")]
         public string Status { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("Last Maintenance")]
         public DateTime? LastMaintenance { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("Next Maintenance Due")]
         public DateTime? NextMaintenanceDue { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("Days Overdue")]
         public int DaysOverdue { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("Priority")]
         public string Priority { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("Category")]
         public string Category { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("Department")]
         public string Department { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("Location")]
         public string Location { get; set; } = string.Empty;
     }
 
@@ -61,16 +85,24 @@ namespace Shared.DTOs
     /// </summary>
     public class WarrantyExpiryDto
     {
+        [System.Text.Json.Serialization.JsonPropertyName("Asset Tag")]
         public string AssetTag { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("Name")]
         public string Name { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("Warranty Expiry")]
         public DateTime WarrantyExpiry { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("Days Until Expiry")]
         public int DaysUntilExpiry { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("Current Value")]
         public decimal? CurrentValue { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("Category")]
         public string Category { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("Department")]
         public string Department { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("Status")]
         public string Status { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("Priority")]
         public string Priority { get; set; } = string.Empty;
-        public decimal? EstimatedReplacementCost { get; set; }
     }
 
     /// <summary>

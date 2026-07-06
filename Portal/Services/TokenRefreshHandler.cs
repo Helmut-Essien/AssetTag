@@ -10,6 +10,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Sockets;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
@@ -37,6 +38,37 @@ public sealed class TokenRefreshHandler : DelegatingHandler
     }
 
 
+
+    private const int MaxRetries = 3;
+
+    private async Task<HttpResponseMessage> SendWithTransientRetry(
+        HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await base.SendAsync(request, cancellationToken);
+            }
+            catch (HttpRequestException ex) when (attempt < MaxRetries && IsTransient(ex))
+            {
+                _logger.LogDebug(ex, "Transient connection failure on attempt {Attempt}/{MaxRetries}. Retrying...", attempt, MaxRetries);
+                await Task.Delay(TimeSpan.FromSeconds(attempt), cancellationToken);
+            }
+            catch (TaskCanceledException ex) when (attempt < MaxRetries && !cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogDebug(ex, "Request timed out on attempt {Attempt}/{MaxRetries}. Retrying...", attempt, MaxRetries);
+                await Task.Delay(TimeSpan.FromSeconds(attempt), cancellationToken);
+            }
+        }
+    }
+
+    private static bool IsTransient(HttpRequestException ex)
+    {
+        if (ex.InnerException is SocketException se)
+            return se.SocketErrorCode is SocketError.ConnectionRefused or SocketError.TimedOut;
+        return ex.StatusCode is null; // DNS failure, etc.
+    }
 
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
@@ -139,7 +171,7 @@ public sealed class TokenRefreshHandler : DelegatingHandler
         HttpResponseMessage response;
         try
         {
-            response = await base.SendAsync(request, cancellationToken);
+            response = await SendWithTransientRetry(request, cancellationToken);
         }
         catch (HttpRequestException ex)
         {
@@ -198,7 +230,7 @@ public sealed class TokenRefreshHandler : DelegatingHandler
             _logger.LogInformation("Retrying request with refreshed token");
             try
             {
-                return await base.SendAsync(request, cancellationToken);
+                return await SendWithTransientRetry(request, cancellationToken);
             }
             catch (HttpRequestException ex)
             {

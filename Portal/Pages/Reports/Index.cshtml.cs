@@ -9,11 +9,13 @@ namespace Portal.Pages.Reports
     public class IndexModel : PageModel
     {
         private readonly IReportsService _reportsService;
+        private readonly IUserRoleService _userRoleService;
         private readonly ILogger<IndexModel> _logger;
 
-        public IndexModel(IReportsService reportsService, ILogger<IndexModel> logger)
+        public IndexModel(IReportsService reportsService, IUserRoleService userRoleService, ILogger<IndexModel> logger)
         {
             _reportsService = reportsService;
+            _userRoleService = userRoleService;
             _logger = logger;
         }
 
@@ -28,6 +30,7 @@ namespace Portal.Pages.Reports
 
         // Add missing properties
         public bool IsAiConnected { get; set; } = true;
+        public bool IsAdmin { get; set; } = false;
         public string? ErrorMessage { get; set; }
         public string? SuccessMessage { get; set; }
         public int? ReportYear { get; set; }
@@ -44,8 +47,18 @@ namespace Portal.Pages.Reports
             StartDate = startDate;
             EndDate = endDate;
             
-            // Test AI connection
-            IsAiConnected = await _reportsService.TestAiConnectionAsync();
+            // Set IsAdmin
+            IsAdmin = _userRoleService.IsInRole("Admin");
+            
+            // Test AI connection (only if Admin)
+            if (IsAdmin)
+            {
+                IsAiConnected = await _reportsService.TestAiConnectionAsync();
+            }
+            else
+            {
+                IsAiConnected = false;
+            }
             
             // Load report with appropriate parameters
             if (reportType == "fixed-assets-schedule")
@@ -64,6 +77,12 @@ namespace Portal.Pages.Reports
         {
             LoadChatHistory();
 
+            IsAdmin = _userRoleService.IsInRole("Admin");
+            if (!IsAdmin)
+            {
+                return RedirectToPage("/Forbidden");
+            }
+
             if (string.IsNullOrWhiteSpace(chatInput))
                 return Page();
 
@@ -76,10 +95,17 @@ namespace Portal.Pages.Reports
                 {
                     // Generate SQL only
                     GeneratedSql = await _reportsService.GenerateAiQueryAsync(chatInput);
-                    if (string.IsNullOrWhiteSpace(GeneratedSql))
-                    {
-                        AddAiMessage("I could not prepare a report for that question. Try asking about assets, departments, locations, warranties, disposals, or values.");
-                    }
+                if (string.IsNullOrWhiteSpace(GeneratedSql))
+                {
+                    ErrorMessage = "Could not prepare a report for that question. The AI service may be unavailable. Try refreshing the page or asking a different question.";
+                    AddAiMessage(ErrorMessage);
+                }
+                else if (GeneratedSql.StartsWith("ERROR:"))
+                {
+                    ErrorMessage = GeneratedSql.Substring(6).Trim();
+                    AddAiMessage($"I ran into an issue preparing that report: {ErrorMessage}");
+                    GeneratedSql = string.Empty;
+                }
                     else
                     {
                         AddAiMessage($"I prepared a read-only report for \"{LastReportQuestion}\". Review it, then show the results.");
@@ -100,7 +126,8 @@ namespace Portal.Pages.Reports
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing chat query");
-                AddAiMessage("I could not generate a report for that question. Try asking about assets, departments, warranties, locations, disposals, or values.");
+                ErrorMessage = $"Could not generate a report: {ex.Message}";
+                AddAiMessage(ErrorMessage);
             }
 
             SaveChatHistory();
@@ -110,6 +137,12 @@ namespace Portal.Pages.Reports
         public async Task<IActionResult> OnPostRunSqlAsync(string sqlQuery)
         {
             LoadChatHistory();
+
+            IsAdmin = _userRoleService.IsInRole("Admin");
+            if (!IsAdmin)
+            {
+                return RedirectToPage("/Forbidden");
+            }
 
             if (string.IsNullOrWhiteSpace(sqlQuery))
                 return Page();
@@ -127,7 +160,8 @@ namespace Portal.Pages.Reports
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error running SQL query");
-                AddAiMessage("The report was blocked or could not be run. Only read-only report queries are allowed.");
+                ErrorMessage = $"The report was blocked or failed to run: {ex.Message}";
+                AddAiMessage(ErrorMessage);
             }
 
             SaveChatHistory();
@@ -162,9 +196,15 @@ namespace Portal.Pages.Reports
                     // CSV export
                     var csv = new System.Text.StringBuilder();
 
-                    // Header
+                    // Header — quote keys containing commas, quotes, or newlines
                     var firstRow = reportData.First();
-                    var header = string.Join(",", firstRow.Keys);
+                    var header = string.Join(",", firstRow.Keys.Select(k =>
+                    {
+                        var escaped = k.Replace("\"", "\"\"");
+                        return escaped.Contains(",") || escaped.Contains("\"") || escaped.Contains("\n")
+                            ? $"\"{escaped}\""
+                            : escaped;
+                    }));
                     csv.AppendLine(header);
 
                     // Data rows
@@ -172,7 +212,27 @@ namespace Portal.Pages.Reports
                     {
                         var values = row.Values.Select(v =>
                         {
-                            var text = v?.ToString() ?? string.Empty;
+                            string text;
+                            if (v == null)
+                            {
+                                text = "";
+                            }
+                            else if (v is DateTime dt)
+                            {
+                                text = dt.ToString("dd MMM yyyy");
+                            }
+                            else if (v is decimal dec)
+                            {
+                                text = dec.ToString("N2");
+                            }
+                            else if (v is int or long)
+                            {
+                                text = v.ToString() ?? "0";
+                            }
+                            else
+                            {
+                                text = v.ToString() ?? string.Empty;
+                            }
                             // Escape quotes
                             text = text.Replace("\"", "\"\"");
                             // Wrap in quotes if contains comma, quote, or newline
@@ -354,10 +414,15 @@ namespace Portal.Pages.Reports
                         cell.Value = decimalValue;
                         cell.Style.NumberFormat.Format = "#,##0.00";
                     }
+                    else if (value is int or long)
+                    {
+                        cell.Value = Convert.ToDouble(value);
+                        cell.Style.NumberFormat.Format = "#,##0";
+                    }
                     else if (value is DateTime dateValue)
                     {
                         cell.Value = dateValue;
-                        cell.Style.DateFormat.Format = "yyyy-MM-dd";
+                        cell.Style.DateFormat.Format = "dd MMM yyyy";
                     }
                     else
                     {
