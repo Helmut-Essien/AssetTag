@@ -216,16 +216,54 @@ p.text-muted {
     right: 12px;
     top: 50%;
     transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
     cursor: pointer;
     user-select: none;
     opacity: 0.7;
-    transition: opacity 0.2s;
+    transition: background-color 0.2s, opacity 0.2s;
     color: #1e3a8a;
 }
 
     .password-toggle:hover {
+        background-color: rgba(30, 58, 138, 0.08);
         opacity: 1;
     }
+
+    .password-toggle:focus-visible {
+        outline: 3px solid rgba(43, 108, 176, 0.35);
+        outline-offset: 2px;
+    }
+
+.password-toggle__icon {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+}
+
+.password-toggle__icon--hide,
+.password-toggle--visible .password-toggle__icon--show {
+    display: none;
+}
+
+.password-toggle--visible .password-toggle__icon--hide {
+    display: block;
+}
+
+.password-input {
+    padding-right: 56px;
+}
 
 .form-control-lg {
     padding: 12px 16px;
@@ -252,7 +290,7 @@ p.text-muted {
     animation: button-loading-spinner 1s ease infinite;
 }
 
-@@keyframes button-loading-spinner {
+@keyframes button-loading-spinner {
     from {
         transform: rotate(0turn);
     }
