@@ -63,8 +63,9 @@ namespace MobileApp.ViewModels
         }
 
         /// <summary>
-        /// Load dashboard statistics from the database
-        /// OPTIMIZED: All queries run in parallel and use ConfigureAwait(false)
+        /// Load dashboard statistics from the database.
+        /// Queries run sequentially — SQLite parallel readers often raise first-chance
+        /// SQLITE_BUSY exceptions (retried by EF), which pause "Break on All Exceptions".
         /// </summary>
         [RelayCommand]
         public async Task LoadDashboardDataAsync()
@@ -72,48 +73,28 @@ namespace MobileApp.ViewModels
             try
             {
                 IsBusy = true;
-                
+
+                var today = DateTime.Today;
+
                 using var scope = _serviceProvider.CreateScope();
-                var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
+                var db = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
 
-                // PERFORMANCE: Run all queries in parallel to reduce total load time
-                var totalAssetsTask = dbContext.Assets
-                    .AsNoTracking()
-                    .CountAsync();
-
-                var scannedTodayTask = dbContext.Assets
-                    .AsNoTracking()
-                    .Where(a => a.LastScannedAt.HasValue && a.LastScannedAt.Value.Date == DateTime.Today)
-                    .CountAsync();
-
-                var pendingSyncTask = _syncService.GetPendingSyncCountAsync();
-
-                var categoriesTask = dbContext.Categories
-                    .AsNoTracking()
-                    .CountAsync();
-
-                var deviceInfoTask = dbContext.DeviceInfo
-                    .AsNoTracking()
+                var total = await db.Assets.AsNoTracking().CountAsync();
+                var scanned = await db.Assets.AsNoTracking()
+                    .CountAsync(a => a.LastScannedAt.HasValue && a.LastScannedAt.Value.Date == today);
+                var categoryCount = await db.Categories.AsNoTracking().CountAsync();
+                var deviceInfo = await db.DeviceInfo.AsNoTracking()
+                    .OrderBy(d => d.Id)
                     .FirstOrDefaultAsync();
+                var pending = await _syncService.GetPendingSyncCountAsync();
 
-                // Wait for all queries to complete in parallel
-                await Task.WhenAll(
-                    totalAssetsTask,
-                    scannedTodayTask,
-                    pendingSyncTask,
-                    categoriesTask,
-                    deviceInfoTask
-                );
-
-                // Update properties on UI thread
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
-                    TotalAssets = totalAssetsTask.Result;
-                    ScannedToday = scannedTodayTask.Result;
-                    PendingSync = pendingSyncTask.Result;
-                    Categories = categoriesTask.Result;
+                    TotalAssets = total;
+                    ScannedToday = scanned;
+                    PendingSync = pending;
+                    Categories = categoryCount;
 
-                    var deviceInfo = deviceInfoTask.Result;
                     if (deviceInfo != null && deviceInfo.LastSync > DateTime.MinValue)
                     {
                         var timeSinceSync = DateTime.UtcNow - deviceInfo.LastSync;

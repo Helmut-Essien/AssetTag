@@ -185,7 +185,7 @@
             <!-- Asset List (CollectionView) - Show when NOT busy AND has assets -->
             <RefreshView x:Name="AssetListView"
                          x:DataType="viewmodels:InventoryViewModel"
-                         IsRefreshing="{Binding IsBusy}"
+                         IsRefreshing="False"
                          Command="{Binding RefreshCommand}"
                          IsVisible="{Binding HasAssets}">
                 <CollectionView x:DataType="viewmodels:InventoryViewModel" ItemsSource="{Binding FilteredAssets}"
@@ -325,7 +325,7 @@
                 <Image WidthRequest="64" HeightRequest="64" HorizontalOptions="Center">
                     <Image.Source>
                         <FontImageSource FontFamily="MaterialIcons-Regular"
-                                       Glyph="{mi:Material Icon=SearchOff}"
+                                       Glyph="{mi:Material Icon=Inventory2}"
                                        Color="#CCCCCC"
                                        Size="64"/>
                     </Image.Source>

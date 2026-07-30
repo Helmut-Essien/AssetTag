@@ -653,19 +653,44 @@ public class SyncService : ISyncService, IDisposable
                 var assets = result.Assets;
                 var assetIndex = 0;
 
+                // Prefetch reference ID sets once — avoids 3 AnyAsync queries per asset
+                var knownCategoryIds = await dbContext.Categories
+                    .AsNoTracking()
+                    .Select(c => c.CategoryId)
+                    .ToHashSetAsync();
+                var knownLocationIds = await dbContext.Locations
+                    .AsNoTracking()
+                    .Select(l => l.LocationId)
+                    .ToHashSetAsync();
+                var knownDepartmentIds = await dbContext.Departments
+                    .AsNoTracking()
+                    .Select(d => d.DepartmentId)
+                    .ToHashSetAsync();
+
+                // Snapshot pending asset IDs; end-of-batch re-check still covers races
+                var pendingAssetIds = await dbContext.SyncQueue
+                    .AsNoTracking()
+                    .Where(s => s.EntityType == "Asset")
+                    .Select(s => s.EntityId)
+                    .ToHashSetAsync();
+
                 for (int offset = 0; offset < assets.Count; offset += ASSET_BATCH_SIZE)
                 {
                     var batch = assets.Skip(offset).Take(ASSET_BATCH_SIZE).ToList();
                     var batchAssetIds = new List<string>();
+                    var batchIds = batch.Select(a => a.AssetId).ToList();
+
+                    var existingAssets = await dbContext.Assets
+                        .Where(a => batchIds.Contains(a.AssetId))
+                        .ToDictionaryAsync(a => a.AssetId);
+
+                    var skippedById = await dbContext.SkippedAssets
+                        .Where(s => batchIds.Contains(s.AssetId))
+                        .ToDictionaryAsync(s => s.AssetId);
 
                     foreach (var assetDto in batch)
                     {
-                        // FIX #2: Re-check pending queue before each asset update to prevent race condition
-                        // This prevents overwriting local changes made during the pull operation
-                        var isPendingNow = await dbContext.SyncQueue
-                            .AnyAsync(s => s.EntityType == "Asset" && s.EntityId == assetDto.AssetId);
-                        
-                        if (isPendingNow)
+                        if (pendingAssetIds.Contains(assetDto.AssetId))
                         {
                             deferredAssetIds.Add(assetDto.AssetId);
                             _logger.LogInformation(
@@ -674,9 +699,9 @@ public class SyncService : ISyncService, IDisposable
                             continue;
                         }
 
-                        var categoryExists = await dbContext.Categories.AnyAsync(c => c.CategoryId == assetDto.CategoryId);
-                        var locationExists = await dbContext.Locations.AnyAsync(l => l.LocationId == assetDto.LocationId);
-                        var departmentExists = await dbContext.Departments.AnyAsync(d => d.DepartmentId == assetDto.DepartmentId);
+                        var categoryExists = knownCategoryIds.Contains(assetDto.CategoryId);
+                        var locationExists = knownLocationIds.Contains(assetDto.LocationId);
+                        var departmentExists = knownDepartmentIds.Contains(assetDto.DepartmentId);
 
                         if (!categoryExists || !locationExists || !departmentExists)
                         {
@@ -685,20 +710,14 @@ public class SyncService : ISyncService, IDisposable
                                 assetDto.AssetId, assetDto.AssetTag, categoryExists, locationExists, departmentExists);
 
                             skippedAssetIds.Add(assetDto.AssetId);
-                            
-                            // FIX #13: Track skipped asset for manual review and potential retry
-                            var existingSkipped = await dbContext.SkippedAssets
-                                .FirstOrDefaultAsync(s => s.AssetId == assetDto.AssetId);
-                            
-                            if (existingSkipped != null)
+
+                            if (skippedById.TryGetValue(assetDto.AssetId, out var existingSkipped))
                             {
-                                // Update retry count for existing skipped asset
                                 existingSkipped.RetryCount++;
                                 existingSkipped.SkippedAt = DateTime.UtcNow;
                             }
                             else
                             {
-                                // Create new skipped asset record
                                 var skippedAsset = new MobileData.Data.SkippedAsset
                                 {
                                     AssetId = assetDto.AssetId,
@@ -711,16 +730,13 @@ public class SyncService : ISyncService, IDisposable
                                     MissingDepartmentId = !departmentExists ? assetDto.DepartmentId : null
                                 };
                                 dbContext.SkippedAssets.Add(skippedAsset);
+                                skippedById[assetDto.AssetId] = skippedAsset;
                             }
-                            
+
                             continue;
                         }
 
-                        // BUG FIX: Check if asset already exists before adding (prevents duplicates)
-                        // This matches the upsert pattern used for Categories, Locations, and Departments
-                        var existing = await dbContext.Assets.FindAsync(assetDto.AssetId);
-
-                        if (existing != null)
+                        if (existingAssets.TryGetValue(assetDto.AssetId, out var existing))
                         {
                             // UPDATE existing asset
                             existing.AssetTag = assetDto.AssetTag;
@@ -784,23 +800,21 @@ public class SyncService : ISyncService, IDisposable
                             };
 
                             dbContext.Assets.Add(newAsset);
+                            existingAssets[assetDto.AssetId] = newAsset;
                             _logger.LogDebug("Added new asset: {AssetName} ({AssetTag})", assetDto.Name, assetDto.AssetTag);
                         }
 
-                        // FIX #13: Remove from skipped assets if it was previously skipped and now synced successfully
-                        var previouslySkipped = await dbContext.SkippedAssets
-                            .FirstOrDefaultAsync(s => s.AssetId == assetDto.AssetId);
-                        if (previouslySkipped != null)
+                        if (skippedById.TryGetValue(assetDto.AssetId, out var previouslySkipped))
                         {
                             dbContext.SkippedAssets.Remove(previouslySkipped);
+                            skippedById.Remove(assetDto.AssetId);
                             _logger.LogInformation("Removed asset {AssetId} from skipped assets - now synced successfully", assetDto.AssetId);
                         }
 
                         totalChanges++;
                         assetIndex++;
                         batchAssetIds.Add(assetDto.AssetId);
-                        
-                        // FIX #6: Report progress every 10 assets to avoid too many UI updates
+
                         if (assetIndex % 10 == 0 || assetIndex == assets.Count)
                         {
                             ReportProgress(SyncPhase.PullingAssets, assetIndex, assets.Count,
@@ -1258,7 +1272,9 @@ public class SyncService : ISyncService, IDisposable
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
 
-            var deviceInfo = await dbContext.DeviceInfo.FirstOrDefaultAsync();
+            var deviceInfo = await dbContext.DeviceInfo
+                .OrderBy(d => d.Id)
+                .FirstOrDefaultAsync();
             if (deviceInfo == null)
             {
                 // For first-time install, use a very old date (year 1900) to fetch ALL data from server
@@ -1512,7 +1528,9 @@ public class SyncService : ISyncService, IDisposable
         using var scope = _serviceProvider.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
 
-        var deviceInfo = await dbContext.DeviceInfo.FirstOrDefaultAsync();
+        var deviceInfo = await dbContext.DeviceInfo
+            .OrderBy(d => d.Id)
+            .FirstOrDefaultAsync();
         if (deviceInfo != null)
         {
             // Reset to 1900 to fetch all data

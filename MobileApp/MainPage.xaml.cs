@@ -50,11 +50,9 @@ namespace MobileApp
             {
                 _isCurrentlyLoading = true;
                 
-                // Yield to let UI thread render first
+                // Yield to let UI thread render first; keep ViewModel on UI context
                 await Task.Yield();
-                
-                // Load dashboard data on background thread
-                await Task.Run(async () => await _viewModel.LoadDashboardDataAsync());
+                await _viewModel.LoadDashboardDataAsync();
             }
             catch (Exception ex)
             {

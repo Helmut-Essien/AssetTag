@@ -50,11 +50,9 @@ namespace MobileApp.Views
             {
                 _isCurrentlyLoading = true;
                 
-                // Yield to let UI thread render first
+                // Yield to let UI thread render first; keep ViewModel on UI context
                 await Task.Yield();
-                
-                // Load inventory data on background thread
-                await Task.Run(async () => await _viewModel.LoadAssetsAsync());
+                await _viewModel.LoadAssetsAsync();
             }
             catch (Exception ex)
             {

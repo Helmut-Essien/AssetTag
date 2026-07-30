@@ -26,18 +26,17 @@ namespace MobileApp
             // Migration service starts automatically in its constructor
             // No need to call Start() - it runs migrations in background
 
-            // Start background sync service
-            // Defer starting the background sync slightly so the UI can render the first frame
-            // This avoids heavy work competing with initial UI rendering.
+            // Wait for DB migrations before sync / version check so tables exist
             MainThread.BeginInvokeOnMainThread(async () =>
             {
                 try
                 {
-                    await Task.Delay(200); // give the UI a moment
+                    await _migrationService.WaitForCompletionAsync();
+                    await Task.Delay(50); // let first UI frame settle
                     _backgroundSyncService.Start();
                     
                     // Check for updates after a short delay (non-blocking)
-                    await Task.Delay(2000); // Wait 2 seconds after app start
+                    await Task.Delay(2000);
                     await CheckForUpdatesAsync();
                 }
                 catch (Exception ex)

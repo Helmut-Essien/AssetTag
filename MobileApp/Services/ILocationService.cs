@@ -13,9 +13,13 @@ public interface ILocationService
     Task<List<SharedLocation>> GetAllLocationsAsync();
 
     /// <summary>
-    /// Get a paginated list of locations from local database
+    /// Get a paginated list of locations from local database with optional search/sort in SQL
     /// </summary>
-    Task<List<SharedLocation>> GetLocationsPageAsync(int pageIndex, int pageSize);
+    Task<List<SharedLocation>> GetLocationsPageAsync(
+        int pageIndex,
+        int pageSize,
+        string? searchText = null,
+        string sortOption = "Name (A-Z)");
 
     /// <summary>
     /// Get a specific location by ID from local database

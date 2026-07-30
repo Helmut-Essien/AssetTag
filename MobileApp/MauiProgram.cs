@@ -75,7 +75,6 @@ namespace MobileApp
                     $"Data Source={dbPath};Cache=Shared",
                     sqliteOptions =>
                     {
-                        // Configure SQLite-specific options
                         sqliteOptions.CommandTimeout(30);
                     }
                 );
@@ -248,17 +247,27 @@ namespace MobileApp
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to apply database migrations in background.");
-
-                // In production, you might want to:
-                // 1. Show user-friendly message (e.g. via dialog)
-                // 2. Fall back to read-only mode
-                // 3. Report to telemetry (AppCenter, Sentry, etc.)
-
-                // For now we just log – app can continue with potentially outdated schema
+                throw; // Surface failure to WaitForCompletionAsync callers
             }
         }
 
-        // Optional: Method to wait for migrations to complete if needed
-        public Task WaitForCompletionAsync() => _migrationTask ?? Task.CompletedTask;
+        /// <summary>
+        /// Await until migrations finish (success or fault). Callers should handle faults.
+        /// </summary>
+        public async Task WaitForCompletionAsync()
+        {
+            if (_migrationTask == null)
+                return;
+
+            try
+            {
+                await _migrationTask;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Migration task completed with error while waiting.");
+                throw;
+            }
+        }
     }
 }

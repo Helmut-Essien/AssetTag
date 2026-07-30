@@ -43,19 +43,73 @@ public class AssetService : IAssetService
         }
     }
 
-    public async Task<List<Asset>>GetAssetsPageAsync(int pageIndex, int pageSize)
+    public async Task<List<Asset>> GetAssetsPageAsync(
+        int pageIndex,
+        int pageSize,
+        string? searchText = null,
+        string? categoryName = null,
+        string? locationName = null,
+        bool? pendingSyncOnly = null,
+        string sortOption = "Name (A-Z)",
+        IReadOnlyCollection<string>? pendingSyncIds = null)
     {
         try
         {
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
 
-            return await dbContext.Assets
+            var query = dbContext.Assets
                 .AsNoTracking()
                 .Include(a => a.Category)
                 .Include(a => a.Location)
-                .Include(a => a.Department)
-                .OrderBy(a => a.Name)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                var term = searchText.Trim();
+                query = query.Where(a =>
+                    a.Name.Contains(term) ||
+                    a.AssetTag.Contains(term) ||
+                    (a.DigitalAssetTag != null && a.DigitalAssetTag.Contains(term)) ||
+                    (a.Location != null && a.Location.Name.Contains(term)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(categoryName) &&
+                !string.Equals(categoryName, "All Categories", StringComparison.Ordinal))
+            {
+                query = query.Where(a => a.Category != null && a.Category.Name == categoryName);
+            }
+
+            if (!string.IsNullOrWhiteSpace(locationName) &&
+                !string.Equals(locationName, "All Locations", StringComparison.Ordinal))
+            {
+                query = query.Where(a => a.Location != null && a.Location.Name == locationName);
+            }
+
+            if (pendingSyncOnly == true)
+            {
+                var pendingIds = pendingSyncIds ?? Array.Empty<string>();
+                query = query.Where(a => pendingIds.Contains(a.AssetId));
+            }
+            else if (pendingSyncOnly == false)
+            {
+                var pendingIds = pendingSyncIds ?? Array.Empty<string>();
+                query = query.Where(a => !pendingIds.Contains(a.AssetId));
+            }
+
+            query = sortOption switch
+            {
+                "Name (Z-A)" => query.OrderByDescending(a => a.Name).ThenByDescending(a => a.AssetId),
+                "Date Modified (Newest)" => query.OrderByDescending(a => a.DateModified).ThenByDescending(a => a.AssetId),
+                "Date Modified (Oldest)" => query.OrderBy(a => a.DateModified).ThenBy(a => a.AssetId),
+                "Status (Synced First)" when pendingSyncIds is { Count: > 0 } =>
+                    query.OrderBy(a => pendingSyncIds.Contains(a.AssetId)).ThenBy(a => a.Name),
+                "Status (Pending First)" when pendingSyncIds is { Count: > 0 } =>
+                    query.OrderByDescending(a => pendingSyncIds.Contains(a.AssetId)).ThenBy(a => a.Name),
+                _ => query.OrderBy(a => a.Name).ThenBy(a => a.AssetId)
+            };
+
+            return await query
                 .Skip(pageIndex * pageSize)
                 .Take(pageSize)
                 .ToListAsync();

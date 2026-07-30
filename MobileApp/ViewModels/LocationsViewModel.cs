@@ -46,9 +46,12 @@ public partial class LocationsViewModel : BaseViewModel
     private bool isCapturingLocation = false;
 
     private bool _isLoading = false;
+    private bool _reloadRequested = false;
+    private bool _suppressSearchReload = false;
     private int _pageIndex = 0;
     private const int PageSize = 50;
     private bool _hasMoreItems = true;
+    private CancellationTokenSource? _searchCts;
 
     public LocationsViewModel(
         ILocationService locationService,
@@ -68,7 +71,11 @@ public partial class LocationsViewModel : BaseViewModel
     [RelayCommand]
     public async Task LoadLocationsAsync()
     {
-        if (_isLoading) return;
+        if (_isLoading)
+        {
+            _reloadRequested = true;
+            return;
+        }
 
         try
         {
@@ -82,25 +89,8 @@ public partial class LocationsViewModel : BaseViewModel
             // Reset paging state
             _pageIndex = 0;
             _hasMoreItems = true;
-            Locations.Clear();
 
-            // Load first page
-            await LoadNextPageAsync();
-
-            // Update empty/has locations state
-            MainThread.BeginInvokeOnMainThread(() =>
-            {
-                HasLocations = Locations.Count > 0;
-
-                if (ShowEmptyState && !string.IsNullOrEmpty(SearchText))
-                {
-                    EmptyStateMessage = "No locations match your search";
-                }
-                else
-                {
-                    EmptyStateMessage = "No locations found. Tap '+' to add one!";
-                }
-            });
+            await LoadNextPageAsync(reset: true);
 
             // Token validation in background
             _ = Task.Run(async () =>
@@ -132,18 +122,24 @@ public partial class LocationsViewModel : BaseViewModel
             _isLoading = false;
             IsBusy = false;
             IsInitialLoad = false;
+
+            if (_reloadRequested)
+            {
+                _reloadRequested = false;
+                await LoadLocationsAsync();
+            }
         }
     }
 
     [RelayCommand]
     public async Task LoadMoreAsync()
     {
-        if (IsLoadingMore || !_hasMoreItems) return;
+        if (IsLoadingMore || !_hasMoreItems || _isLoading) return;
         
         try
         {
             IsLoadingMore = true;
-            await LoadNextPageAsync();
+            await LoadNextPageAsync(reset: false);
         }
         finally
         {
@@ -151,24 +147,37 @@ public partial class LocationsViewModel : BaseViewModel
         }
     }
 
-    private async Task LoadNextPageAsync()
+    private async Task LoadNextPageAsync(bool reset)
     {
         try
         {
-            var page = await _locationService.GetLocationsPageAsync(_pageIndex, PageSize);
+            var page = await _locationService.GetLocationsPageAsync(
+                _pageIndex,
+                PageSize,
+                searchText: SearchText,
+                sortOption: CurrentSortOption);
+
             if (page == null || page.Count == 0)
             {
                 _hasMoreItems = false;
+                if (reset)
+                {
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        Locations = new ObservableCollection<LocationItemViewModel>();
+                        FilteredLocations = Array.Empty<LocationItemViewModel>();
+                        UpdateVisibilityState();
+                    });
+                }
                 return;
             }
 
-            // Map on background thread
             var newItems = await Task.Run(() =>
             {
                 var list = new List<LocationItemViewModel>(page.Count);
                 foreach (var location in page)
                 {
-                    var item = new LocationItemViewModel(OnLocationTapped)
+                    list.Add(new LocationItemViewModel(OnLocationTapped)
                     {
                         LocationId = location.LocationId,
                         Name = location.Name,
@@ -179,22 +188,29 @@ public partial class LocationsViewModel : BaseViewModel
                         Latitude = location.Latitude,
                         Longitude = location.Longitude,
                         DateModified = location.DateModified
-                    };
-                    list.Add(item);
+                    });
                 }
                 return list;
             });
 
-            // Append to collection on main thread
-            MainThread.BeginInvokeOnMainThread(() =>
+            await MainThread.InvokeOnMainThreadAsync(() =>
             {
-                foreach (var item in newItems)
-                    Locations.Add(item);
+                if (reset)
+                {
+                    Locations = new ObservableCollection<LocationItemViewModel>(newItems);
+                    FilteredLocations = newItems;
+                }
+                else
+                {
+                    foreach (var item in newItems)
+                        Locations.Add(item);
 
-                ApplyFilters();
+                    FilteredLocations = Locations.ToList();
+                }
+
+                UpdateVisibilityState();
             });
 
-            // Advance page index and check for more
             if (page.Count < PageSize)
             {
                 _hasMoreItems = false;
@@ -210,39 +226,33 @@ public partial class LocationsViewModel : BaseViewModel
         }
     }
 
-    /// <summary>
-    /// Apply search and filter logic
-    /// </summary>
-    private void ApplyFilters()
+    private void UpdateVisibilityState()
     {
-        var filtered = Locations.AsEnumerable();
+        HasLocations = FilteredLocations.Count > 0;
+        ShowEmptyState = FilteredLocations.Count == 0;
+        EmptyStateMessage = !string.IsNullOrEmpty(SearchText)
+            ? "No locations match your search"
+            : "No locations found. Tap '+' to add one!";
+    }
 
-        // Apply search filter
-        if (!string.IsNullOrWhiteSpace(SearchText))
+    private async Task ReloadFromDatabaseAsync(bool debounce)
+    {
+        if (debounce)
         {
-            var searchLower = SearchText.ToLower();
-            filtered = filtered.Where(l =>
-                l.Name.ToLower().Contains(searchLower) ||
-                (l.Campus?.ToLower().Contains(searchLower) ?? false) ||
-                (l.Building?.ToLower().Contains(searchLower) ?? false) ||
-                (l.Room?.ToLower().Contains(searchLower) ?? false));
+            _searchCts?.Cancel();
+            _searchCts = new CancellationTokenSource();
+            var token = _searchCts.Token;
+            try
+            {
+                await Task.Delay(300, token);
+            }
+            catch (TaskCanceledException)
+            {
+                return;
+            }
         }
 
-        // Apply sorting
-        filtered = CurrentSortOption switch
-        {
-            "Name (A-Z)" => filtered.OrderBy(l => l.Name),
-            "Name (Z-A)" => filtered.OrderByDescending(l => l.Name),
-            "Campus (A-Z)" => filtered.OrderBy(l => l.Campus).ThenBy(l => l.Name),
-            "Date Modified (Newest)" => filtered.OrderByDescending(l => l.DateModified),
-            "Date Modified (Oldest)" => filtered.OrderBy(l => l.DateModified),
-            _ => filtered.OrderBy(l => l.Name)
-        };
-
-        var result = filtered.ToList();
-        FilteredLocations = result;
-
-        ShowEmptyState = FilteredLocations.Count == 0;
+        await LoadLocationsAsync();
     }
 
     /// <summary>
@@ -250,7 +260,8 @@ public partial class LocationsViewModel : BaseViewModel
     /// </summary>
     partial void OnSearchTextChanged(string value)
     {
-        ApplyFilters();
+        if (_suppressSearchReload) return;
+        _ = ReloadFromDatabaseAsync(debounce: true);
     }
 
     /// <summary>
@@ -272,7 +283,7 @@ public partial class LocationsViewModel : BaseViewModel
         if (action != null && action != "Cancel")
         {
             CurrentSortOption = action;
-            ApplyFilters();
+            await ReloadFromDatabaseAsync(debounce: false);
         }
     }
 
@@ -282,8 +293,10 @@ public partial class LocationsViewModel : BaseViewModel
     [RelayCommand]
     private void ClearFilters()
     {
+        _suppressSearchReload = true;
         SearchText = string.Empty;
-        ApplyFilters();
+        _suppressSearchReload = false;
+        _ = ReloadFromDatabaseAsync(debounce: false);
     }
 
     /// <summary>

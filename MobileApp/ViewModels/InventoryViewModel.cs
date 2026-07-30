@@ -71,10 +71,13 @@ namespace MobileApp.ViewModels
         // IsBusy cannot be used for this because the page sets it to true BEFORE calling
         // LoadAssetsAsync (so the skeleton shows), which would cause the old guard to bail out.
         private bool _isLoading = false;
+        private bool _reloadRequested = false;
+        private bool _suppressSearchReload = false;
         private int _pageIndex = 0;
         private const int PageSize = 50;
         private bool _hasMoreItems = true;
         private HashSet<string> _pendingSyncIds = new();
+        private CancellationTokenSource? _searchCts;
 
         public InventoryViewModel(
             IServiceProvider serviceProvider,
@@ -102,7 +105,11 @@ namespace MobileApp.ViewModels
             // Guard against concurrent loads only. Do NOT use IsBusy here because the
             // page sets IsBusy = true before calling this method (to show the skeleton),
             // and using IsBusy as the guard would cause this method to bail immediately.
-            if (_isLoading) return;
+            if (_isLoading)
+            {
+                _reloadRequested = true;
+                return;
+            }
 
             try
             {
@@ -117,7 +124,6 @@ namespace MobileApp.ViewModels
                 // Reset paging state and pending sync IDs
                 _pageIndex = 0;
                 _hasMoreItems = true;
-                Assets.Clear();
 
                 // Load pending sync IDs using scoped DbContext with AsNoTracking
                 using (var scope = _serviceProvider.CreateScope())
@@ -130,29 +136,8 @@ namespace MobileApp.ViewModels
                         .ToHashSetAsync();
                 }
 
-                // Load first page (will map and assign to Assets)
-                await LoadNextPageAsync();
-
-                // Update empty/has assets state
-                MainThread.BeginInvokeOnMainThread(() =>
-                {
-                    HasAssets = Assets.Count > 0;
-
-                    if (ShowEmptyState && !string.IsNullOrEmpty(SearchText))
-                    {
-                        EmptyStateMessage = "No assets match your search";
-                    }
-                    else if (ShowEmptyState && (IsPendingSyncFilterActive ||
-                             SelectedCategory != "All Categories" ||
-                             SelectedLocation != "All Locations"))
-                    {
-                        EmptyStateMessage = "No assets match your filters";
-                    }
-                    else
-                    {
-                        EmptyStateMessage = "Your inventory is empty. Tap '+' to add one!";
-                    }
-                });
+                // Load first page (awaits UI update before computing visibility)
+                await LoadNextPageAsync(reset: true);
 
                 // Update sync status (non-blocking)
                 await UpdateSyncStatusAsync();
@@ -187,18 +172,24 @@ namespace MobileApp.ViewModels
                 _isLoading = false;
                 IsBusy = false;
                 IsInitialLoad = false; // Mark initial load as complete
+
+                if (_reloadRequested)
+                {
+                    _reloadRequested = false;
+                    await LoadAssetsAsync();
+                }
             }
         }
 
         [RelayCommand]
         public async Task LoadMoreAsync()
         {
-            if (IsLoadingMore || !_hasMoreItems) return;
+            if (IsLoadingMore || !_hasMoreItems || _isLoading) return;
             
             try
             {
                 IsLoadingMore = true;
-                await LoadNextPageAsync();
+                await LoadNextPageAsync(reset: false);
             }
             finally
             {
@@ -206,24 +197,48 @@ namespace MobileApp.ViewModels
             }
         }
 
-        private async Task LoadNextPageAsync()
+        private async Task LoadNextPageAsync(bool reset)
         {
             try
             {
-                var page = await _assetService.GetAssetsPageAsync(_pageIndex, PageSize);
+                bool? pendingOnly = null;
+                if (IsPendingSyncFilterActive || SelectedSyncStatus == "Pending")
+                    pendingOnly = true;
+                else if (SelectedSyncStatus == "Synced")
+                    pendingOnly = false;
+
+                var page = await _assetService.GetAssetsPageAsync(
+                    _pageIndex,
+                    PageSize,
+                    searchText: SearchText,
+                    categoryName: SelectedCategory,
+                    locationName: SelectedLocation,
+                    pendingSyncOnly: pendingOnly,
+                    sortOption: CurrentSortOption,
+                    pendingSyncIds: _pendingSyncIds);
+
                 if (page == null || page.Count == 0)
                 {
                     _hasMoreItems = false;
+                    if (reset)
+                    {
+                        await MainThread.InvokeOnMainThreadAsync(() =>
+                        {
+                            Assets = new ObservableCollection<AssetItemViewModel>();
+                            FilteredAssets = Array.Empty<AssetItemViewModel>();
+                            UpdateVisibilityState();
+                        });
+                    }
                     return;
                 }
 
-                // Map on background thread
+                // Map off the UI thread
                 var newItems = await Task.Run(() =>
                 {
                     var list = new List<AssetItemViewModel>(page.Count);
                     foreach (var asset in page)
                     {
-                        var item = new AssetItemViewModel(OnAssetTapped)
+                        list.Add(new AssetItemViewModel(OnAssetTapped)
                         {
                             AssetId = asset.AssetId,
                             Name = asset.Name,
@@ -234,23 +249,31 @@ namespace MobileApp.ViewModels
                             LocationName = asset.Location?.Name ?? "Unknown",
                             IsPendingSync = _pendingSyncIds.Contains(asset.AssetId),
                             DateModified = asset.DateModified
-                        };
-                        list.Add(item);
+                        });
                     }
 
                     return list;
                 });
 
-                // Append to collection on main thread
-                MainThread.BeginInvokeOnMainThread(() =>
+                // Await UI update so HasAssets/ShowEmptyState see the new items
+                await MainThread.InvokeOnMainThreadAsync(() =>
                 {
-                    foreach (var item in newItems)
-                        Assets.Add(item);
+                    if (reset)
+                    {
+                        Assets = new ObservableCollection<AssetItemViewModel>(newItems);
+                        FilteredAssets = newItems;
+                    }
+                    else
+                    {
+                        foreach (var item in newItems)
+                            Assets.Add(item);
 
-                    ApplyFilters();
+                        FilteredAssets = Assets.ToList();
+                    }
+
+                    UpdateVisibilityState();
                 });
 
-                // Advance page index and check for more
                 if (page.Count < PageSize)
                 {
                     _hasMoreItems = false;
@@ -263,6 +286,28 @@ namespace MobileApp.ViewModels
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error loading assets page: {ex.Message}");
+            }
+        }
+
+        private void UpdateVisibilityState()
+        {
+            HasAssets = FilteredAssets.Count > 0;
+            ShowEmptyState = FilteredAssets.Count == 0;
+
+            if (ShowEmptyState && !string.IsNullOrEmpty(SearchText))
+            {
+                EmptyStateMessage = "No assets match your search";
+            }
+            else if (ShowEmptyState && (IsPendingSyncFilterActive ||
+                     SelectedCategory != "All Categories" ||
+                     SelectedLocation != "All Locations" ||
+                     SelectedSyncStatus != "All Status"))
+            {
+                EmptyStateMessage = "No assets match your filters";
+            }
+            else
+            {
+                EmptyStateMessage = "Your inventory is empty. Tap '+' to add one!";
             }
         }
 
@@ -316,66 +361,26 @@ namespace MobileApp.ViewModels
         }
 
         /// <summary>
-        /// Apply search and filter logic
+        /// Reload from DB when search/filter/sort changes (search is debounced).
         /// </summary>
-        private void ApplyFilters()
+        private async Task ReloadFromDatabaseAsync(bool debounce)
         {
-            var filtered = Assets.AsEnumerable();
-
-            // Apply search filter
-            if (!string.IsNullOrWhiteSpace(SearchText))
+            if (debounce)
             {
-                filtered = filtered.Where(a =>
-                    a.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
-                    a.AssetTag.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
-                    (a.DigitalAssetTag?.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                    a.LocationName.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
+                _searchCts?.Cancel();
+                _searchCts = new CancellationTokenSource();
+                var token = _searchCts.Token;
+                try
+                {
+                    await Task.Delay(300, token);
+                }
+                catch (TaskCanceledException)
+                {
+                    return;
+                }
             }
 
-            // Apply pending sync filter
-            if (IsPendingSyncFilterActive)
-            {
-                filtered = filtered.Where(a => a.IsPendingSync);
-            }
-
-            // Apply category filter
-            if (SelectedCategory != "All Categories")
-            {
-                filtered = filtered.Where(a => a.CategoryName == SelectedCategory);
-            }
-
-            // Apply location filter
-            if (SelectedLocation != "All Locations")
-            {
-                filtered = filtered.Where(a => a.LocationName == SelectedLocation);
-            }
-
-            // Apply sync status filter
-            if (SelectedSyncStatus == "Synced")
-            {
-                filtered = filtered.Where(a => !a.IsPendingSync);
-            }
-            else if (SelectedSyncStatus == "Pending")
-            {
-                filtered = filtered.Where(a => a.IsPendingSync);
-            }
-
-            // Apply sorting
-            filtered = CurrentSortOption switch
-            {
-                "Name (A-Z)" => filtered.OrderBy(a => a.Name),
-                "Name (Z-A)" => filtered.OrderByDescending(a => a.Name),
-                "Date Modified (Newest)" => filtered.OrderByDescending(a => a.DateModified),
-                "Date Modified (Oldest)" => filtered.OrderBy(a => a.DateModified),
-                "Status (Synced First)" => filtered.OrderBy(a => a.IsPendingSync),
-                "Status (Pending First)" => filtered.OrderByDescending(a => a.IsPendingSync),
-                _ => filtered.OrderBy(a => a.Name)
-            };
-
-            var result = filtered.ToList();
-            FilteredAssets = result;
-
-            ShowEmptyState = FilteredAssets.Count == 0;
+            await LoadAssetsAsync();
         }
 
         /// <summary>
@@ -383,7 +388,8 @@ namespace MobileApp.ViewModels
         /// </summary>
         partial void OnSearchTextChanged(string value)
         {
-            ApplyFilters();
+            if (_suppressSearchReload) return;
+            _ = ReloadFromDatabaseAsync(debounce: true);
         }
 
         /// <summary>
@@ -397,7 +403,7 @@ namespace MobileApp.ViewModels
             SelectedCategory = "All Categories";
             SelectedLocation = "All Locations";
             SelectedSyncStatus = "All Status";
-            ApplyFilters();
+            _ = ReloadFromDatabaseAsync(debounce: false);
         }
 
         /// <summary>
@@ -408,7 +414,7 @@ namespace MobileApp.ViewModels
         {
             IsPendingSyncFilterActive = !IsPendingSyncFilterActive;
             IsAllFilterActive = false;
-            ApplyFilters();
+            _ = ReloadFromDatabaseAsync(debounce: false);
         }
 
         /// <summary>
@@ -431,7 +437,7 @@ namespace MobileApp.ViewModels
             if (action != null && action != "Cancel")
             {
                 CurrentSortOption = action;
-                ApplyFilters();
+                await ReloadFromDatabaseAsync(debounce: false);
             }
         }
 
@@ -454,13 +460,15 @@ namespace MobileApp.ViewModels
         [RelayCommand]
         private void ClearFilters()
         {
+            _suppressSearchReload = true;
             SearchText = string.Empty;
+            _suppressSearchReload = false;
             IsAllFilterActive = true;
             IsPendingSyncFilterActive = false;
             SelectedCategory = "All Categories";
             SelectedLocation = "All Locations";
             SelectedSyncStatus = "All Status";
-            ApplyFilters();
+            _ = ReloadFromDatabaseAsync(debounce: false);
         }
 
         /// <summary>
