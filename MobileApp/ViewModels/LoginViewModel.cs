@@ -87,14 +87,11 @@ namespace MobileApp.ViewModels
 
                 if (success)
                 {
-                    // Always store credentials temporarily for potential biometric enablement
-                    // This allows users to enable biometric without re-entering credentials
-                    await _authService.EnableBiometricAuthenticationAsync(Email, Password);
-                    
-                    // If biometric was not previously enabled, disable it (just store credentials)
-                    if (!BiometricEnabled)
+                    // LoginAsync already stores session credentials for in-session biometric enable.
+                    // Only write biometric password keys when biometric login is enabled.
+                    if (BiometricEnabled)
                     {
-                        await SecureStorage.SetAsync("biometric_enabled", "false");
+                        await _authService.EnableBiometricAuthenticationAsync(Email, Password);
                     }
                     
                     // Navigate to main tabs using navigation service

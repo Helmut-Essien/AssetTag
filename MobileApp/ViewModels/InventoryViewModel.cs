@@ -332,7 +332,7 @@ namespace MobileApp.ViewModels
             {
                 IsBusy = true;
 
-                var (success, message) = await _syncService.FullSyncAsync();
+                var (success, message) = await _syncService.EnqueueFullSyncAsync();
                 
                 // Always update sync status to reflect current state
                 await UpdateSyncStatusAsync();

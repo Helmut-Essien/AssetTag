@@ -66,8 +66,8 @@ namespace MobileApp.ViewModels
                 if (BiometricAvailable)
                 {
                     BiometricStatusText = BiometricEnabled
-                        ? "Use fingerprint or face to login"
-                        : "Enable for quick login";
+                        ? "Unlock with fingerprint or face"
+                        : "Sign in faster next time";
                 }
                 else
                 {
@@ -158,7 +158,7 @@ namespace MobileApp.ViewModels
                     {
                         // Enable biometric (credentials already stored above if needed)
                         await _authService.EnableBiometricAuthenticationAsync(storedEmail, storedPassword);
-                        BiometricStatusText = "Use fingerprint or face to login";
+                        BiometricStatusText = "Unlock with fingerprint or face";
                         await _navigationService.DisplayAlertAsync(
                             "Success",
                             "Biometric authentication has been enabled!",
@@ -185,7 +185,7 @@ namespace MobileApp.ViewModels
                     if (confirm)
                     {
                         await _authService.DisableBiometricAuthenticationAsync();
-                        BiometricStatusText = "Enable for quick login";
+                        BiometricStatusText = "Sign in faster next time";
                         await _navigationService.DisplayAlertAsync(
                             "Success",
                             "Biometric authentication has been disabled.",

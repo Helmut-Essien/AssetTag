@@ -23,17 +23,21 @@ public class SyncService : ISyncService, IDisposable
     // FIX #9: Semaphore to prevent race condition in GetOrCreateDeviceInfoAsync
     private readonly SemaphoreSlim _deviceInfoSemaphore = new(1, 1);
     
-    // Channel-based queue to serialize background sync requests
-    // Bounded capacity prevents memory exhaustion under rapid-fire Enqueue calls
+    // Channel-based queue to serialize background sync requests.
+    // DropWrite rejects new items when full so callers never hang on a dropped TCS.
     private const int SyncChannelCapacity = 64;
     private readonly Channel<SyncWorkItem> _syncQueue = Channel.CreateBounded<SyncWorkItem>(new BoundedChannelOptions(SyncChannelCapacity)
     {
         SingleReader = true,
         SingleWriter = false,
-        FullMode = BoundedChannelFullMode.DropOldest
+        FullMode = BoundedChannelFullMode.DropWrite
     });
 
     private readonly Task _queueProcessorTask;
+    private readonly object _queueStateLock = new();
+    private bool _pushQueuedOrRunning;
+    private bool _fullQueuedOrRunning;
+    private readonly List<TaskCompletionSource<(bool Success, string Message)>> _outstandingTcs = new();
     
     // FIX #12: Cancellation token for graceful shutdown
     private readonly CancellationTokenSource _cancellationTokenSource = new();
@@ -123,6 +127,19 @@ public class SyncService : ISyncService, IDisposable
         {
             // Signal cancellation to background task
             _cancellationTokenSource.Cancel();
+            _syncQueue.Writer.TryComplete();
+
+            // Unblock any callers still awaiting enqueue results
+            lock (_queueStateLock)
+            {
+                foreach (var tcs in _outstandingTcs)
+                {
+                    tcs.TrySetCanceled(_cancellationTokenSource.Token);
+                }
+                _outstandingTcs.Clear();
+                _pushQueuedOrRunning = false;
+                _fullQueuedOrRunning = false;
+            }
             
             // Wait for background task to complete (with timeout to prevent hanging)
             if (!_queueProcessorTask.Wait(TimeSpan.FromSeconds(5)))
@@ -398,32 +415,74 @@ public class SyncService : ISyncService, IDisposable
         return hasInfrastructureKeyword;
     }
 
-    public async Task<(bool Success, string Message)> EnqueuePushAsync()
+    public Task<(bool Success, string Message)> EnqueuePushAsync()
     {
-        var tcs = new TaskCompletionSource<(bool, string)>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var item = new SyncWorkItem(SyncRequestType.Push, tcs);
-
-        if (!_syncQueue.Writer.TryWrite(item))
+        lock (_queueStateLock)
         {
-            _logger.LogWarning("Sync queue full, dropping oldest pending push request");
-            return (false, "Sync queue busy, try again later");
-        }
+            if (_disposed)
+                return Task.FromResult((false, "Sync service disposed"));
 
-        return await tcs.Task;
+            // Coalesce with in-flight/queued push or full sync (full includes push)
+            if (_pushQueuedOrRunning || _fullQueuedOrRunning)
+            {
+                _logger.LogDebug("Push coalesced — sync already queued or running");
+                return Task.FromResult((true, "Sync already in progress"));
+            }
+
+            var tcs = new TaskCompletionSource<(bool Success, string Message)>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var item = new SyncWorkItem(SyncRequestType.Push, tcs);
+
+            if (!_syncQueue.Writer.TryWrite(item))
+            {
+                _logger.LogWarning("Sync queue full, rejecting push request");
+                return Task.FromResult((false, "Sync queue busy, try again later"));
+            }
+
+            _pushQueuedOrRunning = true;
+            _outstandingTcs.Add(tcs);
+            return AwaitEnqueueAsync(tcs);
+        }
     }
 
-    public async Task<(bool Success, string Message)> EnqueueFullSyncAsync()
+    public Task<(bool Success, string Message)> EnqueueFullSyncAsync()
     {
-        var tcs = new TaskCompletionSource<(bool, string)>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var item = new SyncWorkItem(SyncRequestType.Full, tcs);
-
-        if (!_syncQueue.Writer.TryWrite(item))
+        lock (_queueStateLock)
         {
-            _logger.LogWarning("Sync queue full, dropping oldest pending full sync request");
-            return (false, "Sync queue busy, try again later");
-        }
+            if (_disposed)
+                return Task.FromResult((false, "Sync service disposed"));
 
-        return await tcs.Task;
+            if (_fullQueuedOrRunning)
+            {
+                _logger.LogDebug("Full sync coalesced — full sync already queued or running");
+                return Task.FromResult((true, "Sync already in progress"));
+            }
+
+            var tcs = new TaskCompletionSource<(bool Success, string Message)>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var item = new SyncWorkItem(SyncRequestType.Full, tcs);
+
+            if (!_syncQueue.Writer.TryWrite(item))
+            {
+                _logger.LogWarning("Sync queue full, rejecting full sync request");
+                return Task.FromResult((false, "Sync queue busy, try again later"));
+            }
+
+            _fullQueuedOrRunning = true;
+            _outstandingTcs.Add(tcs);
+            return AwaitEnqueueAsync(tcs);
+        }
+    }
+
+    private static async Task<(bool Success, string Message)> AwaitEnqueueAsync(
+        TaskCompletionSource<(bool Success, string Message)> tcs)
+    {
+        try
+        {
+            return await tcs.Task.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return (false, "Sync cancelled");
+        }
     }
 
     public async Task<(bool Success, string Message)> PullChangesAsync()
@@ -1090,35 +1149,44 @@ public class SyncService : ISyncService, IDisposable
                     deletedCount, assetDeletions.Count, referenceDeletions.Count);
 
                 // ═══════════════════════════════════════════════════════════
-                // STEP 6: Update last sync timestamp after successful sync
-                // FIX #3: Always update LastSync, even with skipped/deferred assets
-                // Skipped assets are tracked separately and will be retried on next sync
+                // STEP 6: Update last sync timestamp only when all assets applied.
+                // Advancing LastSync past skipped/deferred assets would drop them
+                // from the server delta window permanently (no ID-based retry).
                 // ═══════════════════════════════════════════════════════════
                 var localDeviceInfo = await dbContext.DeviceInfo
                     .FirstAsync(d => d.Id == deviceInfo.Id);
-                localDeviceInfo.LastSync = result.ServerTimestamp;
-                await dbContext.SaveChangesAsync();
 
-                // FIX #3: Log skipped and deferred assets for monitoring
+                if (skippedAssetIds.Count == 0 && deferredAssetIds.Count == 0)
+                {
+                    localDeviceInfo.LastSync = result.ServerTimestamp;
+                    await dbContext.SaveChangesAsync();
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Not advancing LastSync ({Skipped} skipped, {Deferred} deferred). " +
+                        "Same delta window will be re-requested on the next pull.",
+                        skippedAssetIds.Count, deferredAssetIds.Count);
+                }
+
                 if (skippedAssetIds.Any())
                 {
                     _logger.LogWarning(
                         "Skipped {Count} assets due to missing references. " +
-                        "These are tracked in SkippedAssets table and will be retried on next sync. " +
+                        "LastSync left unchanged so they can be retried on the next pull. " +
                         "Skipped asset IDs: {AssetIds}",
                         skippedAssetIds.Count,
-                        string.Join(", ", skippedAssetIds.Take(10))); // Log first 10 only
+                        string.Join(", ", skippedAssetIds.Take(10)));
                 }
 
-                // FIX #8: Deferred assets don't block LastSync anymore
                 if (deferredAssetIds.Any())
                 {
                     _logger.LogInformation(
                         "Deferred {Count} assets because they have pending local changes. " +
-                        "They will be synced after push completes. " +
+                        "LastSync left unchanged until push clears the queue and pull can apply them. " +
                         "Deferred asset IDs: {AssetIds}",
                         deferredAssetIds.Count,
-                        string.Join(", ", deferredAssetIds.Take(10))); // Log first 10 only
+                        string.Join(", ", deferredAssetIds.Take(10)));
                 }
 
                 var message = $"Synced {totalChanges} changes: " +
@@ -1225,6 +1293,7 @@ public class SyncService : ISyncService, IDisposable
                 {
                     _logger.LogInformation("Sync queue processor cancelled");
                     work.Tcs.TrySetCanceled(cancellationToken);
+                    ClearQueueFlags(work);
                     break;
                 }
 
@@ -1248,11 +1317,36 @@ public class SyncService : ISyncService, IDisposable
                     _logger.LogError(ex, "Error processing sync queue item");
                     work.Tcs.TrySetException(ex);
                 }
+                finally
+                {
+                    ClearQueueFlags(work);
+                }
             }
         }
         catch (OperationCanceledException)
         {
             _logger.LogInformation("Sync queue processor gracefully shut down");
+        }
+        finally
+        {
+            // Cancel any remaining queued work that will never be processed
+            while (_syncQueue.Reader.TryRead(out var leftover))
+            {
+                leftover.Tcs.TrySetCanceled(cancellationToken);
+                ClearQueueFlags(leftover);
+            }
+        }
+    }
+
+    private void ClearQueueFlags(SyncWorkItem work)
+    {
+        lock (_queueStateLock)
+        {
+            _outstandingTcs.Remove(work.Tcs);
+            if (work.Type == SyncRequestType.Push)
+                _pushQueuedOrRunning = false;
+            else
+                _fullQueuedOrRunning = false;
         }
     }
 

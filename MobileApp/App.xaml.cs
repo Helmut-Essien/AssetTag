@@ -9,6 +9,7 @@ namespace MobileApp
         private readonly BackgroundSyncService _backgroundSyncService;
         private readonly MigrationBackgroundService _migrationService;
         private readonly IVersionCheckService _versionCheckService;
+        private Window? _window;
 
         // Constructor injection for App
         public App(
@@ -51,9 +52,21 @@ namespace MobileApp
 
         protected override Window CreateWindow(IActivationState? activationState)
         {
-            // Resolve AppShell from DI container
+            // Singleton AppShell cannot be wrapped in a new Window on every CreateWindow call
+            // (Android activity recreate / resume). That throws MauiContext is null
+            // (dotnet/maui#27881, #25443). Reuse the existing window instead.
+            if (_window is not null)
+                return _window;
+
+            if (Windows.Count > 0)
+            {
+                _window = Windows[0];
+                return _window;
+            }
+
             var shell = _serviceProvider.GetRequiredService<AppShell>();
-            return new Window(shell);
+            _window = new Window(shell);
+            return _window;
         }
 
         /// <summary>

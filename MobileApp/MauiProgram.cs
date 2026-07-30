@@ -117,10 +117,11 @@ namespace MobileApp
             // Register NavigationService as Singleton (single instance for app lifetime)
             builder.Services.AddSingleton<INavigationService, NavigationService>();
             
-            // Register services that use DbContext as scoped so each scope gets its own DbContext
-            builder.Services.AddScoped<ISyncService, SyncService>();
-            builder.Services.AddScoped<IAssetService, AssetService>();
-            builder.Services.AddScoped<ILocationService, LocationService>();
+            // Singleton services: each creates a short-lived DI scope per DB/HTTP op.
+            // Must be Singleton so tab ViewModels and BackgroundSync share one SyncService queue.
+            builder.Services.AddSingleton<ISyncService, SyncService>();
+            builder.Services.AddSingleton<IAssetService, AssetService>();
+            builder.Services.AddSingleton<ILocationService, LocationService>();
             
             // Register BackgroundSyncService as Singleton (runs for app lifetime)
             builder.Services.AddSingleton<BackgroundSyncService>();

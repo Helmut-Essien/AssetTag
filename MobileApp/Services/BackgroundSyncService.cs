@@ -13,7 +13,7 @@ namespace MobileApp.Services
     /// </summary>
     public class BackgroundSyncService : IDisposable
     {
-        private readonly IServiceProvider _serviceProvider;
+        private readonly ISyncService _syncService;
         private readonly ILogger<BackgroundSyncService> _logger;
         private PeriodicTimer? _timer;
         private Task? _timerTask;
@@ -27,10 +27,10 @@ namespace MobileApp.Services
         private const int MIN_SECONDS_BETWEEN_SYNCS = 30; // Prevent rapid sync attempts
 
         public BackgroundSyncService(
-            IServiceProvider serviceProvider,
+            ISyncService syncService,
             ILogger<BackgroundSyncService> logger)
         {
-            _serviceProvider = serviceProvider;
+            _syncService = syncService;
             _logger = logger;
         }
 
@@ -127,10 +127,7 @@ namespace MobileApp.Services
                     return;
                 }
 
-                using var scope = _serviceProvider.CreateScope();
-                var syncService = scope.ServiceProvider.GetRequiredService<ISyncService>();
-
-                var pendingCount = await syncService.GetPendingSyncCountAsync();
+                var pendingCount = await _syncService.GetPendingSyncCountAsync();
 
                 if (pendingCount > 0)
                 {
@@ -141,7 +138,7 @@ namespace MobileApp.Services
                     _logger.LogDebug("Background sync starting (pull only - no local changes to push)...");
                 }
 
-                var (success, message) = await syncService.EnqueueFullSyncAsync();
+                var (success, message) = await _syncService.EnqueueFullSyncAsync();
 
                 if (success)
                 {

@@ -3,6 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:MobileApp.ViewModels"
              xmlns:controls="clr-namespace:MobileApp.Controls"
+             xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
+             xmlns:mci="clr-namespace:MauiIcons.Core;assembly=MauiIcons.Core"
              x:Class="MobileApp.Views.SettingsPage"
              x:DataType="vm:SettingsViewModel"
              Title="Settings"
@@ -76,67 +78,74 @@
                 <!-- Security Section -->
                 <VerticalStackLayout Spacing="12" IsVisible="{Binding BiometricAvailable}">
                     <Label Text="Security"
-                           FontFamily="OpenSansRegular"
-                           FontSize="18"
-                           FontAttributes="Bold"
-                           TextColor="#333333"
-                           Margin="0,0,0,4"/>
+                           FontFamily="OpenSansSemibold"
+                           FontSize="14"
+                           TextColor="#666666"
+                           Margin="4,0,0,0"/>
                     
                     <!-- Biometric Login Toggle -->
                     <Border BackgroundColor="White"
-                            Stroke="Transparent"
-                            Padding="20,18"
-                            Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
+                            Stroke="#EEEEEE"
+                            StrokeThickness="1"
+                            Padding="16"
+                            MinimumHeightRequest="72">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="12"/>
                         </Border.StrokeShape>
-                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                        <Border.Shadow>
+                            <Shadow Brush="Black" Opacity="0.04" Radius="6" Offset="0,1"/>
+                        </Border.Shadow>
+                        <Grid ColumnDefinitions="Auto,*,Auto"
+                              ColumnSpacing="14"
+                              VerticalOptions="Center">
                             <Border Grid.Column="0"
-                                    BackgroundColor="#E8F5E9"
-                                    WidthRequest="48"
-                                    HeightRequest="48"
-                                    Stroke="Transparent">
+                                    BackgroundColor="#E3F2FD"
+                                    WidthRequest="44"
+                                    HeightRequest="44"
+                                    Stroke="Transparent"
+                                    VerticalOptions="Center">
                                 <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="24"/>
+                                    <RoundRectangle CornerRadius="22"/>
                                 </Border.StrokeShape>
-                                <Label Text="🔐"
-                                       FontSize="24"
+                                <Image WidthRequest="24"
+                                       HeightRequest="24"
                                        HorizontalOptions="Center"
-                                       VerticalOptions="Center"/>
+                                       VerticalOptions="Center"
+                                       mci:MauiIcon.Value="{mi:Material Icon=Fingerprint, IconColor=#005A9C}"/>
                             </Border>
                             
                             <VerticalStackLayout Grid.Column="1"
                                                VerticalOptions="Center"
                                                Spacing="2">
-                                <Label Text="Biometric Login"
-                                       FontFamily="OpenSansRegular"
+                                <Label Text="Biometric login"
+                                       FontFamily="OpenSansSemibold"
                                        FontSize="16"
-                                       FontAttributes="Bold"
-                                       TextColor="#333333"/>
+                                       TextColor="#212121"/>
                                 <Label Text="{Binding BiometricStatusText}"
                                        FontFamily="OpenSansRegular"
                                        FontSize="13"
-                                       TextColor="#666666"/>
+                                       TextColor="#666666"
+                                       LineBreakMode="TailTruncation"/>
                             </VerticalStackLayout>
                             
+                            <!-- Rounded track so off-state is visible without a rectangular Switch BackgroundColor -->
                             <Border Grid.Column="2"
-                                    BackgroundColor="{Binding BiometricEnabled, Converter={StaticResource BoolToColorConverter}, ConverterParameter='Transparent|#E8F5E9'}"
-                                    Stroke="#E8F5E9"
-                                    Padding="2"
+                                    BackgroundColor="{Binding BiometricEnabled, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#005A9C|#BDBDBD'}"
+                                    Stroke="Transparent"
+                                    WidthRequest="52"
+                                    HeightRequest="32"
                                     VerticalOptions="Center"
                                     HorizontalOptions="End"
-                                    WidthRequest="52"
-                                    HeightRequest="32">
+                                    Padding="0">
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="16"/>
                                 </Border.StrokeShape>
                                 <Switch IsToggled="{Binding BiometricEnabled}"
-                                        OnColor="#4CAF50"
+                                        OnColor="#005A9C"
                                         ThumbColor="White"
                                         BackgroundColor="Transparent"
                                         VerticalOptions="Center"
-                                        HorizontalOptions="Center"
-                                        Scale="0.85"/>
+                                        HorizontalOptions="Center"/>
                             </Border>
                         </Grid>
                     </Border>
