@@ -31,12 +31,44 @@
 		<!-- App Identifier -->
 		<ApplicationId>helmutcodesolutions.assettag.mobileapp</ApplicationId>
 
-		<!-- Versions -->
-		
-		<ApplicationVersion>1</ApplicationVersion>
-		<ApplicationDisplayVersion>1.0.1</ApplicationDisplayVersion>
-		<AndroidVersionCode>1</AndroidVersionCode> 
-		<AndroidVersionName>1.0</AndroidVersionName>
+		<!--
+		======================================================================
+		VERSIONS — edit these when shipping a new mobile build via CI/CD
+		======================================================================
+		CI (.github/workflows/main.yml) reads ApplicationDisplayVersion +
+		ApplicationVersion from this file on every push to master that touches
+		MobileApp / MobileData / Shared / workflows.
+
+		What CI produces for each bump:
+		  - GitHub tag:     mobile-v{ApplicationDisplayVersion}
+		  - APK file name:  MUGAssets-v{ApplicationDisplayVersion}.apk
+		  - Always as a GitHub PRE-RELEASE (prerelease: true). Promote to
+		    production later by editing the release and unchecking Pre-release.
+
+		Bump checklist (every new deploy — required):
+		  1. ApplicationDisplayVersion  — user-facing SemVer (e.g. 1.0.2).
+		     Can use pre-release suffixes if you want: 1.0.2-rc.1
+		  2. ApplicationVersion         — Android versionCode: integer that
+		     MUST increase every APK you publish (1, 2, 3, …). Android will
+		     not install an update with a lower or equal code.
+
+		Optional but keep in sync so nothing is confusing:
+		  3. AndroidVersionName  = same as ApplicationDisplayVersion
+		  4. AndroidVersionCode  = same as ApplicationVersion
+
+		You do NOT need to change workflow YAML for a normal version bump.
+		After merge to master → wait for build-android + release-android.
+		Testers: app Settings → Beta updates ON.
+		Production: uncheck "Pre-release" on the GitHub Release when ready.
+		======================================================================
+		-->
+		<!-- REQUIRED: integer versionCode — always increment for each store/side-load APK -->
+		<ApplicationVersion>2</ApplicationVersion>
+		<!-- REQUIRED: display / tag version — CI builds mobile-v{this} -->
+		<ApplicationDisplayVersion>1.0.2</ApplicationDisplayVersion>
+		<!-- Keep aligned with ApplicationVersion / ApplicationDisplayVersion -->
+		<AndroidVersionCode>2</AndroidVersionCode>
+		<AndroidVersionName>1.0.2</AndroidVersionName>
 
 		<!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
 		<WindowsPackageType>None</WindowsPackageType>
