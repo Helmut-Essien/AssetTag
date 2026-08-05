@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -7,7 +8,7 @@ using System.Web;
 
 namespace Portal.Pages.Users
 {
-    [IgnoreAntiforgeryToken]
+    [Authorize(Roles = "Admin")]
     public class IndexModel : PageModel
     {
         private readonly HttpClient _httpClient;
@@ -21,7 +22,6 @@ namespace Portal.Pages.Users
 
         public List<UserReadDTO> Users { get; set; } = new();
         public UserUpdateDTO UpdateDto { get; set; } = new UserUpdateDTO();
-        public string? ResetToken { get; set; }
         public string? Message { get; set; }
 
         [BindProperty(SupportsGet = true)]
@@ -355,8 +355,9 @@ namespace Portal.Pages.Users
                 var response = await _httpClient.PostAsync($"api/users/{id}/password-reset", null);
                 if (response.IsSuccessStatusCode)
                 {
-                    ResetToken = await response.Content.ReadAsStringAsync();
-                    Message = $"Password reset token generated: {ResetToken}. Please send this to the user securely.";
+                    // Never surface the raw reset token in HTML/logs — delivery is handled by the API/email.
+                    _ = await response.Content.ReadAsStringAsync();
+                    Message = "Password reset was initiated. If the account exists, the user will receive reset instructions via email.";
                 }
                 else
                 {

@@ -37,7 +37,7 @@ namespace AssetTag.Controllers
         }
 
         [HttpGet]
-        [AllowAnonymous]  // Override to allow unauth if needed; adjust per security needs
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<UserReadDTO>>> GetAllUsers(
             [FromQuery] string? search = null,
             [FromQuery] string? departmentId = null,

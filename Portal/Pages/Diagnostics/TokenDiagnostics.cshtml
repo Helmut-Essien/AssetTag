@@ -66,11 +66,12 @@
                                                    readonly>
                                             <button class="btn btn-outline-secondary"
                                                     type="button"
-                                                    onclick="copyToClipboard('@Model.RawToken')">
-                                                Copy
+                                                    onclick="copyToClipboard(this.previousElementSibling.value)"
+                                                    title="Copies truncated preview only">
+                                                Copy preview
                                             </button>
                                         </div>
-                                        <small class="text-muted">Full token length: @(Model.RawToken?.Length ?? 0) characters</small>
+                                        <small class="text-muted">Full JWT is never rendered on this page (security). Preview only.</small>
                                     </div>
 
                                     <form method="post" class="mt-3">

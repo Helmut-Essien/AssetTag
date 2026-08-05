@@ -155,18 +155,7 @@ public sealed class TokenRefreshHandler : DelegatingHandler
         }
 
         _logger.LogInformation("Access token found and attached for user {User}", ctx.User.Identity?.Name);
-        // Attach bearer token
-        //request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-
-        // **CHANGE HERE: Use custom header instead of Authorization**
-        request.Headers.Remove("X-Auth-Token"); // Remove if exists
-        request.Headers.Add("X-Auth-Token", $"Bearer {accessToken}");
-        _logger.LogInformation("X-Auth-Token header added to request");
-
-        // Send BOTH headers
-        //request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-        //request.Headers.Add("X-Auth-Token", $"Bearer {accessToken}");
-        //_logger.LogInformation("Both Authorization and X-Auth-Token headers added");
+        ApplyAccessTokenHeaders(request, accessToken);
 
         HttpResponseMessage response;
         try
@@ -226,7 +215,8 @@ public sealed class TokenRefreshHandler : DelegatingHandler
                 _logger.LogInformation(ex, "Failed to decode refreshed access token for logging. PortalUtcNow={Now:u}", DateTime.UtcNow);
             }
 
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", newAccessToken);
+            // Match first-attempt headers: API maps X-Auth-Token → Authorization when needed
+            ApplyAccessTokenHeaders(request, newAccessToken);
             _logger.LogInformation("Retrying request with refreshed token");
             try
             {
@@ -401,6 +391,21 @@ public sealed class TokenRefreshHandler : DelegatingHandler
         ctx.User = new ClaimsPrincipal(identity);
 
         _logger.LogInformation("Authentication cookie updated with new tokens");
+    }
+
+    /// <summary>
+    /// Attach the same auth headers used on the first attempt so refresh retries match.
+    /// API accepts Authorization and/or maps X-Auth-Token.
+    /// </summary>
+    private static void ApplyAccessTokenHeaders(HttpRequestMessage request, string accessToken)
+    {
+        var bearer = accessToken.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+            ? accessToken
+            : $"Bearer {accessToken}";
+
+        request.Headers.Remove("X-Auth-Token");
+        request.Headers.TryAddWithoutValidation("X-Auth-Token", bearer);
+        request.Headers.Authorization = AuthenticationHeaderValue.Parse(bearer);
     }
 
     private async Task SignOutAsync(HttpContext ctx)

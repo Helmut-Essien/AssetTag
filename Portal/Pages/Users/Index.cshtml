@@ -5,6 +5,9 @@
 }
 
 <div class="container my-4">
+    @* Global antiforgery token for AJAX (role handlers send RequestVerificationToken header) *@
+    @Html.AntiForgeryToken()
+
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="mb-0">Users (@Model.TotalCount Total)</h1>
         <div>

@@ -88,21 +88,22 @@ builder.Services.AddAuthentication("PortalCookie")
         options.Cookie.IsEssential = true;
     });
 
-// Configure anti - forgery for production
-//builder.Services.AddAntiforgery(options =>
-//{
-//    options.HeaderName = "RequestVerificationToken";
-//    options.Cookie.Name = "AntiForgeryToken";
-//    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-//    options.Cookie.SameSite = SameSiteMode.None;
-//    options.SuppressXFrameOptionsHeader = false;
-//});
+// Accept antiforgery token from AJAX header (Users /Assets page scripts send this name)
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "RequestVerificationToken";
+    options.Cookie.Name = "Portal.AntiForgery";
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+});
 
 builder.Services.AddRazorPages(options =>
 {
     options.Conventions.AuthorizeFolder("/");
     options.Conventions.AllowAnonymousToFolder("/Account");
     options.Conventions.AllowAnonymousToPage("/Unauthorized");
+    options.Conventions.AllowAnonymousToPage("/Forbidden");
+    options.Conventions.AllowAnonymousToPage("/Error");
 });
 
 var app = builder.Build();
