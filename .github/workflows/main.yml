@@ -46,6 +46,16 @@ jobs:
               - 'Shared/**'
               - '.github/workflows/**'
 
+  # ========================================
+  # MOBILE VERSION (source of truth: MobileApp/MobileApp.csproj)
+  # ========================================
+  # To ship a new app version you usually only edit the csproj, not this file:
+  #   - ApplicationDisplayVersion  → tag mobile-v{x.y.z} + APK name
+  #   - ApplicationVersion         → Android versionCode (must increase)
+  # See the VERSION block comments in MobileApp/MobileApp.csproj for the full checklist.
+  #
+  # This job always runs so API deploy can embed the current mobile version in
+  # appsettings.Production.json fallback fields (LatestVersion / DownloadUrl).
   get-mobile-version:
     runs-on: ubuntu-latest
     outputs:
@@ -57,6 +67,7 @@ jobs:
       - name: Extract mobile version metadata
         id: version
         run: |
+          # Prefer MAUI properties; fall back to Android-specific names if missing
           VERSION_NAME=$(grep -oP '<ApplicationDisplayVersion>\K[^<]+' MobileApp/MobileApp.csproj || true)
           if [ -z "$VERSION_NAME" ]; then
             VERSION_NAME=$(grep -oP '<AndroidVersionName>\K[^<]+' MobileApp/MobileApp.csproj || true)
@@ -69,6 +80,7 @@ jobs:
 
           if [ -z "$VERSION_NAME" ] || [ -z "$VERSION_CODE" ]; then
             echo "ERROR: Could not determine Android version name/code from MobileApp.csproj"
+            echo "Set <ApplicationDisplayVersion> and <ApplicationVersion> before shipping."
             exit 1
           fi
 
@@ -123,6 +135,10 @@ jobs:
 
           mkdir -p ./publish/api/logs
 
+          # Production MobileApp fallback (used only if GitHub Releases API fails).
+          # LatestVersion/DownloadUrl come from MobileApp.csproj via get-mobile-version.
+          # Hardcode/edit MinimumSupportedVersion below ONLY when you must force-update
+          # clients older than that version (mandatory update prompt).
           cat > ./publish/api/appsettings.Production.json << EOF
           {
             "ConnectionStrings": { "DefaultConnection": "$CONN" },
@@ -328,6 +344,9 @@ jobs:
   # ========================================
   # BUILD ANDROID APK
   # ========================================
+  # Runs when MobileApp / MobileData / Shared / workflow paths change.
+  # Version numbers come from MobileApp.csproj (see VERSION block there).
+  # No version edits needed in this job for a normal release.
   build-android:
     needs: [detect-changes, get-mobile-version]
     if: needs.detect-changes.outputs.mobile-changed == 'true'
@@ -472,8 +491,14 @@ jobs:
           path: ./MUGAssets-v${{ needs.get-mobile-version.outputs.version-name }}.apk
 
   # ========================================
-  # PUBLISH APK TO GITHUB RELEASES
+  # PUBLISH APK TO GITHUB RELEASES (always PRE-RELEASE for now)
   # ========================================
+  # Every mobile CI ship is a pre-release. App update channels:
+  #   - production (default): only non-prerelease GitHub releases
+  #   - beta: pre-releases + stable
+  # To make a PRODUCTION release after QA: open the GitHub Release for
+  # mobile-v{version} → Edit → uncheck "Set as a pre-release" → Update.
+  # Do not re-use the same ApplicationDisplayVersion for a new ship — bump first.
   release-android:
     needs: [detect-changes, build-android, get-mobile-version]
     if: needs.detect-changes.outputs.mobile-changed == 'true'
@@ -487,8 +512,7 @@ jobs:
           name: android-apk
           path: ./apk-release
 
-      # Creates a versioned GitHub Release and attaches the APK as a downloadable asset
-      # Users can sideload directly by downloading from the Releases page
+      # Creates tag mobile-v{ApplicationDisplayVersion} and attaches the APK
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
