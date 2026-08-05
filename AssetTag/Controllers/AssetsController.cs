@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Shared.DTOs;
 using System.Security.Claims;
+using ClosedXML.Excel;
+using System.Globalization;
 
 namespace AssetTag.Controllers;
 
@@ -441,5 +443,402 @@ public class AssetsController : ControllerBase
             await _context.SaveChangesAsync();
 
             return NoContent();
+        }
+
+        // POST: /api/assets/batch-import
+        [HttpPost("batch-import")]
+        [RequestSizeLimit(10 * 1024 * 1024)] // 10 MB
+        public async Task<ActionResult<AssetImportResultDTO>> BatchImport(IFormFile file)
+        {
+            if (file is null || file.Length == 0)
+                return BadRequest(new { error = "No file uploaded." });
+
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (ext is not ".xlsx")
+                return BadRequest(new { error = "Only .xlsx files are supported." });
+
+            var errors = new List<ImportErrorDTO>();
+            var pendingRows = new List<(Asset asset, bool isNew, bool isUpdated)>();
+
+            // Preload reference data into dictionaries (case-insensitive by trimmed name)
+            var categories    = (await _context.Categories.ToListAsync())
+                                   .ToDictionary(c => c.Name.Trim(), StringComparer.OrdinalIgnoreCase);
+            var locations     = (await _context.Locations.ToListAsync())
+                                   .ToDictionary(l => l.Name.Trim(), StringComparer.OrdinalIgnoreCase);
+            var departments   = (await _context.Departments.ToListAsync())
+                                   .ToDictionary(d => d.Name.Trim(), StringComparer.OrdinalIgnoreCase);
+            var existingTags  = await _context.Assets.Select(a => a.AssetTag).ToHashSetAsync();
+            var existingAssets = await _context.Assets.ToDictionaryAsync(a => a.AssetTag);
+            var batchTags     = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            try
+            {
+                using var stream = file.OpenReadStream();
+                using var workbook = new XLWorkbook(stream);
+                var worksheet = workbook.Worksheet(1);
+                var usedRange = worksheet.RangeUsed();
+                if (usedRange is null)
+                    return BadRequest(new { error = "The file appears to be empty." });
+                var rows = usedRange.RowsUsed().ToList();
+
+                if (rows.Count < 2)
+                    return BadRequest(new { error = "The file has no data rows (only header found)." });
+
+                var headerRow = rows[0];
+                var headerMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                for (int ci = 0; ci < headerRow.CellCount(); ci++)
+                {
+                    var cell = headerRow.Cell(ci + 1);
+                    if (!cell.IsEmpty())
+                        headerMap[cell.GetString().Trim()] = ci;
+                }
+
+                for (int ri = 1; ri < rows.Count; ri++)
+                {
+                    var row = rows[ri];
+                    int excelRow = ri + 1;
+                    var rowErrors = new List<string>();
+
+                    string GetCell(string columnName)
+                    {
+                        if (headerMap.TryGetValue(columnName, out var ci))
+                        {
+                            var cell = row.Cell(ci + 1);
+                            return cell.IsEmpty() ? string.Empty : cell.GetString().Trim();
+                        }
+                        return string.Empty;
+                    }
+
+                    var assetTag = GetCell("AssetTag");
+                    var name     = GetCell("Name");
+                    var desc     = GetCell("Description");
+                    var catName  = GetCell("Category");
+                    var locName  = GetCell("Location");
+                    var deptName = GetCell("Department");
+                    var status   = GetCell("Status");
+                    var condition = GetCell("Condition");
+                    var sPurchaseDate = GetCell("PurchaseDate");
+                    var sPurchasePrice = GetCell("PurchasePrice");
+                    var sCurrentValue  = GetCell("CurrentValue");
+                    var serialNum = GetCell("SerialNumber");
+                    var digitalTag = GetCell("DigitalAssetTag");
+                    var vendor = GetCell("VendorName");
+                    var invoice = GetCell("InvoiceNumber");
+                    var sQuantity = GetCell("Quantity");
+                    var sCostPerUnit = GetCell("CostPerUnit");
+                    var sUsefulLife = GetCell("UsefulLifeYears");
+                    var sWarranty = GetCell("WarrantyExpiry");
+                    var sDisposalDate = GetCell("DisposalDate");
+                    var sDisposalValue = GetCell("DisposalValue");
+                    var remarks = GetCell("Remarks");
+
+                    // AssetTag always required
+                    if (string.IsNullOrEmpty(assetTag))
+                    {
+                        errors.Add(new ImportErrorDTO { Row = excelRow, Field = "AssetTag", Message = "AssetTag is required." });
+                        continue;
+                    }
+
+                    // In-batch duplicate check
+                    if (!batchTags.Add(assetTag))
+                    {
+                        errors.Add(new ImportErrorDTO { Row = excelRow, Field = "AssetTag", Message = $"AssetTag '{assetTag}' is duplicated within this file." });
+                        continue;
+                    }
+
+                    bool exists = existingTags.Contains(assetTag);
+
+                    // Required fields for new assets only
+                    if (!exists)
+                    {
+                        if (string.IsNullOrEmpty(name))
+                        {
+                            errors.Add(new ImportErrorDTO { Row = excelRow, Field = "Name", Message = "Name is required for new assets." });
+                            continue;
+                        }
+                        if (string.IsNullOrEmpty(catName))
+                        {
+                            errors.Add(new ImportErrorDTO { Row = excelRow, Field = "Category", Message = "Category is required for new assets." });
+                            continue;
+                        }
+                        if (string.IsNullOrEmpty(locName))
+                        {
+                            errors.Add(new ImportErrorDTO { Row = excelRow, Field = "Location", Message = "Location is required for new assets." });
+                            continue;
+                        }
+                        if (string.IsNullOrEmpty(deptName))
+                        {
+                            errors.Add(new ImportErrorDTO { Row = excelRow, Field = "Department", Message = "Department is required for new assets." });
+                            continue;
+                        }
+                        if (string.IsNullOrEmpty(status))
+                        {
+                            errors.Add(new ImportErrorDTO { Row = excelRow, Field = "Status", Message = "Status is required for new assets." });
+                            continue;
+                        }
+                        if (string.IsNullOrEmpty(condition))
+                        {
+                            errors.Add(new ImportErrorDTO { Row = excelRow, Field = "Condition", Message = "Condition is required for new assets." });
+                            continue;
+                        }
+                    }
+
+                    // Resolve FK names → IDs
+                    string? categoryId = null;
+                    if (!string.IsNullOrEmpty(catName))
+                    {
+                        if (categories.TryGetValue(catName, out var cat))
+                            categoryId = cat.CategoryId;
+                        else
+                            errors.Add(new ImportErrorDTO { Row = excelRow, Field = "Category", Message = $"Category '{catName}' not found." });
+                    }
+
+                    string? locationId = null;
+                    if (!string.IsNullOrEmpty(locName))
+                    {
+                        if (locations.TryGetValue(locName, out var loc))
+                            locationId = loc.LocationId;
+                        else
+                            errors.Add(new ImportErrorDTO { Row = excelRow, Field = "Location", Message = $"Location '{locName}' not found." });
+                    }
+
+                    string? departmentId = null;
+                    if (!string.IsNullOrEmpty(deptName))
+                    {
+                        if (departments.TryGetValue(deptName, out var dept))
+                            departmentId = dept.DepartmentId;
+                        else
+                            errors.Add(new ImportErrorDTO { Row = excelRow, Field = "Department", Message = $"Department '{deptName}' not found." });
+                    }
+
+                    // Validate enums
+                    var validStatuses = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                        { "Available", "In Use", "Under Maintenance", "Lost", "Disposed", "Stolen" };
+                    if (!string.IsNullOrEmpty(status) && !validStatuses.Contains(status))
+                        errors.Add(new ImportErrorDTO { Row = excelRow, Field = "Status", Message = $"Invalid status '{status}'. Valid: {string.Join(", ", validStatuses)}" });
+
+                    var validConditions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                        { "New", "Good", "Fair", "Poor", "Broken" };
+                    if (!string.IsNullOrEmpty(condition) && !validConditions.Contains(condition))
+                        errors.Add(new ImportErrorDTO { Row = excelRow, Field = "Condition", Message = $"Invalid condition '{condition}'. Valid: {string.Join(", ", validConditions)}" });
+
+                    // Parse dates
+                    DateTime? purchaseDate = TryParseDate(sPurchaseDate);
+                    if (!string.IsNullOrEmpty(sPurchaseDate) && purchaseDate is null)
+                        errors.Add(new ImportErrorDTO { Row = excelRow, Field = "PurchaseDate", Message = $"Invalid date format: '{sPurchaseDate}'." });
+
+                    DateTime? warrantyExpiry = TryParseDate(sWarranty);
+                    if (!string.IsNullOrEmpty(sWarranty) && warrantyExpiry is null)
+                        errors.Add(new ImportErrorDTO { Row = excelRow, Field = "WarrantyExpiry", Message = $"Invalid date format: '{sWarranty}'." });
+
+                    DateTime? disposalDate = TryParseDate(sDisposalDate);
+                    if (!string.IsNullOrEmpty(sDisposalDate) && disposalDate is null)
+                        errors.Add(new ImportErrorDTO { Row = excelRow, Field = "DisposalDate", Message = $"Invalid date format: '{sDisposalDate}'." });
+
+                    // Parse decimals
+                    decimal? purchasePrice = TryParseDecimal(sPurchasePrice);
+                    if (!string.IsNullOrEmpty(sPurchasePrice) && purchasePrice is null)
+                        errors.Add(new ImportErrorDTO { Row = excelRow, Field = "PurchasePrice", Message = $"Invalid number: '{sPurchasePrice}'." });
+
+                    decimal? currentValue = TryParseDecimal(sCurrentValue);
+                    if (!string.IsNullOrEmpty(sCurrentValue) && currentValue is null)
+                        errors.Add(new ImportErrorDTO { Row = excelRow, Field = "CurrentValue", Message = $"Invalid number: '{sCurrentValue}'." });
+
+                    int? quantity = TryParseInt(sQuantity);
+                    if (!string.IsNullOrEmpty(sQuantity) && quantity is null)
+                        errors.Add(new ImportErrorDTO { Row = excelRow, Field = "Quantity", Message = $"Invalid integer: '{sQuantity}'." });
+
+                    decimal? costPerUnit = TryParseDecimal(sCostPerUnit);
+                    if (!string.IsNullOrEmpty(sCostPerUnit) && costPerUnit is null)
+                        errors.Add(new ImportErrorDTO { Row = excelRow, Field = "CostPerUnit", Message = $"Invalid number: '{sCostPerUnit}'." });
+
+                    int? usefulLife = TryParseInt(sUsefulLife);
+                    if (!string.IsNullOrEmpty(sUsefulLife) && usefulLife is null)
+                        errors.Add(new ImportErrorDTO { Row = excelRow, Field = "UsefulLifeYears", Message = $"Invalid integer: '{sUsefulLife}'." });
+
+                    decimal? disposalValue = TryParseDecimal(sDisposalValue);
+                    if (!string.IsNullOrEmpty(sDisposalValue) && disposalValue is null)
+                        errors.Add(new ImportErrorDTO { Row = excelRow, Field = "DisposalValue", Message = $"Invalid number: '{sDisposalValue}'." });
+
+                    // Stop if any errors for this row
+                    if (errors.Any(e => e.Row == excelRow))
+                        continue;
+
+                    if (exists)
+                    {
+                        var existing = existingAssets[assetTag];
+                        bool updated = false;
+
+                        if (!string.IsNullOrEmpty(name)) { existing.Name = name; updated = true; }
+                        if (!string.IsNullOrEmpty(desc)) { existing.Description = desc; updated = true; }
+                        if (categoryId is not null) { existing.CategoryId = categoryId; updated = true; }
+                        if (locationId is not null) { existing.LocationId = locationId; updated = true; }
+                        if (departmentId is not null) { existing.DepartmentId = departmentId; updated = true; }
+                        if (!string.IsNullOrEmpty(status)) { existing.Status = status; updated = true; }
+                        if (!string.IsNullOrEmpty(condition)) { existing.Condition = condition; updated = true; }
+                        if (purchaseDate.HasValue) { existing.PurchaseDate = purchaseDate; updated = true; }
+                        if (purchasePrice.HasValue) { existing.PurchasePrice = purchasePrice; updated = true; }
+                        if (currentValue.HasValue) { existing.CurrentValue = currentValue; updated = true; }
+                        if (!string.IsNullOrEmpty(serialNum)) { existing.SerialNumber = serialNum; updated = true; }
+                        if (!string.IsNullOrEmpty(digitalTag)) { existing.DigitalAssetTag = digitalTag; updated = true; }
+                        if (!string.IsNullOrEmpty(vendor)) { existing.VendorName = vendor; updated = true; }
+                        if (!string.IsNullOrEmpty(invoice)) { existing.InvoiceNumber = invoice; updated = true; }
+                        if (quantity.HasValue) { existing.Quantity = quantity.Value; updated = true; }
+                        if (costPerUnit.HasValue) { existing.CostPerUnit = costPerUnit; updated = true; }
+                        if (usefulLife.HasValue) { existing.UsefulLifeYears = usefulLife; updated = true; }
+                        if (warrantyExpiry.HasValue) { existing.WarrantyExpiry = warrantyExpiry; updated = true; }
+                        if (disposalDate.HasValue) { existing.DisposalDate = disposalDate; updated = true; }
+                        if (disposalValue.HasValue) { existing.DisposalValue = disposalValue; updated = true; }
+                        if (!string.IsNullOrEmpty(remarks)) { existing.Remarks = remarks; updated = true; }
+
+                        if (updated)
+                            existing.DateModified = DateTime.UtcNow;
+
+                        pendingRows.Add((existing, false, updated));
+                    }
+                    else
+                    {
+                        var newAsset = new Asset
+                        {
+                            AssetTag = assetTag,
+                            Name = name!,
+                            Description = string.IsNullOrEmpty(desc) ? null : desc,
+                            CategoryId = categoryId!,
+                            LocationId = locationId!,
+                            DepartmentId = departmentId!,
+                            Status = status!,
+                            Condition = condition!,
+                            PurchaseDate = purchaseDate,
+                            PurchasePrice = purchasePrice,
+                            CurrentValue = currentValue,
+                            SerialNumber = string.IsNullOrEmpty(serialNum) ? null : serialNum,
+                            DigitalAssetTag = string.IsNullOrEmpty(digitalTag) ? null : digitalTag,
+                            VendorName = string.IsNullOrEmpty(vendor) ? null : vendor,
+                            InvoiceNumber = string.IsNullOrEmpty(invoice) ? null : invoice,
+                            Quantity = quantity ?? 1,
+                            CostPerUnit = costPerUnit,
+                            UsefulLifeYears = usefulLife,
+                            WarrantyExpiry = warrantyExpiry,
+                            DisposalDate = disposalDate,
+                            DisposalValue = disposalValue,
+                            Remarks = string.IsNullOrEmpty(remarks) ? null : remarks,
+                            Category = null!,
+                            Location = null!,
+                            Department = null!,
+                            AssignedToUser = null,
+                            AssetHistories = new List<AssetHistory>()
+                        };
+                        pendingRows.Add((newAsset, true, false));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = $"Failed to parse Excel file: {ex.Message}" });
+            }
+
+            var successCount = 0;
+
+            if (pendingRows.Count > 0)
+            {
+                var strategy = _context.Database.CreateExecutionStrategy();
+                try
+                {
+                    successCount = await strategy.ExecuteAsync(async () =>
+                    {
+                        var createdCount = 0;
+                        var upsertedCount = 0;
+
+                        await using var transaction = await _context.Database.BeginTransactionAsync();
+                        try
+                        {
+                            foreach (var (asset, isNew, isUpdated) in pendingRows)
+                            {
+                                if (isNew)
+                                {
+                                    _context.Assets.Add(asset);
+                                    await _context.SaveChangesAsync();
+
+                                    await CreateAssetHistory(
+                                        asset.AssetId,
+                                        "CREATE",
+                                        $"Asset '{asset.Name}' with tag '{asset.AssetTag}' was created via batch import",
+                                        newLocationId: asset.LocationId,
+                                        newStatus: asset.Status
+                                    );
+                                    createdCount++;
+                                }
+                                else if (isUpdated)
+                                {
+                                    await _context.SaveChangesAsync();
+
+                                    await CreateAssetHistory(
+                                        asset.AssetId,
+                                        "UPDATE",
+                                        $"Asset '{asset.Name}' with tag '{asset.AssetTag}' was updated via batch import",
+                                        newLocationId: asset.LocationId,
+                                        newStatus: asset.Status
+                                    );
+                                    upsertedCount++;
+                                }
+                            }
+
+                            await _context.SaveChangesAsync();
+                            await transaction.CommitAsync();
+
+                            return createdCount + upsertedCount;
+                        }
+                        catch
+                        {
+                            await transaction.RollbackAsync();
+                            throw;
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, new { error = $"Failed to import assets: {ex.Message}" });
+                }
+            }
+
+            return Ok(new AssetImportResultDTO
+            {
+                TotalRows = errors.Count + successCount,
+                SuccessCount = successCount,
+                FailureCount = errors.Count,
+                Errors = errors
+            });
+        }
+
+        private static readonly HashSet<string> DateFormats = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "yyyy-MM-dd", "MM/dd/yyyy", "dd/MM/yyyy", "yyyy/MM/dd",
+            "dd-MMM-yyyy", "MMM dd, yyyy", "dd MMM yyyy",
+            "M/d/yyyy", "d/M/yyyy", "yyyy-M-d"
+        };
+
+        private static DateTime? TryParseDate(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            return DateTime.TryParse(value, CultureInfo.InvariantCulture,
+                DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeLocal, out var dt)
+                ? dt
+                : null;
+        }
+
+        private static decimal? TryParseDecimal(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            return decimal.TryParse(value.Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out var d)
+                ? d
+                : null;
+        }
+
+        private static int? TryParseInt(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            return int.TryParse(value.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var i)
+                ? i
+                : null;
         }
     } 

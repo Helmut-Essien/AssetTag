@@ -13,9 +13,18 @@ public interface IAssetService
     Task<List<Asset>> GetAllAssetsAsync();
 
     /// <summary>
-    /// Get a page of assets from local database for incremental loading
+    /// Get a page of assets from local database for incremental loading,
+    /// with optional search/filter/sort applied in SQL.
     /// </summary>
-    Task<List<Asset>> GetAssetsPageAsync(int pageIndex, int pageSize);
+    Task<List<Asset>> GetAssetsPageAsync(
+        int pageIndex,
+        int pageSize,
+        string? searchText = null,
+        string? categoryName = null,
+        string? locationName = null,
+        bool? pendingSyncOnly = null,
+        string sortOption = "Name (A-Z)",
+        IReadOnlyCollection<string>? pendingSyncIds = null);
 
     /// <summary>
     /// Get a single asset by ID

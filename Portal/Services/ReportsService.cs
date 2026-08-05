@@ -1,4 +1,4 @@
-﻿using System.Net.Http.Json;
+using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace Portal.Services
@@ -147,7 +147,7 @@ namespace Portal.Services
         {
             return element.ValueKind switch
             {
-                JsonValueKind.String => element.GetString() ?? string.Empty,
+                JsonValueKind.String => TryParseDateTime(element, out var dt) ? dt : element.GetString() ?? string.Empty,
                 JsonValueKind.Number => element.TryGetInt32(out var intVal) ? intVal :
                                        element.TryGetInt64(out var longVal) ? longVal :
                                        element.TryGetDecimal(out var decVal) ? decVal :
@@ -160,6 +160,15 @@ namespace Portal.Services
                     .ToDictionary(p => p.Name, p => ConvertJsonElement(p.Value)),
                 _ => element.ToString()
             };
+        }
+
+        private static bool TryParseDateTime(JsonElement element, out DateTime result)
+        {
+            var text = element.GetString();
+            if (text != null && DateTime.TryParse(text, out result))
+                return true;
+            result = default;
+            return false;
         }
 
         public async Task<string> GenerateAiQueryAsync(string question)
@@ -175,68 +184,105 @@ namespace Portal.Services
                     var result = await response.Content.ReadFromJsonAsync<JsonElement>();
                     return result.GetProperty("sqlQuery").GetString() ?? string.Empty;
                 }
+                else
+                {
+                    try
+                    {
+                        var errorObj = await response.Content.ReadFromJsonAsync<JsonElement>();
+                        if (errorObj.TryGetProperty("details", out var detailsElement))
+                        {
+                            return "ERROR: " + detailsElement.GetString();
+                        }
+                        if (errorObj.TryGetProperty("error", out var errorElement))
+                        {
+                            return "ERROR: " + errorElement.GetString();
+                        }
+                    }
+                    catch
+                    {
+                        return $"ERROR: API request failed with status code {response.StatusCode}";
+                    }
+                }
 
                 return string.Empty;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating AI query");
-                return string.Empty;
+                return "ERROR: " + ex.Message;
             }
         }
 
         public async Task<List<Dictionary<string, object>>> ExecuteAiQueryAsync(string question)
         {
+            var httpClient = _httpClientFactory.CreateClient("AssetTagApi");
+            var request = new { Question = question };
+            var response = await httpClient.PostAsJsonAsync("api/reports/ai/execute-query", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+                if (result.TryGetProperty("results", out var resultsElement))
+                {
+                    return JsonSerializer.Deserialize<List<Dictionary<string, object>>>(resultsElement.GetRawText())
+                        ?? new List<Dictionary<string, object>>();
+                }
+                return new List<Dictionary<string, object>>();
+            }
+
+            var errorContent = await response.Content.ReadAsStringAsync();
+            string errorMessage = $"Query execution failed ({response.StatusCode})";
             try
             {
-                var httpClient = _httpClientFactory.CreateClient("AssetTagApi");
-                var request = new { Question = question };
-                var response = await httpClient.PostAsJsonAsync("api/reports/ai/execute-query", request);
-
-                if (response.IsSuccessStatusCode)
+                var errorObj = JsonSerializer.Deserialize<JsonElement>(errorContent);
+                if (errorObj.TryGetProperty("details", out var detailsElement))
                 {
-                    var result = await response.Content.ReadFromJsonAsync<JsonElement>();
-                    if (result.TryGetProperty("results", out var resultsElement))
-                    {
-                        return JsonSerializer.Deserialize<List<Dictionary<string, object>>>(resultsElement.GetRawText())
-                            ?? new List<Dictionary<string, object>>();
-                    }
+                    errorMessage = detailsElement.GetString() ?? errorMessage;
                 }
+                else if (errorObj.TryGetProperty("error", out var errorElement))
+                {
+                    errorMessage = errorElement.GetString() ?? errorMessage;
+                }
+            }
+            catch {}
 
-                return new List<Dictionary<string, object>>();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error executing AI query");
-                return new List<Dictionary<string, object>>();
-            }
+            throw new HttpRequestException(errorMessage);
         }
 
         public async Task<List<Dictionary<string, object>>> ExecuteSqlAsync(string sqlQuery)
         {
+            var httpClient = _httpClientFactory.CreateClient("AssetTagApi");
+            var request = new { SqlQuery = sqlQuery };
+            var response = await httpClient.PostAsJsonAsync("api/reports/ai/execute-sql", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+                if (result.TryGetProperty("results", out var resultsElement))
+                {
+                    return JsonSerializer.Deserialize<List<Dictionary<string, object>>>(resultsElement.GetRawText())
+                        ?? new List<Dictionary<string, object>>();
+                }
+                return new List<Dictionary<string, object>>();
+            }
+
+            var errorContent = await response.Content.ReadAsStringAsync();
+            string errorMessage = $"SQL execution failed ({response.StatusCode})";
             try
             {
-                var httpClient = _httpClientFactory.CreateClient("AssetTagApi");
-                var request = new { SqlQuery = sqlQuery };
-                var response = await httpClient.PostAsJsonAsync("api/reports/ai/execute-sql", request);
-
-                if (response.IsSuccessStatusCode)
+                var errorObj = JsonSerializer.Deserialize<JsonElement>(errorContent);
+                if (errorObj.TryGetProperty("details", out var detailsElement))
                 {
-                    var result = await response.Content.ReadFromJsonAsync<JsonElement>();
-                    if (result.TryGetProperty("results", out var resultsElement))
-                    {
-                        return JsonSerializer.Deserialize<List<Dictionary<string, object>>>(resultsElement.GetRawText())
-                            ?? new List<Dictionary<string, object>>();
-                    }
+                    errorMessage = detailsElement.GetString() ?? errorMessage;
                 }
+                else if (errorObj.TryGetProperty("error", out var errorElement))
+                {
+                    errorMessage = errorElement.GetString() ?? errorMessage;
+                }
+            }
+            catch {}
 
-                return new List<Dictionary<string, object>>();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error executing SQL");
-                return new List<Dictionary<string, object>>();
-            }
+            throw new HttpRequestException(errorMessage);
         }
 
         public async Task<bool> TestAiConnectionAsync()

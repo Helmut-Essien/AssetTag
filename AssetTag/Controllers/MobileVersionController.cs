@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Shared.DTOs;
+using Shared.Helpers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -51,6 +52,11 @@ public class MobileVersionController : ControllerBase
                 MinimumVersion = minimumVersion ?? "NOT SET",
                 DownloadUrl = downloadUrl ?? "NOT SET"
             },
+            Channels = new
+            {
+                Stable = "Production users: latest non-prerelease mobile-v* release only",
+                Beta = "Testers: latest pre-release or stable by SemVer (RC + stable)"
+            },
             Message = "This shows what the API can see in configuration"
         });
     }
@@ -66,19 +72,23 @@ public class MobileVersionController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("Version check requested - Platform: {Platform}, Current: {Version}",
-                request.Platform, request.CurrentVersion);
+            var channel = SemanticVersion.NormalizeChannel(request.Channel);
 
-            // Get version info from configuration or GitHub API
-            var versionInfo = await GetLatestVersionInfoAsync(request.Platform);
+            _logger.LogInformation(
+                "Version check requested - Platform: {Platform}, Current: {Version}, Channel: {Channel}",
+                request.Platform, request.CurrentVersion, channel);
+
+            var versionInfo = await GetLatestVersionInfoAsync(request.Platform, channel);
 
             if (versionInfo is null)
             {
                 return BadRequest("Unable to retrieve version information");
             }
 
-            _logger.LogInformation("Returning version info - Latest: {Latest}, Minimum: {Minimum}",
-                versionInfo.LatestVersion, versionInfo.MinimumSupportedVersion);
+            _logger.LogInformation(
+                "Returning version info - Latest: {Latest}, Minimum: {Minimum}, Channel: {Channel}, IsPrerelease: {IsPrerelease}",
+                versionInfo.LatestVersion, versionInfo.MinimumSupportedVersion,
+                versionInfo.Channel, versionInfo.IsPrerelease);
 
             return Ok(versionInfo);
         }
@@ -90,134 +100,138 @@ public class MobileVersionController : ControllerBase
     }
 
     /// <summary>
-    /// Get the latest version information from GitHub releases
+    /// Get the latest version information from GitHub releases for the given channel.
+    /// stable → newest non-prerelease mobile release.
+    /// beta → newest among pre-releases and stables (SemVer: RC + stable).
     /// </summary>
-    private async Task<VersionCheckResponseDto?> GetLatestVersionInfoAsync(string platform)
+    private async Task<VersionCheckResponseDto?> GetLatestVersionInfoAsync(string platform, string channel)
     {
         try
         {
-            // For Android platform
-            if (platform.Equals("android", StringComparison.OrdinalIgnoreCase))
+            if (!platform.Equals("android", StringComparison.OrdinalIgnoreCase))
             {
-                // Get GitHub repository info from configuration
-                var githubOwner = _configuration["GitHub:Owner"];
-                var githubRepo = _configuration["GitHub:Repository"];
-
-                // If GitHub config is missing, use fallback immediately
-                if (string.IsNullOrEmpty(githubOwner) || string.IsNullOrEmpty(githubRepo))
-                {
-                    _logger.LogWarning("GitHub configuration missing. Owner: {Owner}, Repo: {Repo}", 
-                        githubOwner ?? "NULL", githubRepo ?? "NULL");
-                    return GetFallbackVersionInfo();
-                }
-
-                // Fetch latest release from GitHub API
-                using var httpClient = new HttpClient();
-                httpClient.DefaultRequestHeaders.Add("User-Agent", "AssetTag-Mobile-App");
-                httpClient.DefaultRequestHeaders.Add("Accept", "application/vnd.github+json");
-
-                // Add GitHub token if available for higher rate limits
-                var githubToken = _configuration["GitHub:Token"];
-                if (!string.IsNullOrEmpty(githubToken))
-                {
-                    httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {githubToken}");
-                }
-
-                var apiUrl = $"https://api.github.com/repos/{githubOwner}/{githubRepo}/releases";
-                _logger.LogInformation("Fetching releases from: {Url}", apiUrl);
-                
-                var response = await httpClient.GetAsync(apiUrl);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    _logger.LogWarning("GitHub API request failed: {StatusCode}", response.StatusCode);
-                    return GetFallbackVersionInfo();
-                }
-
-                var content = await response.Content.ReadAsStringAsync();
-                var releases = JsonSerializer.Deserialize<List<GitHubRelease>>(content, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
-
-                if (releases is null || releases.Count == 0)
-                {
-                    _logger.LogWarning("No releases found in GitHub");
-                    return GetFallbackVersionInfo();
-                }
-
-                // Find the latest mobile release (including pre-releases for testing)
-                var latestRelease = releases
-                    .Where(r => r.TagName.StartsWith("mobile-v", StringComparison.OrdinalIgnoreCase))
-                    .OrderByDescending(r => r.PublishedAt)
-                    .FirstOrDefault();
-
-                if (latestRelease is null)
-                {
-                    _logger.LogWarning("No mobile releases found. Total releases: {Count}", releases.Count);
-                    _logger.LogInformation("Available tags: {Tags}",
-                        string.Join(", ", releases.Select(r => r.TagName)));
-                    return GetFallbackVersionInfo();
-                }
-
-                _logger.LogInformation("Found release: {Tag}, IsPrerelease: {IsPrerelease}",
-                    latestRelease.TagName, latestRelease.Prerelease);
-
-                _logger.LogInformation("Found latest release: {Tag}", latestRelease.TagName);
-
-                // Extract version from tag (e.g., "mobile-v1.0.123" -> "1.0.123")
-                var version = latestRelease.TagName.Replace("mobile-v", "", StringComparison.OrdinalIgnoreCase);
-
-                // Find the APK asset
-                var apkAsset = latestRelease.Assets
-                    .FirstOrDefault(a => a.Name.EndsWith(".apk", StringComparison.OrdinalIgnoreCase));
-
-                if (apkAsset is null)
-                {
-                    _logger.LogWarning("No APK found in release {Tag}", latestRelease.TagName);
-                    return GetFallbackVersionInfo();
-                }
-
-                // Get minimum supported version from configuration
-                var minimumVersion = _configuration["MobileApp:MinimumSupportedVersion"] ?? "1.0.0";
-
-                // Parse features from release body
-                var features = ParseFeaturesFromReleaseNotes(latestRelease.Body);
-
-                _logger.LogInformation("Successfully retrieved version info from GitHub: {Version}", version);
-
-                return new VersionCheckResponseDto(
-                    LatestVersion: version,
-                    MinimumSupportedVersion: minimumVersion,
-                    DownloadUrl: apkAsset.BrowserDownloadUrl,
-                    ReleaseNotesUrl: latestRelease.HtmlUrl,
-                    FileSize: apkAsset.Size,
-                    Checksum: string.Empty, // GitHub doesn't provide checksums directly
-                    IsMandatory: IsVersionMandatory(version, minimumVersion),
-                    ReleaseDate: latestRelease.PublishedAt,
-                    Features: features
-                );
+                return null;
             }
 
-            return null;
+            var githubOwner = _configuration["GitHub:Owner"];
+            var githubRepo = _configuration["GitHub:Repository"];
+
+            if (string.IsNullOrEmpty(githubOwner) || string.IsNullOrEmpty(githubRepo))
+            {
+                _logger.LogWarning("GitHub configuration missing. Owner: {Owner}, Repo: {Repo}",
+                    githubOwner ?? "NULL", githubRepo ?? "NULL");
+                return GetFallbackVersionInfo(channel);
+            }
+
+            using var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.Add("User-Agent", "AssetTag-Mobile-App");
+            httpClient.DefaultRequestHeaders.Add("Accept", "application/vnd.github+json");
+
+            var githubToken = _configuration["GitHub:Token"];
+            if (!string.IsNullOrEmpty(githubToken))
+            {
+                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {githubToken}");
+            }
+
+            var apiUrl = $"https://api.github.com/repos/{githubOwner}/{githubRepo}/releases";
+            _logger.LogInformation("Fetching releases from: {Url}", apiUrl);
+
+            var response = await httpClient.GetAsync(apiUrl);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("GitHub API request failed: {StatusCode}", response.StatusCode);
+                return GetFallbackVersionInfo(channel);
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var releases = JsonSerializer.Deserialize<List<GitHubRelease>>(content, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            if (releases is null || releases.Count == 0)
+            {
+                _logger.LogWarning("No releases found in GitHub");
+                return GetFallbackVersionInfo(channel);
+            }
+
+            var mobileReleases = releases
+                .Where(r => r.TagName.StartsWith("mobile-v", StringComparison.OrdinalIgnoreCase))
+                .Where(r => r.Assets.Any(a => a.Name.EndsWith(".apk", StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+
+            if (mobileReleases.Count == 0)
+            {
+                _logger.LogWarning("No mobile releases with APK found. Total releases: {Count}", releases.Count);
+                _logger.LogInformation("Available tags: {Tags}",
+                    string.Join(", ", releases.Select(r => r.TagName)));
+                return GetFallbackVersionInfo(channel);
+            }
+
+            // Production: non-prerelease only.
+            // Beta: pre-releases and stables; SemVer picks winner (1.0.2-rc.1 < 1.0.2).
+            IEnumerable<GitHubRelease> candidates = channel == SemanticVersion.BetaChannel
+                ? mobileReleases
+                : mobileReleases.Where(r => !r.Prerelease);
+
+            var latestRelease = candidates
+                .OrderByDescending(r => SemanticVersion.FromMobileTag(r.TagName), Comparer<string>.Create(SemanticVersion.Compare))
+                .ThenByDescending(r => r.PublishedAt)
+                .FirstOrDefault();
+
+            if (latestRelease is null)
+            {
+                _logger.LogWarning(
+                    "No mobile releases for channel {Channel}. Mobile with APK: {Count}",
+                    channel, mobileReleases.Count);
+                return GetFallbackVersionInfo(channel);
+            }
+
+            var version = SemanticVersion.FromMobileTag(latestRelease.TagName);
+            var apkAsset = latestRelease.Assets
+                .First(a => a.Name.EndsWith(".apk", StringComparison.OrdinalIgnoreCase));
+
+            var minimumVersion = _configuration["MobileApp:MinimumSupportedVersion"] ?? "1.0.0";
+            var features = ParseFeaturesFromReleaseNotes(latestRelease.Body);
+
+            _logger.LogInformation(
+                "Selected release {Tag} (prerelease={IsPrerelease}) for channel {Channel}",
+                latestRelease.TagName, latestRelease.Prerelease, channel);
+
+            // IsMandatory for a specific device is computed on the client from MinimumSupportedVersion.
+            return new VersionCheckResponseDto(
+                LatestVersion: version,
+                MinimumSupportedVersion: minimumVersion,
+                DownloadUrl: apkAsset.BrowserDownloadUrl,
+                ReleaseNotesUrl: latestRelease.HtmlUrl,
+                FileSize: apkAsset.Size,
+                Checksum: string.Empty,
+                IsMandatory: false,
+                ReleaseDate: latestRelease.PublishedAt,
+                Features: features,
+                Channel: channel,
+                IsPrerelease: latestRelease.Prerelease
+            );
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error fetching version info from GitHub");
-            return GetFallbackVersionInfo();
+            return GetFallbackVersionInfo(channel);
         }
     }
 
-    /// <summary>
-    /// Get fallback version info from configuration
-    /// </summary>
-    private VersionCheckResponseDto GetFallbackVersionInfo()
+    private VersionCheckResponseDto GetFallbackVersionInfo(string channel)
     {
+        // Fallback config always describes production/stable.
+        // Beta clients still receive it when GitHub has nothing usable.
         var latestVersion = _configuration["MobileApp:LatestVersion"] ?? "1.0.0";
         var minimumVersion = _configuration["MobileApp:MinimumSupportedVersion"] ?? "1.0.0";
         var downloadUrl = _configuration["MobileApp:DownloadUrl"] ?? "";
 
-        _logger.LogInformation("Using fallback version info: {Version}", latestVersion);
+        _logger.LogInformation(
+            "Using fallback version info: {Version} (requested channel: {Channel})",
+            latestVersion, channel);
 
         return new VersionCheckResponseDto(
             LatestVersion: latestVersion,
@@ -228,30 +242,12 @@ public class MobileVersionController : ControllerBase
             Checksum: "",
             IsMandatory: false,
             ReleaseDate: DateTime.UtcNow,
-            Features: Array.Empty<string>()
+            Features: Array.Empty<string>(),
+            Channel: channel,
+            IsPrerelease: false
         );
     }
 
-    /// <summary>
-    /// Determine if an update is mandatory based on version comparison
-    /// </summary>
-    private static bool IsVersionMandatory(string currentVersion, string minimumVersion)
-    {
-        try
-        {
-            var current = Version.Parse(currentVersion);
-            var minimum = Version.Parse(minimumVersion);
-            return current < minimum;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Parse features from GitHub release notes
-    /// </summary>
     private static string[] ParseFeaturesFromReleaseNotes(string? releaseBody)
     {
         if (string.IsNullOrWhiteSpace(releaseBody))
@@ -259,16 +255,13 @@ public class MobileVersionController : ControllerBase
             return Array.Empty<string>();
         }
 
-        // Extract bullet points or numbered items
         var lines = releaseBody.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        var features = lines
+        return lines
             .Where(line => line.TrimStart().StartsWith("-") || line.TrimStart().StartsWith("*"))
             .Select(line => line.TrimStart('-', '*', ' ').Trim())
             .Where(line => !string.IsNullOrWhiteSpace(line))
-            .Take(5) // Limit to top 5 features
+            .Take(5)
             .ToArray();
-
-        return features;
     }
 
     #region GitHub API Models
@@ -277,22 +270,22 @@ public class MobileVersionController : ControllerBase
     {
         [JsonPropertyName("tag_name")]
         public string TagName { get; set; } = string.Empty;
-        
+
         [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
-        
+
         [JsonPropertyName("body")]
         public string Body { get; set; } = string.Empty;
-        
+
         [JsonPropertyName("prerelease")]
         public bool Prerelease { get; set; }
-        
+
         [JsonPropertyName("published_at")]
         public DateTime PublishedAt { get; set; }
-        
+
         [JsonPropertyName("html_url")]
         public string HtmlUrl { get; set; } = string.Empty;
-        
+
         [JsonPropertyName("assets")]
         public List<GitHubAsset> Assets { get; set; } = new();
     }
@@ -301,10 +294,10 @@ public class MobileVersionController : ControllerBase
     {
         [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
-        
+
         [JsonPropertyName("browser_download_url")]
         public string BrowserDownloadUrl { get; set; } = string.Empty;
-        
+
         [JsonPropertyName("size")]
         public long Size { get; set; }
     }

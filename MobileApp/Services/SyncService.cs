@@ -23,17 +23,21 @@ public class SyncService : ISyncService, IDisposable
     // FIX #9: Semaphore to prevent race condition in GetOrCreateDeviceInfoAsync
     private readonly SemaphoreSlim _deviceInfoSemaphore = new(1, 1);
     
-    // Channel-based queue to serialize background sync requests
-    // Bounded capacity prevents memory exhaustion under rapid-fire Enqueue calls
+    // Channel-based queue to serialize background sync requests.
+    // DropWrite rejects new items when full so callers never hang on a dropped TCS.
     private const int SyncChannelCapacity = 64;
     private readonly Channel<SyncWorkItem> _syncQueue = Channel.CreateBounded<SyncWorkItem>(new BoundedChannelOptions(SyncChannelCapacity)
     {
         SingleReader = true,
         SingleWriter = false,
-        FullMode = BoundedChannelFullMode.DropOldest
+        FullMode = BoundedChannelFullMode.DropWrite
     });
 
     private readonly Task _queueProcessorTask;
+    private readonly object _queueStateLock = new();
+    private bool _pushQueuedOrRunning;
+    private bool _fullQueuedOrRunning;
+    private readonly List<TaskCompletionSource<(bool Success, string Message)>> _outstandingTcs = new();
     
     // FIX #12: Cancellation token for graceful shutdown
     private readonly CancellationTokenSource _cancellationTokenSource = new();
@@ -123,6 +127,19 @@ public class SyncService : ISyncService, IDisposable
         {
             // Signal cancellation to background task
             _cancellationTokenSource.Cancel();
+            _syncQueue.Writer.TryComplete();
+
+            // Unblock any callers still awaiting enqueue results
+            lock (_queueStateLock)
+            {
+                foreach (var tcs in _outstandingTcs)
+                {
+                    tcs.TrySetCanceled(_cancellationTokenSource.Token);
+                }
+                _outstandingTcs.Clear();
+                _pushQueuedOrRunning = false;
+                _fullQueuedOrRunning = false;
+            }
             
             // Wait for background task to complete (with timeout to prevent hanging)
             if (!_queueProcessorTask.Wait(TimeSpan.FromSeconds(5)))
@@ -398,32 +415,74 @@ public class SyncService : ISyncService, IDisposable
         return hasInfrastructureKeyword;
     }
 
-    public async Task<(bool Success, string Message)> EnqueuePushAsync()
+    public Task<(bool Success, string Message)> EnqueuePushAsync()
     {
-        var tcs = new TaskCompletionSource<(bool, string)>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var item = new SyncWorkItem(SyncRequestType.Push, tcs);
-
-        if (!_syncQueue.Writer.TryWrite(item))
+        lock (_queueStateLock)
         {
-            _logger.LogWarning("Sync queue full, dropping oldest pending push request");
-            return (false, "Sync queue busy, try again later");
-        }
+            if (_disposed)
+                return Task.FromResult((false, "Sync service disposed"));
 
-        return await tcs.Task;
+            // Coalesce with in-flight/queued push or full sync (full includes push)
+            if (_pushQueuedOrRunning || _fullQueuedOrRunning)
+            {
+                _logger.LogDebug("Push coalesced — sync already queued or running");
+                return Task.FromResult((true, "Sync already in progress"));
+            }
+
+            var tcs = new TaskCompletionSource<(bool Success, string Message)>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var item = new SyncWorkItem(SyncRequestType.Push, tcs);
+
+            if (!_syncQueue.Writer.TryWrite(item))
+            {
+                _logger.LogWarning("Sync queue full, rejecting push request");
+                return Task.FromResult((false, "Sync queue busy, try again later"));
+            }
+
+            _pushQueuedOrRunning = true;
+            _outstandingTcs.Add(tcs);
+            return AwaitEnqueueAsync(tcs);
+        }
     }
 
-    public async Task<(bool Success, string Message)> EnqueueFullSyncAsync()
+    public Task<(bool Success, string Message)> EnqueueFullSyncAsync()
     {
-        var tcs = new TaskCompletionSource<(bool, string)>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var item = new SyncWorkItem(SyncRequestType.Full, tcs);
-
-        if (!_syncQueue.Writer.TryWrite(item))
+        lock (_queueStateLock)
         {
-            _logger.LogWarning("Sync queue full, dropping oldest pending full sync request");
-            return (false, "Sync queue busy, try again later");
-        }
+            if (_disposed)
+                return Task.FromResult((false, "Sync service disposed"));
 
-        return await tcs.Task;
+            if (_fullQueuedOrRunning)
+            {
+                _logger.LogDebug("Full sync coalesced — full sync already queued or running");
+                return Task.FromResult((true, "Sync already in progress"));
+            }
+
+            var tcs = new TaskCompletionSource<(bool Success, string Message)>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var item = new SyncWorkItem(SyncRequestType.Full, tcs);
+
+            if (!_syncQueue.Writer.TryWrite(item))
+            {
+                _logger.LogWarning("Sync queue full, rejecting full sync request");
+                return Task.FromResult((false, "Sync queue busy, try again later"));
+            }
+
+            _fullQueuedOrRunning = true;
+            _outstandingTcs.Add(tcs);
+            return AwaitEnqueueAsync(tcs);
+        }
+    }
+
+    private static async Task<(bool Success, string Message)> AwaitEnqueueAsync(
+        TaskCompletionSource<(bool Success, string Message)> tcs)
+    {
+        try
+        {
+            return await tcs.Task.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return (false, "Sync cancelled");
+        }
     }
 
     public async Task<(bool Success, string Message)> PullChangesAsync()
@@ -653,19 +712,44 @@ public class SyncService : ISyncService, IDisposable
                 var assets = result.Assets;
                 var assetIndex = 0;
 
+                // Prefetch reference ID sets once — avoids 3 AnyAsync queries per asset
+                var knownCategoryIds = await dbContext.Categories
+                    .AsNoTracking()
+                    .Select(c => c.CategoryId)
+                    .ToHashSetAsync();
+                var knownLocationIds = await dbContext.Locations
+                    .AsNoTracking()
+                    .Select(l => l.LocationId)
+                    .ToHashSetAsync();
+                var knownDepartmentIds = await dbContext.Departments
+                    .AsNoTracking()
+                    .Select(d => d.DepartmentId)
+                    .ToHashSetAsync();
+
+                // Snapshot pending asset IDs; end-of-batch re-check still covers races
+                var pendingAssetIds = await dbContext.SyncQueue
+                    .AsNoTracking()
+                    .Where(s => s.EntityType == "Asset")
+                    .Select(s => s.EntityId)
+                    .ToHashSetAsync();
+
                 for (int offset = 0; offset < assets.Count; offset += ASSET_BATCH_SIZE)
                 {
                     var batch = assets.Skip(offset).Take(ASSET_BATCH_SIZE).ToList();
                     var batchAssetIds = new List<string>();
+                    var batchIds = batch.Select(a => a.AssetId).ToList();
+
+                    var existingAssets = await dbContext.Assets
+                        .Where(a => batchIds.Contains(a.AssetId))
+                        .ToDictionaryAsync(a => a.AssetId);
+
+                    var skippedById = await dbContext.SkippedAssets
+                        .Where(s => batchIds.Contains(s.AssetId))
+                        .ToDictionaryAsync(s => s.AssetId);
 
                     foreach (var assetDto in batch)
                     {
-                        // FIX #2: Re-check pending queue before each asset update to prevent race condition
-                        // This prevents overwriting local changes made during the pull operation
-                        var isPendingNow = await dbContext.SyncQueue
-                            .AnyAsync(s => s.EntityType == "Asset" && s.EntityId == assetDto.AssetId);
-                        
-                        if (isPendingNow)
+                        if (pendingAssetIds.Contains(assetDto.AssetId))
                         {
                             deferredAssetIds.Add(assetDto.AssetId);
                             _logger.LogInformation(
@@ -674,9 +758,9 @@ public class SyncService : ISyncService, IDisposable
                             continue;
                         }
 
-                        var categoryExists = await dbContext.Categories.AnyAsync(c => c.CategoryId == assetDto.CategoryId);
-                        var locationExists = await dbContext.Locations.AnyAsync(l => l.LocationId == assetDto.LocationId);
-                        var departmentExists = await dbContext.Departments.AnyAsync(d => d.DepartmentId == assetDto.DepartmentId);
+                        var categoryExists = knownCategoryIds.Contains(assetDto.CategoryId);
+                        var locationExists = knownLocationIds.Contains(assetDto.LocationId);
+                        var departmentExists = knownDepartmentIds.Contains(assetDto.DepartmentId);
 
                         if (!categoryExists || !locationExists || !departmentExists)
                         {
@@ -685,20 +769,14 @@ public class SyncService : ISyncService, IDisposable
                                 assetDto.AssetId, assetDto.AssetTag, categoryExists, locationExists, departmentExists);
 
                             skippedAssetIds.Add(assetDto.AssetId);
-                            
-                            // FIX #13: Track skipped asset for manual review and potential retry
-                            var existingSkipped = await dbContext.SkippedAssets
-                                .FirstOrDefaultAsync(s => s.AssetId == assetDto.AssetId);
-                            
-                            if (existingSkipped != null)
+
+                            if (skippedById.TryGetValue(assetDto.AssetId, out var existingSkipped))
                             {
-                                // Update retry count for existing skipped asset
                                 existingSkipped.RetryCount++;
                                 existingSkipped.SkippedAt = DateTime.UtcNow;
                             }
                             else
                             {
-                                // Create new skipped asset record
                                 var skippedAsset = new MobileData.Data.SkippedAsset
                                 {
                                     AssetId = assetDto.AssetId,
@@ -711,16 +789,13 @@ public class SyncService : ISyncService, IDisposable
                                     MissingDepartmentId = !departmentExists ? assetDto.DepartmentId : null
                                 };
                                 dbContext.SkippedAssets.Add(skippedAsset);
+                                skippedById[assetDto.AssetId] = skippedAsset;
                             }
-                            
+
                             continue;
                         }
 
-                        // BUG FIX: Check if asset already exists before adding (prevents duplicates)
-                        // This matches the upsert pattern used for Categories, Locations, and Departments
-                        var existing = await dbContext.Assets.FindAsync(assetDto.AssetId);
-
-                        if (existing != null)
+                        if (existingAssets.TryGetValue(assetDto.AssetId, out var existing))
                         {
                             // UPDATE existing asset
                             existing.AssetTag = assetDto.AssetTag;
@@ -784,23 +859,21 @@ public class SyncService : ISyncService, IDisposable
                             };
 
                             dbContext.Assets.Add(newAsset);
+                            existingAssets[assetDto.AssetId] = newAsset;
                             _logger.LogDebug("Added new asset: {AssetName} ({AssetTag})", assetDto.Name, assetDto.AssetTag);
                         }
 
-                        // FIX #13: Remove from skipped assets if it was previously skipped and now synced successfully
-                        var previouslySkipped = await dbContext.SkippedAssets
-                            .FirstOrDefaultAsync(s => s.AssetId == assetDto.AssetId);
-                        if (previouslySkipped != null)
+                        if (skippedById.TryGetValue(assetDto.AssetId, out var previouslySkipped))
                         {
                             dbContext.SkippedAssets.Remove(previouslySkipped);
+                            skippedById.Remove(assetDto.AssetId);
                             _logger.LogInformation("Removed asset {AssetId} from skipped assets - now synced successfully", assetDto.AssetId);
                         }
 
                         totalChanges++;
                         assetIndex++;
                         batchAssetIds.Add(assetDto.AssetId);
-                        
-                        // FIX #6: Report progress every 10 assets to avoid too many UI updates
+
                         if (assetIndex % 10 == 0 || assetIndex == assets.Count)
                         {
                             ReportProgress(SyncPhase.PullingAssets, assetIndex, assets.Count,
@@ -1076,35 +1149,44 @@ public class SyncService : ISyncService, IDisposable
                     deletedCount, assetDeletions.Count, referenceDeletions.Count);
 
                 // ═══════════════════════════════════════════════════════════
-                // STEP 6: Update last sync timestamp after successful sync
-                // FIX #3: Always update LastSync, even with skipped/deferred assets
-                // Skipped assets are tracked separately and will be retried on next sync
+                // STEP 6: Update last sync timestamp only when all assets applied.
+                // Advancing LastSync past skipped/deferred assets would drop them
+                // from the server delta window permanently (no ID-based retry).
                 // ═══════════════════════════════════════════════════════════
                 var localDeviceInfo = await dbContext.DeviceInfo
                     .FirstAsync(d => d.Id == deviceInfo.Id);
-                localDeviceInfo.LastSync = result.ServerTimestamp;
-                await dbContext.SaveChangesAsync();
 
-                // FIX #3: Log skipped and deferred assets for monitoring
+                if (skippedAssetIds.Count == 0 && deferredAssetIds.Count == 0)
+                {
+                    localDeviceInfo.LastSync = result.ServerTimestamp;
+                    await dbContext.SaveChangesAsync();
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Not advancing LastSync ({Skipped} skipped, {Deferred} deferred). " +
+                        "Same delta window will be re-requested on the next pull.",
+                        skippedAssetIds.Count, deferredAssetIds.Count);
+                }
+
                 if (skippedAssetIds.Any())
                 {
                     _logger.LogWarning(
                         "Skipped {Count} assets due to missing references. " +
-                        "These are tracked in SkippedAssets table and will be retried on next sync. " +
+                        "LastSync left unchanged so they can be retried on the next pull. " +
                         "Skipped asset IDs: {AssetIds}",
                         skippedAssetIds.Count,
-                        string.Join(", ", skippedAssetIds.Take(10))); // Log first 10 only
+                        string.Join(", ", skippedAssetIds.Take(10)));
                 }
 
-                // FIX #8: Deferred assets don't block LastSync anymore
                 if (deferredAssetIds.Any())
                 {
                     _logger.LogInformation(
                         "Deferred {Count} assets because they have pending local changes. " +
-                        "They will be synced after push completes. " +
+                        "LastSync left unchanged until push clears the queue and pull can apply them. " +
                         "Deferred asset IDs: {AssetIds}",
                         deferredAssetIds.Count,
-                        string.Join(", ", deferredAssetIds.Take(10))); // Log first 10 only
+                        string.Join(", ", deferredAssetIds.Take(10)));
                 }
 
                 var message = $"Synced {totalChanges} changes: " +
@@ -1211,6 +1293,7 @@ public class SyncService : ISyncService, IDisposable
                 {
                     _logger.LogInformation("Sync queue processor cancelled");
                     work.Tcs.TrySetCanceled(cancellationToken);
+                    ClearQueueFlags(work);
                     break;
                 }
 
@@ -1234,11 +1317,36 @@ public class SyncService : ISyncService, IDisposable
                     _logger.LogError(ex, "Error processing sync queue item");
                     work.Tcs.TrySetException(ex);
                 }
+                finally
+                {
+                    ClearQueueFlags(work);
+                }
             }
         }
         catch (OperationCanceledException)
         {
             _logger.LogInformation("Sync queue processor gracefully shut down");
+        }
+        finally
+        {
+            // Cancel any remaining queued work that will never be processed
+            while (_syncQueue.Reader.TryRead(out var leftover))
+            {
+                leftover.Tcs.TrySetCanceled(cancellationToken);
+                ClearQueueFlags(leftover);
+            }
+        }
+    }
+
+    private void ClearQueueFlags(SyncWorkItem work)
+    {
+        lock (_queueStateLock)
+        {
+            _outstandingTcs.Remove(work.Tcs);
+            if (work.Type == SyncRequestType.Push)
+                _pushQueuedOrRunning = false;
+            else
+                _fullQueuedOrRunning = false;
         }
     }
 
@@ -1258,7 +1366,9 @@ public class SyncService : ISyncService, IDisposable
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
 
-            var deviceInfo = await dbContext.DeviceInfo.FirstOrDefaultAsync();
+            var deviceInfo = await dbContext.DeviceInfo
+                .OrderBy(d => d.Id)
+                .FirstOrDefaultAsync();
             if (deviceInfo == null)
             {
                 // For first-time install, use a very old date (year 1900) to fetch ALL data from server
@@ -1512,7 +1622,9 @@ public class SyncService : ISyncService, IDisposable
         using var scope = _serviceProvider.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
 
-        var deviceInfo = await dbContext.DeviceInfo.FirstOrDefaultAsync();
+        var deviceInfo = await dbContext.DeviceInfo
+            .OrderBy(d => d.Id)
+            .FirstOrDefaultAsync();
         if (deviceInfo != null)
         {
             // Reset to 1900 to fetch all data

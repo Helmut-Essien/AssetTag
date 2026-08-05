@@ -426,10 +426,9 @@ namespace MobileApp.Services
 
         public Task DisableBiometricAuthenticationAsync()
         {
-            // Only remove the enabled flag, keep credentials for easy re-enabling
             SecureStorage.Remove(BIOMETRIC_ENABLED_KEY);
-            // Don't remove BIOMETRIC_EMAIL_KEY and BIOMETRIC_PASSWORD_KEY
-            // This allows users to re-enable without re-entering credentials
+            SecureStorage.Remove(BIOMETRIC_EMAIL_KEY);
+            SecureStorage.Remove(BIOMETRIC_PASSWORD_KEY);
             return Task.CompletedTask;
         }
 

@@ -1,7 +1,8 @@
-﻿using AssetTag.Data;
+using AssetTag.Data;
 using Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Data;
 using System.Text.RegularExpressions;
 
@@ -28,23 +29,29 @@ public class AIQueryService : IAIQueryService
         "Assets", "Categories", "Departments", "Locations", "AssetHistories", "AspNetUsers"
     };
 
+    // Add sensitive blacklist
+    private static readonly HashSet<string> SensitiveTables = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "RefreshTokens", "Invitations", "DeletedItems", "DistributedLocks",
+        "AspNetRoles", "AspNetUserClaims", "AspNetRoleClaims", "AspNetUserLogins", "AspNetUserTokens", "AspNetUserRoles"
+    };
+
     public AIQueryService(
         ApplicationDbContext context,
         ILogger<AIQueryService> logger,
-        HttpClient httpClient,
+        IHttpClientFactory httpClientFactory,
         IConfiguration configuration)
     {
         _context = context;
         _logger = logger;
-        _httpClient = httpClient;
         _configuration = configuration;
+        _httpClient = httpClientFactory.CreateClient("GroqClient");
 
         var apiKey = _configuration["Groq:ApiKey"];
-        if (!string.IsNullOrEmpty(apiKey))
+        if (!string.IsNullOrEmpty(apiKey) && !_httpClient.DefaultRequestHeaders.Contains("Authorization"))
         {
             _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
         }
-        _httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
     }
 
     public async Task<string> GenerateSqlFromNaturalLanguage(string question)
@@ -53,10 +60,141 @@ public class AIQueryService : IAIQueryService
         {
             _logger.LogInformation($"Generating SQL for question: {question}");
 
+            var scopeError = CheckQuestionScope(question);
+            if (scopeError != null)
+                throw new InvalidOperationException(scopeError);
+
             var schema = await GetDatabaseSchema();
             var schemaJson = JsonConvert.SerializeObject(schema, Newtonsoft.Json.Formatting.Indented);
 
-            var prompt = $@"You are an expert T-SQL (Microsoft SQL Server) assistant for an Asset Management System.
+            var model = _configuration["Groq:Model"] ?? "llama-3.3-70b-versatile";
+            var maxAttempts = 3;
+            var attempt = 0;
+            string? lastError = null;
+            string? lastSql = null;
+
+            while (attempt < maxAttempts)
+            {
+                attempt++;
+                _logger.LogInformation($"SQL Generation attempt {attempt} for question: {question}");
+
+                string prompt = attempt == 1 
+                    ? BuildInitialPrompt(question, schemaJson) 
+                    : BuildFixPrompt(question, schemaJson, lastSql!, lastError!);
+
+                var requestData = new
+                {
+                    model = model,
+                    messages = new[]
+                    {
+                        new {
+                            role = "system",
+                            content = "You are a T-SQL generator for Microsoft SQL Server. Generate safe, read-only SELECT queries for an Asset Management System. Return ONLY the raw SQL code. Do not include any introductory text, explanations, or markdown code blocks. Just the SQL statement itself. ALL ID columns are strings (ULID)."
+                        },
+                        new { role = "user", content = prompt }
+                    },
+                    temperature = 0.1,
+                    max_tokens = 1000,
+                    top_p = 0.9
+                };
+
+                var jsonContent = JsonConvert.SerializeObject(requestData);
+                var content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
+
+                var response = await _httpClient.PostAsync(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    content);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError($"Groq API error on attempt {attempt}: {response.StatusCode} - {errorContent}");
+                    throw new InvalidOperationException("The report service is temporarily unavailable because the AI gateway failed to respond.");
+                }
+
+                var responseContent = await response.Content.ReadAsStringAsync();
+                var sql = ParseGroqResponse(responseContent);
+
+                sql = CleanSqlResponse(sql);
+                lastSql = sql;
+
+                // 1. Safety validation
+                var safetyResult = ValidateSqlSafety(sql);
+                if (!safetyResult.isSafe)
+                {
+                    _logger.LogWarning($"Attempt {attempt}: Generated SQL failed safety check: {safetyResult.reason}. SQL: {sql}");
+                    lastError = $"Safety Violation: {safetyResult.reason}";
+                    continue; // Loop and retry with self-fix prompt
+                }
+
+                // If it is an explicit error/refusal from the LLM, throw it directly
+                if (sql.StartsWith("ERROR:", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(sql.Substring(6).Trim());
+                }
+
+                // 2. Syntax validation using SET PARSEONLY ON
+                var syntaxError = await ValidateSqlSyntax(sql);
+                if (syntaxError != null)
+                {
+                    _logger.LogWarning($"Attempt {attempt}: Generated SQL failed syntax validation: {syntaxError}. SQL: {sql}");
+                    lastError = $"SQL Syntax Error: {syntaxError}";
+                    continue; // Loop and retry with self-fix prompt
+                }
+
+                // Query is both safe and syntactically valid!
+                _logger.LogInformation($"Successfully generated safe & valid SQL on attempt {attempt}: {sql.Substring(0, Math.Min(100, sql.Length))}...");
+                return sql;
+            }
+
+            _logger.LogWarning($"Failed to generate valid SQL after {maxAttempts} attempts. Last error: {lastError}. Throwing exception.");
+            throw new InvalidOperationException(
+                $"Unable to prepare a report for that question. I could not generate a valid, safe SQL query after {maxAttempts} attempts. Try rephrasing your question or asking about a different aspect of your asset data.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error generating SQL from natural language for question: {question}");
+            throw;
+        }
+    }
+
+    private async Task<string?> ValidateSqlSyntax(string sql)
+    {
+        try
+        {
+            using var command = _context.Database.GetDbConnection().CreateCommand();
+            // We prepend SET PARSEONLY ON; to validate grammar without executing anything
+            command.CommandText = "SET PARSEONLY ON;\n" + sql + "\nSET PARSEONLY OFF;";
+
+            if (_context.Database.GetDbConnection().State != ConnectionState.Open)
+            {
+                await _context.Database.OpenConnectionAsync();
+            }
+            
+            try
+            {
+                await command.ExecuteNonQueryAsync();
+            }
+            finally
+            {
+                // Safety cleanup: Ensure we turn parseonly OFF even on syntax failure
+                using var resetCmd = _context.Database.GetDbConnection().CreateCommand();
+                resetCmd.CommandText = "SET PARSEONLY OFF;";
+                await resetCmd.ExecuteNonQueryAsync();
+                await _context.Database.CloseConnectionAsync();
+            }
+            
+            return null; // Syntax is correct
+        }
+        catch (Exception ex)
+        {
+            return ex.Message; // Return parser error message to feed back to LLM
+        }
+    }
+
+    private string BuildInitialPrompt(string question, string schemaJson)
+    {
+        return $@"You are an expert T-SQL (Microsoft SQL Server) assistant for an Asset Management System.
 Generate a safe, read-only SQL SELECT query based on the natural language question.
 
 DATABASE SCHEMA AND RELATIONSHIPS:
@@ -73,6 +211,8 @@ CRITICAL RULES:
 8. Standard SQL functions: COUNT, SUM, AVG, MAX, MIN, GROUP BY, ORDER BY
 9. CTEs (WITH clause) are allowed for complex queries
 10. Use CAST or CONVERT when mixing types in calculations
+11. NEVER include primary/foreign key ID columns (AssetId, CategoryId, DepartmentId, LocationId, HistoryId, UserId, Id) in the SELECT list. They are internal ULID strings meaningless to end users. Use human-readable columns like AssetTag, Name, or department/category/location names instead.
+12. Date columns (PurchaseDate, DisposalDate, WarrantyExpiry, CreatedAt, Timestamp, etc.) must use FORMAT(column, 'dd MMM yyyy') to produce readable dates. If both date and time are needed, format the date-only column with FORMAT and add a separate column for time using FORMAT(column, 'HH:mm').
 
 IMPORTANT - COMPUTED PROPERTIES (NOT database columns):
 - NetBookValue, AccumulatedDepreciation, GainLossOnDisposal, CalculatedUsefulLifeYears, TotalCost are NOT real database columns.
@@ -116,61 +256,31 @@ OUTPUT FORMAT INSTRUCTIONS (FOLLOW EXACTLY):
 QUESTION: {question}
 
 Generate a safe T-SQL SELECT query:";
+    }
 
-            var model = _configuration["Groq:Model"] ?? "llama-3.3-70b-versatile";
+    private string BuildFixPrompt(string question, string schemaJson, string failedSql, string errorMessage)
+    {
+        return $@"You previously generated a T-SQL query that failed validation.
+Please correct the SQL query to resolve the error.
 
-            var requestData = new
-            {
-                model = model,
-                messages = new[]
-                {
-                    new {
-                        role = "system",
-                        content = "You are a T-SQL generator for Microsoft SQL Server. Generate safe, read-only SELECT queries for an Asset Management System. Return ONLY the raw SQL code. Do not include any introductory text, explanations, or markdown code blocks. Just the SQL statement itself. ALL ID columns are strings (ULID)."
-                    },
-                    new { role = "user", content = prompt }
-                },
-                temperature = 0.1,
-                max_tokens = 1000,
-                top_p = 0.9
-            };
+DATABASE SCHEMA AND RELATIONSHIPS:
+{schemaJson}
 
-            var jsonContent = JsonConvert.SerializeObject(requestData);
-            var content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
+ORIGINAL QUESTION: {question}
+FAILED SQL:
+{failedSql}
 
-            var response = await _httpClient.PostAsync(
-                "https://api.groq.com/openai/v1/chat/completions",
-                content);
+VALIDATION ERROR MESSAGE:
+{errorMessage}
 
-            if (!response.IsSuccessStatusCode)
-            {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogError($"Groq API error: {response.StatusCode} - {errorContent}");
-                return GenerateFallbackQuery(question);
-            }
+INSTRUCTIONS FOR CORRECTION:
+1. Fix the syntax error, safety violation, or column/table binding error shown above.
+2. Keep all safety rules: ONLY SELECT queries, quote all ULID strings, handle nulls, use correct table names from the schema.
+3. NEVER include PK/FK ID columns in SELECT — use human-readable columns instead (AssetTag, Name, department/category/location names).
+4. Format all date columns with FORMAT(column, 'dd MMM yyyy'). If time is also needed, put it in a separate column with FORMAT(column, 'HH:mm').
+5. Keep output format exact: Output ONLY raw T-SQL query. No markdown, no comments, no explanations.
 
-            var responseContent = await response.Content.ReadAsStringAsync();
-            dynamic? result = JsonConvert.DeserializeObject(responseContent);
-
-            var sql = result?.choices?[0]?.message?.content?.ToString() ?? "";
-
-            sql = CleanSqlResponse(sql);
-
-            var validationResult = ValidateSqlSafety(sql);
-            if (!validationResult.Item1)
-            {
-                _logger.LogWarning($"Generated SQL failed safety check: {validationResult.Item2}. SQL: {sql}");
-                throw new InvalidOperationException($"Generated SQL contains potentially dangerous operations: {validationResult.Item2}");
-            }
-
-            _logger.LogInformation($"Successfully generated SQL: {sql.Substring(0, Math.Min(100, sql.Length))}...");
-            return sql;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"Error generating SQL from natural language for question: {question}");
-            return GenerateFallbackQuery(question);
-        }
+Generate the corrected T-SQL SELECT query:";
     }
 
     public async Task<List<Dictionary<string, object>>> ExecuteSafeQuery(string sqlQuery)
@@ -180,7 +290,7 @@ Generate a safe T-SQL SELECT query:";
             var validationResult = ValidateSqlSafety(sqlQuery);
             if (!validationResult.Item1)
             {
-                throw new InvalidOperationException($"SQL query contains dangerous operations: {validationResult.Item2}");
+                throw new InvalidOperationException($"SQL query blocked: {validationResult.Item2}");
             }
 
             // Auto-inject TOP 1000 if no TOP clause present and no aggregate-only query
@@ -192,28 +302,31 @@ Generate a safe T-SQL SELECT query:";
             command.CommandText = sqlQuery;
             command.CommandTimeout = 30; // 30-second timeout
 
-            if (command.Connection?.State != ConnectionState.Open)
+            await _context.Database.OpenConnectionAsync();
+            try
             {
-                await command.Connection!.OpenAsync();
-            }
+                using var reader = await command.ExecuteReaderAsync();
 
-            using var reader = await command.ExecuteReaderAsync();
+                var results = new List<Dictionary<string, object>>();
 
-            var results = new List<Dictionary<string, object>>();
-
-            while (await reader.ReadAsync())
-            {
-                var row = new Dictionary<string, object>();
-                for (int i = 0; i < reader.FieldCount; i++)
+                while (await reader.ReadAsync())
                 {
-                    var value = reader.GetValue(i);
-                    row[reader.GetName(i)] = value == DBNull.Value ? (object)"" : value;
+                    var row = new Dictionary<string, object>();
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        var value = reader.GetValue(i);
+                        row[reader.GetName(i)] = value == DBNull.Value ? (object)"" : value;
+                    }
+                    results.Add(row);
                 }
-                results.Add(row);
-            }
 
-            _logger.LogInformation($"Query executed successfully, returned {results.Count} rows");
-            return results;
+                _logger.LogInformation($"Query executed successfully, returned {results.Count} rows");
+                return results;
+            }
+            finally
+            {
+                await _context.Database.CloseConnectionAsync();
+            }
         }
         catch (Exception ex)
         {
@@ -280,6 +393,60 @@ Generate a safe T-SQL SELECT query:";
         }
     }
 
+    private static string ParseGroqResponse(string responseContent)
+    {
+        try
+        {
+            var json = JObject.Parse(responseContent);
+            var choices = json["choices"] as JArray;
+            if (choices == null || choices.Count == 0)
+                return string.Empty;
+            var message = choices[0]?["message"];
+            if (message == null)
+                return string.Empty;
+            var content = message["content"];
+            return content?.ToString() ?? string.Empty;
+        }
+        catch (JsonReaderException)
+        {
+            return string.Empty;
+        }
+    }
+
+    private static string? CheckQuestionScope(string question)
+    {
+        var lower = question.ToLowerInvariant();
+
+        string[] restricted = [
+            "password", "passwordhash", "securitystamp", "concurrencystamp",
+            "refresh token", "refreshtoken", "credential", "secret", "apikey", "api key"
+        ];
+
+        foreach (var word in restricted)
+        {
+            if (lower.Contains(word))
+                return "That question relates to security-sensitive data which is not available for reporting.";
+        }
+
+        string[] inScope = [
+            "asset", "department", "location", "category", "warranty", "disposal", "dispose",
+            "maintenance", "repair", "status", "condition", "value", "cost", "price",
+            "purchase", "depreciation", "depreciat", "history", "audit", "scanned", "assign",
+            "user", "staff", "person", "vendor", "supplier", "serial", "invoice",
+            "transfer", "report", "summary", "count", "list", "show", "display",
+            "equipment", "item", "tag", "barcode", "fixed", "schedule", "register",
+            "property", "inventory", "stock", "profile", "name", "email"
+        ];
+
+        foreach (var word in inScope)
+        {
+            if (lower.Contains(word))
+                return null;
+        }
+
+        return "That question doesn't appear to be about asset management data. Try asking about assets, departments, locations, warranties, disposals, or values.";
+    }
+
     private string AutoInjectRowLimit(string sql)
     {
         if (string.IsNullOrWhiteSpace(sql))
@@ -326,6 +493,12 @@ Generate a safe T-SQL SELECT query:";
     {
         if (string.IsNullOrWhiteSpace(sql))
             return string.Empty;
+
+        var trimmed = sql.Trim();
+        if (trimmed.StartsWith("ERROR:", StringComparison.OrdinalIgnoreCase))
+        {
+            return trimmed;
+        }
 
         // Remove common markdown code fences
         sql = Regex.Replace(sql, @"^```(?:sql)?\s*\n?", "", RegexOptions.IgnoreCase | RegexOptions.Multiline);
@@ -395,6 +568,11 @@ Generate a safe T-SQL SELECT query:";
             return (false, "SQL query is empty");
         }
 
+        if (sql.StartsWith("ERROR:", StringComparison.OrdinalIgnoreCase))
+        {
+            return (true, "explicit_error");
+        }
+
         var normalizedSql = NormalizeSql(sql);
 
         // 1. Data modification commands
@@ -433,7 +611,7 @@ Generate a safe T-SQL SELECT query:";
                 return (false, $"Contains prohibited system command: {command.Replace(@"\b", "").Replace(@"\\", "")}");
         }
 
-        // 5. SQL injection patterns
+        // 5. SQL injection & sensitive column references
         var injectionPatterns = new[]
         {
             @";--", @"\bXP_CMDSHELL\b", @"\bSP_OACREATE\b", @"\bSP_OAMETHOD\b"
@@ -444,6 +622,13 @@ Generate a safe T-SQL SELECT query:";
                 return (false, $"Contains potential SQL injection pattern: {pattern}");
         }
 
+        var sensitiveColumnKeywords = new[] { "PasswordHash", "SecurityStamp", "ConcurrencyStamp", "Password", "Secret", "Hash" };
+        foreach (var col in sensitiveColumnKeywords)
+        {
+            if (Regex.IsMatch(normalizedSql, $@"\b{col}\b", RegexOptions.IgnoreCase))
+                return (false, $"Contains prohibited column reference: {col}");
+        }
+
         // 6. Must start with SELECT or WITH
         var trimmedSql = normalizedSql.TrimStart();
         if (!trimmedSql.StartsWith("SELECT", StringComparison.OrdinalIgnoreCase) &&
@@ -452,13 +637,22 @@ Generate a safe T-SQL SELECT query:";
             return (false, "Query must start with SELECT or WITH");
         }
 
-        // 7. Validate table names (whitelist)
+        // 7. Defense-in-depth: blacklist search
+        foreach (var sensitiveTable in SensitiveTables)
+        {
+            if (Regex.IsMatch(normalizedSql, $@"\b{sensitiveTable}\b", RegexOptions.IgnoreCase))
+            {
+                return (false, $"Query references prohibited sensitive table: {sensitiveTable}");
+            }
+        }
+
+        // 8. Validate table names (whitelist)
         if (!ValidateTableNames(normalizedSql))
         {
             return (false, "Query references unauthorized tables");
         }
 
-        // 8. No stacked queries (multiple statements)
+        // 9. No stacked queries (multiple statements)
         var sqlForStatementCheck = normalizedSql.TrimEnd(';', ' ', '\t').Trim();
         var statementCount = sqlForStatementCheck.Split(';')
             .Select(s => s.Trim())
@@ -469,7 +663,7 @@ Generate a safe T-SQL SELECT query:";
             return (false, "Multiple SQL statements are not allowed");
         }
 
-        // 9. Warn about SELECT * without TOP
+        // 10. Warn about SELECT * without TOP
         if (Regex.IsMatch(normalizedSql, @"\bSELECT\s+\*\s+FROM", RegexOptions.IgnoreCase) &&
             !Regex.IsMatch(normalizedSql, @"\bSELECT\s+(DISTINCT\s+)?TOP\s+", RegexOptions.IgnoreCase))
         {
@@ -489,8 +683,16 @@ Generate a safe T-SQL SELECT query:";
 
     private bool ValidateTableNames(string sql)
     {
-        var fromPattern = @"\bFROM\s+(\[?\w+\]?)(?:\s+(?:AS\s+)?(\w+))?";
-        var joinPattern = @"\b(?:INNER\s+|LEFT\s+|RIGHT\s+|FULL\s+|CROSS\s+)?JOIN\s+(\[?\w+\]?)(?:\s+(?:AS\s+)?(\w+))?";
+        // Extract CTE names to exclude them from table name checks
+        var cteNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var cteMatches = Regex.Matches(sql, @"(?ix)(?:WITH|,)\s+(\[?\w+\]?)\s+AS\s*\(", RegexOptions.IgnoreCase);
+        foreach (Match match in cteMatches)
+        {
+            cteNames.Add(match.Groups[1].Value.Trim('[', ']'));
+        }
+
+        var fromPattern = @"\bFROM\s+(\[?\w+(?:\.\[?\w+\]?)*\]?)(?:\s+(?:AS\s+)?(\w+))?";
+        var joinPattern = @"\b(?:INNER\s+|LEFT\s+|RIGHT\s+|FULL\s+|CROSS\s+)?JOIN\s+(\[?\w+(?:\.\[?\w+\]?)*\]?)(?:\s+(?:AS\s+)?(\w+))?";
 
         var tableNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -498,6 +700,11 @@ Generate a safe T-SQL SELECT query:";
         foreach (Match match in fromMatches)
         {
             var tableName = match.Groups[1].Value.Trim('[', ']');
+            // Strip schema prefixes like dbo.
+            if (tableName.Contains('.'))
+            {
+                tableName = tableName.Split('.').Last().Trim('[', ']');
+            }
             tableNames.Add(tableName);
         }
 
@@ -505,11 +712,50 @@ Generate a safe T-SQL SELECT query:";
         foreach (Match match in joinMatches)
         {
             var tableName = match.Groups[1].Value.Trim('[', ']');
+            if (tableName.Contains('.'))
+            {
+                tableName = tableName.Split('.').Last().Trim('[', ']');
+            }
             tableNames.Add(tableName);
         }
 
+        // Handle possible comma joins (e.g. FROM TableA, TableB)
+        var fromClauseMatch = Regex.Match(sql, @"\bFROM\s+(.+?)(?:\bWHERE\b|\bGROUP\b|\bHAVING\b|\bORDER\b|\bJOIN\b|\bINNER\b|\bLEFT\b|\bCROSS\b|\bAPPLY\b|$)", RegexOptions.IgnoreCase);
+        if (fromClauseMatch.Success)
+        {
+            var tablesList = fromClauseMatch.Groups[1].Value;
+            var parts = tablesList.Split(',');
+            if (parts.Length > 1)
+            {
+                foreach (var part in parts.Skip(1)) // Skip the first one since it was handled by fromPattern
+                {
+                    // Match first word token that looks like a table name
+                    var tableTokenMatch = Regex.Match(part.Trim(), @"^(\[?\w+(?:\.\[?\w+\]?)*\]?)");
+                    if (tableTokenMatch.Success)
+                    {
+                        var tableName = tableTokenMatch.Groups[1].Value.Trim('[', ']');
+                        if (tableName.Contains('.'))
+                        {
+                            tableName = tableName.Split('.').Last().Trim('[', ']');
+                        }
+                        // Ignore subqueries (e.g. SELECT)
+                        if (!tableName.Equals("SELECT", StringComparison.OrdinalIgnoreCase))
+                        {
+                            tableNames.Add(tableName);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Validate table list
         foreach (var tableName in tableNames)
         {
+            if (cteNames.Contains(tableName))
+            {
+                continue; // Skip temporary CTE tables
+            }
+
             if (!AllowedTables.Contains(tableName))
             {
                 _logger.LogWarning($"Unauthorized table referenced: {tableName}");
@@ -743,164 +989,6 @@ Generate a safe T-SQL SELECT query:";
         };
     }
 
-    private string GenerateFallbackQuery(string question)
-    {
-        var lowerQuestion = question.ToLowerInvariant();
-
-        // Disposals & gain/loss
-        if (lowerQuestion.Contains("dispos") || lowerQuestion.Contains("gain") || lowerQuestion.Contains("loss on"))
-        {
-            return @"SELECT TOP 100 a.AssetTag, a.Name, c.Name AS Category, a.PurchasePrice,
-                    a.DisposalDate, a.DisposalValue,
-                    (a.DisposalValue - a.PurchasePrice) AS GainLossOnDisposal,
-                    d.Name AS Department
-                    FROM Assets a
-                    LEFT JOIN Categories c ON a.CategoryId = c.CategoryId
-                    LEFT JOIN Departments d ON a.DepartmentId = d.DepartmentId
-                    WHERE a.DisposalDate IS NOT NULL
-                    ORDER BY a.DisposalDate DESC";
-        }
-
-        // Depreciation
-        if (lowerQuestion.Contains("depreciation") || lowerQuestion.Contains("depreciat"))
-        {
-            return @"SELECT TOP 100 a.AssetTag, a.Name, c.Name AS Category, a.PurchasePrice,
-                    c.DepreciationRate,
-                    a.PurchasePrice * ISNULL(c.DepreciationRate, 0) / 100.0 AS AnnualDepreciation,
-                    a.PurchasePrice * ISNULL(c.DepreciationRate, 0) / 12.0 / 100.0 AS MonthlyDepreciation,
-                    a.PurchaseDate,
-                    DATEDIFF(YEAR, a.PurchaseDate, GETDATE()) AS AgeInYears
-                    FROM Assets a
-                    INNER JOIN Categories c ON a.CategoryId = c.CategoryId
-                    WHERE a.PurchasePrice IS NOT NULL AND c.DepreciationRate IS NOT NULL
-                      AND (a.DisposalDate IS NULL OR a.Status != 'Disposed')
-                    ORDER BY AnnualDepreciation DESC";
-        }
-
-        // Department
-        if (lowerQuestion.Contains("department"))
-        {
-            if (lowerQuestion.Contains("count") || lowerQuestion.Contains("how many"))
-            {
-                return @"SELECT d.Name AS Department, 
-                        COUNT(a.AssetId) AS AssetCount,
-                        SUM(ISNULL(a.PurchasePrice, 0)) AS TotalValue
-                        FROM Assets a
-                        LEFT JOIN Departments d ON a.DepartmentId = d.DepartmentId
-                        GROUP BY d.Name
-                        ORDER BY AssetCount DESC";
-            }
-            return @"SELECT TOP 100 a.AssetTag, a.Name AS AssetName, a.Status, a.Condition,
-                    d.Name AS Department, c.Name AS Category, l.Name AS Location
-                    FROM Assets a
-                    LEFT JOIN Departments d ON a.DepartmentId = d.DepartmentId
-                    LEFT JOIN Categories c ON a.CategoryId = c.CategoryId
-                    LEFT JOIN Locations l ON a.LocationId = l.LocationId
-                    WHERE d.Name IS NOT NULL
-                    ORDER BY d.Name, a.Name";
-        }
-
-        // Status
-        if (lowerQuestion.Contains("status"))
-        {
-            return @"SELECT Status, 
-                    COUNT(*) AS Count,
-                    SUM(ISNULL(PurchasePrice, 0)) AS TotalValue
-                    FROM Assets
-                    GROUP BY Status
-                    ORDER BY Count DESC";
-        }
-
-        // Location
-        if (lowerQuestion.Contains("location") || lowerQuestion.Contains("where"))
-        {
-            return @"SELECT l.Name AS Location, l.Campus, l.Building,
-                    COUNT(a.AssetId) AS AssetCount,
-                    SUM(ISNULL(a.PurchasePrice, 0)) AS TotalValue
-                    FROM Assets a
-                    LEFT JOIN Locations l ON a.LocationId = l.LocationId
-                    GROUP BY l.Name, l.Campus, l.Building
-                    ORDER BY AssetCount DESC";
-        }
-
-        // Warranty
-        if (lowerQuestion.Contains("warranty") || lowerQuestion.Contains("expir"))
-        {
-            return @"SELECT TOP 50 AssetTag, Name, WarrantyExpiry,
-                    DATEDIFF(DAY, GETDATE(), WarrantyExpiry) AS DaysUntilExpiry,
-                    PurchasePrice, Status
-                    FROM Assets
-                    WHERE WarrantyExpiry IS NOT NULL
-                    AND WarrantyExpiry > GETDATE()
-                    ORDER BY WarrantyExpiry";
-        }
-
-        // Maintenance
-        if (lowerQuestion.Contains("maintenance") || lowerQuestion.Contains("repair"))
-        {
-            return @"SELECT TOP 50 a.AssetTag, a.Name, a.Condition, a.Status,
-                    c.Name AS Category, d.Name AS Department,
-                    MAX(h.Timestamp) AS LastMaintenanceDate
-                    FROM Assets a
-                    LEFT JOIN Categories c ON a.CategoryId = c.CategoryId
-                    LEFT JOIN Departments d ON a.DepartmentId = d.DepartmentId
-                    LEFT JOIN AssetHistories h ON a.AssetId = h.AssetId AND h.Action = 'Maintenance'
-                    WHERE a.Condition IN ('Fair', 'Poor', 'Broken') OR a.Status = 'Under Maintenance'
-                    GROUP BY a.AssetTag, a.Name, a.Condition, a.Status, c.Name, d.Name
-                    ORDER BY a.Condition, LastMaintenanceDate";
-        }
-
-        // Value / cost / price
-        if (lowerQuestion.Contains("value") || lowerQuestion.Contains("cost") || lowerQuestion.Contains("price") || lowerQuestion.Contains("worth"))
-        {
-            return @"SELECT TOP 50 a.AssetTag, a.Name, a.PurchasePrice,
-                    c.Name AS Category, c.DepreciationRate,
-                    (a.PurchasePrice * ISNULL(c.DepreciationRate, 0) / 100.0) AS AnnualDepreciation,
-                    a.PurchaseDate,
-                    DATEDIFF(YEAR, a.PurchaseDate, GETDATE()) AS AgeInYears
-                    FROM Assets a
-                    INNER JOIN Categories c ON a.CategoryId = c.CategoryId
-                    WHERE a.PurchasePrice IS NOT NULL
-                    ORDER BY a.PurchasePrice DESC";
-        }
-
-        // Category
-        if (lowerQuestion.Contains("categor"))
-        {
-            return @"SELECT c.Name AS Category, c.DepreciationRate,
-                    COUNT(a.AssetId) AS AssetCount,
-                    SUM(ISNULL(a.PurchasePrice, 0)) AS TotalValue
-                    FROM Categories c
-                    LEFT JOIN Assets a ON c.CategoryId = a.CategoryId
-                    GROUP BY c.Name, c.DepreciationRate
-                    ORDER BY AssetCount DESC";
-        }
-
-        // User / assigned / person
-        if (lowerQuestion.Contains("user") || lowerQuestion.Contains("assign") || lowerQuestion.Contains("person") || lowerQuestion.Contains("staff"))
-        {
-            return @"SELECT TOP 100 CONCAT(u.FirstName, ' ', u.Surname) AS UserName, u.Email, u.JobRole,
-                    COUNT(a.AssetId) AS AssignedAssets,
-                    SUM(ISNULL(a.PurchasePrice, 0)) AS TotalValue
-                    FROM AspNetUsers u
-                    LEFT JOIN Assets a ON u.Id = a.AssignedToUserId
-                    GROUP BY u.FirstName, u.Surname, u.Email, u.JobRole
-                    ORDER BY AssignedAssets DESC";
-        }
-
-        // Default: comprehensive asset listing
-        return @"SELECT TOP 100 a.AssetTag, a.Name, a.Status, a.Condition,
-                a.PurchasePrice,
-                c.Name AS Category, c.DepreciationRate,
-                d.Name AS Department,
-                l.Name AS Location, l.Campus,
-                a.DisposalDate
-                FROM Assets a
-                LEFT JOIN Categories c ON a.CategoryId = c.CategoryId
-                LEFT JOIN Departments d ON a.DepartmentId = d.DepartmentId
-                LEFT JOIN Locations l ON a.LocationId = l.LocationId
-                ORDER BY a.Name";
-    }
 }
 
 // Schema classes

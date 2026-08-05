@@ -5,21 +5,31 @@
             "name": "AssetTag",
             "type": "dotnet",
             "request": "launch",
-            "projectPath": "${workspaceFolder}/AssetTag/AssetTag.csproj",
-            "launchProfile": "https"
+            "projectPath": "${workspaceFolder}/AssetTag/AssetTag.csproj"
         },
         {
             "name": "Portal",
             "type": "dotnet",
             "request": "launch",
-            "projectPath": "${workspaceFolder}/Portal/Portal.csproj",
-            "launchProfile": "https"
+            "projectPath": "${workspaceFolder}/Portal/Portal.csproj"
+        },
+        {
+            "name": "MobileApp",
+            "type": "dotnet",
+            "request": "launch",
+            "projectPath": "${workspaceFolder}/MobileApp/MobileApp.csproj",
+            "preLaunchTask": "build MobileApp"
         }
     ],
     "compounds": [
         {
             "name": "Launch AssetTag + Portal",
             "configurations": ["AssetTag", "Portal"],
+            "stopAll": true
+        },
+        {
+            "name": "Launch AssetTag + Portal + MobileApp",
+            "configurations": ["AssetTag", "Portal", "MobileApp"],
             "stopAll": true
         }
     ]

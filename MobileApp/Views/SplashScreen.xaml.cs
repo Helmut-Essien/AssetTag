@@ -8,13 +8,18 @@ namespace MobileApp.Views
         private bool _isAnimating = false;
         private readonly IAuthService _authService;
         private readonly INavigationService _navigationService;
+        private readonly MigrationBackgroundService _migrationService;
 
         // Constructor injection - proper DI pattern
-        public SplashScreen(IAuthService authService, INavigationService navigationService)
+        public SplashScreen(
+            IAuthService authService,
+            INavigationService navigationService,
+            MigrationBackgroundService migrationService)
         {
             InitializeComponent();
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+            _migrationService = migrationService ?? throw new ArgumentNullException(nameof(migrationService));
             BindingContext = new SplashScreenViewModel();
         }
 
@@ -29,12 +34,11 @@ namespace MobileApp.Views
             _isAnimating = true;
             _ = AnimateLoadingDots();
             
-            // Run minimum display time and auth check concurrently for faster startup
-            // This ensures branding is visible for at least 1.5s while auth happens in parallel
+            // Run minimum display time and auth check concurrently for faster startup.
+            // Auth check waits for DB migrations before opening main tabs.
             var minimumDisplayTask = Task.Delay(1500);
             var authCheckTask = PerformAuthenticationCheckAsync();
             
-            // Wait for both to complete
             await Task.WhenAll(minimumDisplayTask, authCheckTask);
             
             // Navigation happens inside PerformAuthenticationCheckAsync
@@ -45,6 +49,9 @@ namespace MobileApp.Views
         {
             try
             {
+                // Ensure local SQLite schema exists before opening main tabs
+                await _migrationService.WaitForCompletionAsync();
+
                 // Check if user is already logged in with valid tokens
                 var (accessToken, refreshToken) = await _authService.GetStoredTokensAsync();
                 

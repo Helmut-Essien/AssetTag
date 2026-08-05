@@ -26,6 +26,15 @@ namespace MobileApp.ViewModels
         [ObservableProperty]
         private string appVersion = "Loading...";
 
+        [ObservableProperty]
+        private bool betaUpdatesEnabled;
+
+        [ObservableProperty]
+        private string betaUpdatesStatusText = "Stable releases only";
+
+        [ObservableProperty]
+        private string updateChannelLabel = "Production";
+
         private bool _isInitializing = false;
 
         public SettingsViewModel(
@@ -42,6 +51,7 @@ namespace MobileApp.ViewModels
             
             // Set app version
             AppVersion = $"Version {_versionCheckService.GetCurrentVersion()}";
+            RefreshChannelDisplay();
         }
 
         /// <summary>
@@ -50,6 +60,49 @@ namespace MobileApp.ViewModels
         public async Task InitializeAsync()
         {
             await LoadBiometricStatusAsync();
+            LoadUpdateChannel();
+        }
+
+        private void LoadUpdateChannel()
+        {
+            _isInitializing = true;
+            try
+            {
+                BetaUpdatesEnabled = _versionCheckService.IsBetaUpdatesEnabled;
+                RefreshChannelDisplay();
+            }
+            finally
+            {
+                _isInitializing = false;
+            }
+        }
+
+        private void RefreshChannelDisplay()
+        {
+            if (BetaUpdatesEnabled)
+            {
+                BetaUpdatesStatusText = "Pre-releases and stable versions";
+                UpdateChannelLabel = "Beta";
+            }
+            else
+            {
+                BetaUpdatesStatusText = "Stable releases only";
+                UpdateChannelLabel = "Production";
+            }
+
+            AppVersion = $"Version {_versionCheckService.GetCurrentVersion()} · {UpdateChannelLabel}";
+        }
+
+        /// <summary>
+        /// Handle beta updates toggle
+        /// </summary>
+        partial void OnBetaUpdatesEnabledChanged(bool value)
+        {
+            if (_isInitializing)
+                return;
+
+            _versionCheckService.SetBetaUpdatesEnabled(value);
+            RefreshChannelDisplay();
         }
 
         /// <summary>
@@ -66,8 +119,8 @@ namespace MobileApp.ViewModels
                 if (BiometricAvailable)
                 {
                     BiometricStatusText = BiometricEnabled
-                        ? "Use fingerprint or face to login"
-                        : "Enable for quick login";
+                        ? "Unlock with fingerprint or face"
+                        : "Sign in faster next time";
                 }
                 else
                 {
@@ -158,7 +211,7 @@ namespace MobileApp.ViewModels
                     {
                         // Enable biometric (credentials already stored above if needed)
                         await _authService.EnableBiometricAuthenticationAsync(storedEmail, storedPassword);
-                        BiometricStatusText = "Use fingerprint or face to login";
+                        BiometricStatusText = "Unlock with fingerprint or face";
                         await _navigationService.DisplayAlertAsync(
                             "Success",
                             "Biometric authentication has been enabled!",
@@ -185,7 +238,7 @@ namespace MobileApp.ViewModels
                     if (confirm)
                     {
                         await _authService.DisableBiometricAuthenticationAsync();
-                        BiometricStatusText = "Enable for quick login";
+                        BiometricStatusText = "Sign in faster next time";
                         await _navigationService.DisplayAlertAsync(
                             "Success",
                             "Biometric authentication has been disabled.",

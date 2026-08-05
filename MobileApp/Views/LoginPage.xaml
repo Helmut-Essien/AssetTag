@@ -6,6 +6,8 @@
     xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
     xmlns:inputLayout="clr-namespace:Syncfusion.Maui.Toolkit.TextInputLayout;assembly=Syncfusion.Maui.Toolkit"
     xmlns:viewmodels="clr-namespace:MobileApp.ViewModels"
+    xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
+    xmlns:mci="clr-namespace:MauiIcons.Core;assembly=MauiIcons.Core"
     x:DataType="viewmodels:LoginViewModel"
     Shell.NavBarIsVisible="False">
 
@@ -183,19 +185,38 @@
                         </buttons:SfButton.Background>
                     </buttons:SfButton>
 
-                    <!--  Biometric Login Button - Compact  -->
-                    <buttons:SfButton
-                        Margin="0,5,0,0"
+                    <!--  Biometric Login  -->
+                    <Border
+                        Margin="0,4,0,0"
                         BackgroundColor="Transparent"
-                        Command="{Binding BiometricLoginCommand}"
-                        CornerRadius="20"
-                        FontSize="14"
-                        HeightRequest="44"
+                        HeightRequest="48"
                         IsVisible="{Binding BiometricEnabled}"
                         Stroke="{StaticResource Primary}"
-                        StrokeThickness="2"
-                        Text="🔐 Login with Biometrics"
-                        TextColor="{StaticResource Secondary}" />
+                        StrokeThickness="1.5"
+                        Padding="0">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="20" />
+                        </Border.StrokeShape>
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding BiometricLoginCommand}" />
+                        </Border.GestureRecognizers>
+                        <HorizontalStackLayout
+                            HorizontalOptions="Center"
+                            Spacing="10"
+                            VerticalOptions="Center">
+                            <Image
+                                WidthRequest="22"
+                                HeightRequest="22"
+                                VerticalOptions="Center"
+                                mci:MauiIcon.Value="{mi:Material Icon=Fingerprint, IconColor=#512BD4}" />
+                            <Label
+                                FontFamily="OpenSansSemibold"
+                                FontSize="15"
+                                Text="Sign in with biometrics"
+                                TextColor="#512BD4"
+                                VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                    </Border>
 
                     <!--  Forgot Password - Compact  -->
                     <Button

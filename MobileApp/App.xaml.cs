@@ -9,6 +9,7 @@ namespace MobileApp
         private readonly BackgroundSyncService _backgroundSyncService;
         private readonly MigrationBackgroundService _migrationService;
         private readonly IVersionCheckService _versionCheckService;
+        private Window? _window;
 
         // Constructor injection for App
         public App(
@@ -26,18 +27,17 @@ namespace MobileApp
             // Migration service starts automatically in its constructor
             // No need to call Start() - it runs migrations in background
 
-            // Start background sync service
-            // Defer starting the background sync slightly so the UI can render the first frame
-            // This avoids heavy work competing with initial UI rendering.
+            // Wait for DB migrations before sync / version check so tables exist
             MainThread.BeginInvokeOnMainThread(async () =>
             {
                 try
                 {
-                    await Task.Delay(200); // give the UI a moment
+                    await _migrationService.WaitForCompletionAsync();
+                    await Task.Delay(50); // let first UI frame settle
                     _backgroundSyncService.Start();
                     
                     // Check for updates after a short delay (non-blocking)
-                    await Task.Delay(2000); // Wait 2 seconds after app start
+                    await Task.Delay(2000);
                     await CheckForUpdatesAsync();
                 }
                 catch (Exception ex)
@@ -52,9 +52,21 @@ namespace MobileApp
 
         protected override Window CreateWindow(IActivationState? activationState)
         {
-            // Resolve AppShell from DI container
+            // Singleton AppShell cannot be wrapped in a new Window on every CreateWindow call
+            // (Android activity recreate / resume). That throws MauiContext is null
+            // (dotnet/maui#27881, #25443). Reuse the existing window instead.
+            if (_window is not null)
+                return _window;
+
+            if (Windows.Count > 0)
+            {
+                _window = Windows[0];
+                return _window;
+            }
+
             var shell = _serviceProvider.GetRequiredService<AppShell>();
-            return new Window(shell);
+            _window = new Window(shell);
+            return _window;
         }
 
         /// <summary>

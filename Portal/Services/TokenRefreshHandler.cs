@@ -10,6 +10,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Sockets;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
@@ -37,6 +38,37 @@ public sealed class TokenRefreshHandler : DelegatingHandler
     }
 
 
+
+    private const int MaxRetries = 3;
+
+    private async Task<HttpResponseMessage> SendWithTransientRetry(
+        HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await base.SendAsync(request, cancellationToken);
+            }
+            catch (HttpRequestException ex) when (attempt < MaxRetries && IsTransient(ex))
+            {
+                _logger.LogDebug(ex, "Transient connection failure on attempt {Attempt}/{MaxRetries}. Retrying...", attempt, MaxRetries);
+                await Task.Delay(TimeSpan.FromSeconds(attempt), cancellationToken);
+            }
+            catch (TaskCanceledException ex) when (attempt < MaxRetries && !cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogDebug(ex, "Request timed out on attempt {Attempt}/{MaxRetries}. Retrying...", attempt, MaxRetries);
+                await Task.Delay(TimeSpan.FromSeconds(attempt), cancellationToken);
+            }
+        }
+    }
+
+    private static bool IsTransient(HttpRequestException ex)
+    {
+        if (ex.InnerException is SocketException se)
+            return se.SocketErrorCode is SocketError.ConnectionRefused or SocketError.TimedOut;
+        return ex.StatusCode is null; // DNS failure, etc.
+    }
 
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
@@ -136,9 +168,21 @@ public sealed class TokenRefreshHandler : DelegatingHandler
         //request.Headers.Add("X-Auth-Token", $"Bearer {accessToken}");
         //_logger.LogInformation("Both Authorization and X-Auth-Token headers added");
 
-        // Make the request
-        
-        var response = await base.SendAsync(request, cancellationToken);
+        HttpResponseMessage response;
+        try
+        {
+            response = await SendWithTransientRetry(request, cancellationToken);
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "API request failed because the backend is unreachable: {Url}", request.RequestUri);
+            return CreateApiUnavailableResponse(request);
+        }
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning(ex, "API request timed out or was canceled by the HTTP client: {Url}", request.RequestUri);
+            return CreateApiTimeoutResponse(request);
+        }
 
         // If not unauthorized, return response
         if (response.StatusCode != HttpStatusCode.Unauthorized)
@@ -184,7 +228,20 @@ public sealed class TokenRefreshHandler : DelegatingHandler
 
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", newAccessToken);
             _logger.LogInformation("Retrying request with refreshed token");
-            return await base.SendAsync(request, cancellationToken);
+            try
+            {
+                return await SendWithTransientRetry(request, cancellationToken);
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning(ex, "Retried API request failed because the backend is unreachable: {Url}", request.RequestUri);
+                return CreateApiUnavailableResponse(request);
+            }
+            catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(ex, "Retried API request timed out or was canceled by the HTTP client: {Url}", request.RequestUri);
+                return CreateApiTimeoutResponse(request);
+            }
         }
 
        
@@ -236,10 +293,24 @@ public sealed class TokenRefreshHandler : DelegatingHandler
             using var authClient = _httpClientFactory.CreateClient("AuthApi");
             var refreshRequest = new TokenResponseDTO(string.Empty, refreshToken);
 
-            var refreshResponse = await authClient.PostAsJsonAsync(
-                "api/auth/refresh-token",
-                refreshRequest,
-                cancellationToken);
+            HttpResponseMessage refreshResponse;
+            try
+            {
+                refreshResponse = await authClient.PostAsJsonAsync(
+                    "api/auth/refresh-token",
+                    refreshRequest,
+                    cancellationToken);
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning(ex, "Refresh token request failed because the backend is unreachable for user {UserId}", userId);
+                return false;
+            }
+            catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(ex, "Refresh token request timed out or was canceled by the HTTP client for user {UserId}", userId);
+                return false;
+            }
 
             if (!refreshResponse.IsSuccessStatusCode)
             {
@@ -343,5 +414,23 @@ public sealed class TokenRefreshHandler : DelegatingHandler
         {
             _logger.LogInformation(ex, "Error signing out user");
         }
+    }
+
+    private static HttpResponseMessage CreateApiUnavailableResponse(HttpRequestMessage request)
+    {
+        return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+        {
+            RequestMessage = request,
+            ReasonPhrase = "AssetTag API is unavailable"
+        };
+    }
+
+    private static HttpResponseMessage CreateApiTimeoutResponse(HttpRequestMessage request)
+    {
+        return new HttpResponseMessage(HttpStatusCode.GatewayTimeout)
+        {
+            RequestMessage = request,
+            ReasonPhrase = "AssetTag API request timed out"
+        };
     }
 }

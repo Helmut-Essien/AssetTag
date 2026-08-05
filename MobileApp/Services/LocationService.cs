@@ -56,16 +56,42 @@ public class LocationService : ILocationService
     /// <summary>
     /// Get a paginated list of locations from local database
     /// </summary>
-    public async Task<List<SharedLocation>> GetLocationsPageAsync(int pageIndex, int pageSize)
+    /// <summary>
+    /// Get a paginated list of locations from local database with optional search/sort in SQL
+    /// </summary>
+    public async Task<List<SharedLocation>> GetLocationsPageAsync(
+        int pageIndex,
+        int pageSize,
+        string? searchText = null,
+        string sortOption = "Name (A-Z)")
     {
         try
         {
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
 
-            return await dbContext.Locations
-                .AsNoTracking()
-                .OrderBy(l => l.Name)
+            var query = dbContext.Locations.AsNoTracking().AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                var term = searchText.Trim();
+                query = query.Where(l =>
+                    l.Name.Contains(term) ||
+                    (l.Campus != null && l.Campus.Contains(term)) ||
+                    (l.Building != null && l.Building.Contains(term)) ||
+                    (l.Room != null && l.Room.Contains(term)));
+            }
+
+            query = sortOption switch
+            {
+                "Name (Z-A)" => query.OrderByDescending(l => l.Name).ThenByDescending(l => l.LocationId),
+                "Campus (A-Z)" => query.OrderBy(l => l.Campus).ThenBy(l => l.Name),
+                "Date Modified (Newest)" => query.OrderByDescending(l => l.DateModified).ThenByDescending(l => l.LocationId),
+                "Date Modified (Oldest)" => query.OrderBy(l => l.DateModified).ThenBy(l => l.LocationId),
+                _ => query.OrderBy(l => l.Name).ThenBy(l => l.LocationId)
+            };
+
+            return await query
                 .Skip(pageIndex * pageSize)
                 .Take(pageSize)
                 .ToListAsync();

@@ -1,4 +1,4 @@
-﻿@page
+@page
 @model Portal.Pages.Reports.IndexModel
 @{
     ViewData["Title"] = "Reports";
@@ -24,27 +24,125 @@
         </div>
     }
 
-    <!-- AI Status Indicator -->
-    <div class="row mb-3">
-        <div class="col-12">
-            <div class="alert @(Model.IsAiConnected ? "alert-success" : "alert-warning")">
-                <i class="bi @(Model.IsAiConnected ? "bi-check-circle" : "bi-exclamation-triangle") me-2"></i>
-                AI Assistant: @(Model.IsAiConnected ? "Connected and Ready" : "Limited Mode - Using fallback queries")
-            </div>
-        </div>
-    </div>
+    <div class="row g-3">
+        @if (Model.IsAdmin)
+        {
+            <div class="col-12">
+                <div class="card report-query-panel">
+                    <div class="card-header bg-dark text-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <h5 class="mb-0"><i class="bi bi-stars me-2"></i>Ask Reports</h5>
+                        <span class="badge @(Model.IsAiConnected ? "bg-success" : "bg-warning text-dark")">
+                            <i class="bi @(Model.IsAiConnected ? "bi-check-circle" : "bi-exclamation-triangle") me-1"></i>
+                            @(Model.IsAiConnected ? "AI ready" : "Limited mode")
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" asp-page-handler="ProcessQuery" class="ai-report-form" data-loading-text="Preparing report...">
+                            <div class="input-group input-group-lg">
+                                <input type="text" name="chatInput" class="form-control"
+                                       placeholder="Ask about assets, departments, locations, warranties, disposals, or values"
+                                       value="@Model.LastReportQuestion"
+                                       required>
+                                <button class="btn btn-primary" type="submit">
+                                    <span class="ready-label"><i class="bi bi-search me-1"></i>Prepare Report</span>
+                                    <span class="loading-label d-none"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Preparing...</span>
+                                </button>
+                            </div>
 
-    <div class="row">
+                            <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+                                <span class="text-muted small">Try</span>
+                                <button type="button" class="btn btn-sm btn-outline-secondary prompt-chip" data-prompt="assets under maintenance">Assets under maintenance</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary prompt-chip" data-prompt="warranty expiring this month">Warranty expiring this month</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary prompt-chip" data-prompt="high value items">High value items</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary prompt-chip" data-prompt="disposed assets">Disposed assets</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary prompt-chip" data-prompt="assets by department">Assets by department</button>
+                            </div>
+
+                            <div class="form-check form-switch mt-3">
+                                <input class="form-check-input" type="checkbox" name="autoQuery" value="true" checked id="autoQuery">
+                                <label class="form-check-label" for="autoQuery">
+                                    Review generated report before showing results
+                                </label>
+                            </div>
+                        </form>
+
+                        @if (!string.IsNullOrEmpty(Model.GeneratedSql))
+                        {
+                            <div class="mt-3 border rounded">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 p-3">
+                                    <div>
+                                        <div class="fw-semibold"><i class="bi bi-shield-check me-1 text-success"></i>Read-only report prepared</div>
+                                        <small class="text-muted">Limited to report data. SQL is available for advanced review.</small>
+                                    </div>
+                                    <form method="post" asp-page-handler="RunSql" class="run-sql-form" data-loading-text="Showing results...">
+                                        <input type="hidden" name="sqlQuery" value="@Model.GeneratedSql">
+                                        <button type="submit" class="btn btn-success">
+                                            <span class="ready-label"><i class="bi bi-play-circle me-1"></i>Show Results</span>
+                                            <span class="loading-label d-none"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Running...</span>
+                                        </button>
+                                    </form>
+                                </div>
+                                <div class="border-top">
+                                    <button class="btn btn-link text-decoration-none w-100 text-start px-3 py-2"
+                                            type="button"
+                                            data-bs-toggle="collapse"
+                                            data-bs-target="#advancedSql"
+                                            aria-expanded="false"
+                                            aria-controls="advancedSql">
+                                        <i class="bi bi-code-slash me-1"></i>Advanced: SQL preview
+                                    </button>
+                                    <div class="collapse" id="advancedSql">
+                                        <div class="p-3 pt-0">
+                                            <div class="d-flex justify-content-end mb-2">
+                                                <button class="btn btn-sm btn-outline-secondary" type="button" onclick="copyToClipboard('sqlQuery')" title="Copy SQL">
+                                                    <i class="bi bi-clipboard"></i>
+                                                </button>
+                                            </div>
+                                            <pre class="mb-0" id="sqlQuery">@Model.GeneratedSql</pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        @{
+                            var recentQuestions = Model.ChatHistory
+                                .Where(message => message.Role == "user")
+                                .Reverse()
+                                .Take(3)
+                                .ToList();
+                        }
+                        @if (recentQuestions.Any())
+                        {
+                            <div class="mt-3">
+                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#recentQuestions" aria-expanded="false" aria-controls="recentQuestions">
+                                    <i class="bi bi-clock-history me-1"></i>Recent questions
+                                </button>
+                                <div class="collapse mt-2" id="recentQuestions">
+                                    <div class="d-flex flex-wrap gap-2">
+                                        @foreach (var question in recentQuestions)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-light border prompt-chip" data-prompt="@question.Content">@question.Content</button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
         <!-- Predefined Reports Section -->
-        <div class="col-lg-6">
-            <div class="card mb-4">
+        <div class="col-12">
+            <div class="card mb-3">
                 <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="bi bi-file-earmark-text me-2"></i>Predefined Reports</h5>
-                    <span class="badge bg-light text-dark">5 Templates</span>
+                    <span class="badge bg-light text-dark">6 Templates</span>
                 </div>
                 <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
+                    <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-6 g-3">
+                        <div class="col">
                             <a asp-page="/Reports/Index" asp-route-reportType="assets-by-status"
                                class="card h-100 report-card text-decoration-none @(Model.SelectedReportType == "assets-by-status" ? "border-primary border-2" : "")">
                                 <div class="card-body text-center">
@@ -60,7 +158,7 @@
                                 </div>
                             </a>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col">
                             <a asp-page="/Reports/Index" asp-route-reportType="assets-by-department"
                                class="card h-100 report-card text-decoration-none @(Model.SelectedReportType == "assets-by-department" ? "border-primary border-2" : "")">
                                 <div class="card-body text-center">
@@ -76,7 +174,7 @@
                                 </div>
                             </a>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col">
                             <a asp-page="/Reports/Index" asp-route-reportType="assets-by-location"
                                class="card h-100 report-card text-decoration-none @(Model.SelectedReportType == "assets-by-location" ? "border-primary border-2" : "")">
                                 <div class="card-body text-center">
@@ -92,7 +190,7 @@
                                 </div>
                             </a>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col">
                             <a asp-page="/Reports/Index" asp-route-reportType="maintenance-schedule"
                                class="card h-100 report-card text-decoration-none @(Model.SelectedReportType == "maintenance-schedule" ? "border-primary border-2" : "")">
                                 <div class="card-body text-center">
@@ -108,7 +206,7 @@
                                 </div>
                             </a>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col">
                             <a asp-page="/Reports/Index" asp-route-reportType="warranty-expiry"
                                class="card h-100 report-card text-decoration-none @(Model.SelectedReportType == "warranty-expiry" ? "border-primary border-2" : "")">
                                 <div class="card-body text-center">
@@ -124,7 +222,7 @@
                                 </div>
                             </a>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col">
                             <a asp-page="/Reports/Index" asp-route-reportType="fixed-assets-schedule"
                                class="card h-100 report-card text-decoration-none @(Model.SelectedReportType == "fixed-assets-schedule" ? "border-primary border-2" : "")">
                                 <div class="card-body text-center">
@@ -142,134 +240,6 @@
                         </div>
                     </div>
 
-                    <div class="mt-4">
-                        <div class="row g-2">
-                            <div class="col-md-6">
-                                <form method="post" asp-page-handler="ExportReport" class="d-grid">
-                                    <input type="hidden" name="format" value="csv">
-                                    <input type="hidden" name="reportType" value="@Model.SelectedReportType">
-                                    <button type="submit" class="btn btn-outline-primary" @(string.IsNullOrEmpty(Model.SelectedReportType) ? "disabled" : "")>
-                                        <i class="bi bi-file-earmark-text me-2"></i>Export as CSV
-                                    </button>
-                                </form>
-                            </div>
-                            <div class="col-md-6">
-                                <form method="post" asp-page-handler="ExportReport" class="d-grid">
-                                    <input type="hidden" name="format" value="excel">
-                                    <input type="hidden" name="reportType" value="@Model.SelectedReportType">
-                                    <button type="submit" class="btn btn-success" @(string.IsNullOrEmpty(Model.SelectedReportType) ? "disabled" : "")>
-                                        <i class="bi bi-file-earmark-excel me-2"></i>Export as Excel
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- AI Chat Interface -->
-        <div class="col-lg-6">
-            <div class="card mb-4 h-100">
-                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="bi bi-robot me-2"></i>AI Report Assistant</h5>
-                    <span class="badge bg-light text-dark">Powered by Groq</span>
-                </div>
-                <div class="card-body d-flex flex-column p-0">
-                    <!-- Chat History -->
-                    <div id="chatContainer" class="flex-grow-1 p-3"
-                         style="height: 350px; overflow-y: auto; background-color: #f8f9fa;">
-                        @foreach (var message in Model.ChatHistory)
-                        {
-                            if (message.Role == "system")
-                            {
-                                <div class="system-message mb-3">
-                                    <div class="alert alert-info p-2">
-                                        <small><strong><i class="bi bi-info-circle me-1"></i>System:</strong> @message.Content</small>
-                                    </div>
-                                </div>
-                            }
-                            else if (message.Role == "user")
-                            {
-                                <div class="user-message mb-3 text-end">
-                                    <div class="d-inline-block">
-                                        <div class="alert alert-primary p-2 mb-1">
-                                            <small>@message.Content</small>
-                                        </div>
-                                        <div class="text-muted" style="font-size: 0.75rem;">
-                                            <i class="bi bi-person-circle me-1"></i>You @message.DisplayTime
-                                        </div>
-                                    </div>
-                                </div>
-                            }
-                            else if (message.Role == "assistant")
-                            {
-                                <div class="ai-message mb-3">
-                                    <div class="d-inline-block">
-                                        <div class="alert alert-secondary p-2 mb-1">
-                                            <small><strong><i class="bi bi-robot me-1"></i>Assistant:</strong> @message.Content</small>
-                                        </div>
-                                        <div class="text-muted" style="font-size: 0.75rem;">
-                                            <i class="bi bi-robot me-1"></i>AI Assistant @message.DisplayTime
-                                        </div>
-                                    </div>
-                                </div>
-                            }
-                        }
-                    </div>
-
-                    <!-- Chat Input Area -->
-                    <div class="border-top p-3">
-                        <form method="post" asp-page-handler="ProcessQuery" class="mb-3">
-                            <div class="input-group">
-                                <input type="text" name="chatInput" class="form-control"
-                                       placeholder="Ask a question about your assets (e.g., 'Show me all laptops in IT department')"
-                                       required>
-                                <button class="btn btn-primary" type="submit" title="Send message">
-                                    <i class="bi bi-send"></i>
-                                </button>
-                            </div>
-
-                            <div class="form-check mt-2">
-                                <input class="form-check-input" type="checkbox" name="autoQuery" value="true" checked id="autoQuery">
-                                <label class="form-check-label" for="autoQuery">
-                                    <small>Show SQL before executing (recommended)</small>
-                                </label>
-                            </div>
-
-                            <div class="mt-2">
-                                <small class="text-muted">Try: "assets under maintenance", "high value items", "warranty expiring this month"</small>
-                            </div>
-                        </form>
-
-                        <!-- SQL Query Preview -->
-                        @if (!string.IsNullOrEmpty(Model.GeneratedSql))
-                        {
-                            <div class="mt-3">
-                                <div class="card">
-                                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                                        <small><strong><i class="bi bi-code-slash me-1"></i>Generated SQL Query</strong></small>
-                                        <button class="btn btn-sm btn-outline-secondary" onclick="copyToClipboard('sqlQuery')" title="Copy SQL">
-                                            <i class="bi bi-clipboard"></i>
-                                        </button>
-                                    </div>
-                                    <div class="card-body p-2">
-                                        <pre class="mb-0" id="sqlQuery" style="font-size: 12px; max-height: 150px; overflow-y: auto;">@Model.GeneratedSql</pre>
-
-                                        <!-- Form to run the SQL -->
-                                        <form method="post" asp-page-handler="RunSql" class="mt-2">
-                                            <input type="hidden" name="sqlQuery" value="@Model.GeneratedSql">
-                                            <div class="d-grid">
-                                                <button type="submit" class="btn btn-sm btn-success">
-                                                    <i class="bi bi-play-circle me-1"></i>Execute This Query
-                                                </button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                        }
-                    </div>
                 </div>
             </div>
         </div>
@@ -347,6 +317,24 @@
                     </div>
                 </div>
                 <div class="card-body">
+                    @if (!string.IsNullOrEmpty(Model.ResultSummary))
+                    {
+                        <div class="alert alert-light border d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                            <div>
+                                <strong>@Model.ResultSummary</strong>
+                                @if (!string.IsNullOrEmpty(Model.ResultSummaryMeta))
+                                {
+                                    <div class="small text-muted">@Model.ResultSummaryMeta</div>
+                                }
+                            </div>
+                            @if (Model.IsAdmin && !string.IsNullOrEmpty(Model.GeneratedSql))
+                            {
+                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#advancedSql" aria-expanded="false" aria-controls="advancedSql">
+                                    <i class="bi bi-code-slash me-1"></i>SQL
+                                </button>
+                            }
+                        </div>
+                    }
                     @if (Model.ReportResults.Any())
                     {
                         @if (Model.SelectedReportType == "fixed-assets-schedule")
@@ -480,13 +468,25 @@
                                                 @foreach (var value in row.Values)
                                                 {
                                                     <td>
-                                                        @if (value is DateTime dateValue)
+                                                        @if (value == null)
                                                         {
-                                                            @dateValue.ToString("yyyy-MM-dd")
+                                                            <span class="text-muted">&mdash;</span>
+                                                        }
+                                                        else if (value is DateTime dateValue)
+                                                        {
+                                                            @dateValue.ToString("dd MMM yyyy")
                                                         }
                                                         else if (value is decimal decimalValue)
                                                         {
                                                             @decimalValue.ToString("N2")
+                                                        }
+                                                        else if (value is int intValue)
+                                                        {
+                                                            @intValue.ToString("N0")
+                                                        }
+                                                        else if (value is long longValue)
+                                                        {
+                                                            @longValue.ToString("N0")
                                                         }
                                                         else
                                                         {
@@ -505,9 +505,9 @@
                     {
                         <div class="text-center text-muted p-5">
                             <i class="bi bi-bar-chart fs-1"></i>
-                            <p class="mt-3">Select a report template or ask the AI assistant a question to see results</p>
+                            <p class="mt-3">Select a report template or ask a reporting question to see results.</p>
                             <div class="mt-3">
-                                <small class="text-muted">Try asking: "Show me all assets" or "List departments with most assets"</small>
+                                <small class="text-muted">Try: "assets under maintenance" or "warranty expiring this month"</small>
                             </div>
                         </div>
                     }
@@ -534,7 +534,10 @@
 
             navigator.clipboard.writeText(text).then(() => {
                 // Show temporary success message
-                const button = element.closest('.card').querySelector('button');
+                const button = document.querySelector(`button[onclick="copyToClipboard('${elementId}')"]`);
+                if (!button) {
+                    return;
+                }
                 const originalHtml = button.innerHTML;
                 button.innerHTML = '<i class="bi bi-check"></i>';
                 button.classList.remove('btn-outline-secondary');
@@ -548,71 +551,46 @@
             });
         }
 
-        // Export table to CSV
-        function exportTableToCSV(tableId, filename = 'report.csv') {
-            const table = document.getElementById(tableId);
-            if (!table) {
-                alert('No data to export');
-                return;
-            }
 
-            let csv = [];
-            const rows = table.querySelectorAll('tr');
-
-            for (const row of rows) {
-                const rowData = [];
-                const cols = row.querySelectorAll('td, th');
-
-                for (const col of cols) {
-                    let text = col.innerText;
-                    // Escape quotes and wrap in quotes if contains comma
-                    text = text.replace(/"/g, '""');
-                    if (text.includes(',') || text.includes('"') || text.includes('\n')) {
-                        text = `"${text}"`;
-                    }
-                    rowData.push(text);
-                }
-
-                csv.push(rowData.join(','));
-            }
-
-            downloadCSV(csv.join('\n'), filename);
-        }
-
-        // Export to Excel (simplified - uses CSV for now)
-        function exportTableToExcel() {
-            const filename = `report_${new Date().toISOString().slice(0, 10)}.xlsx`;
-            exportTableToCSV('reportTable', filename);
-        }
-
-        // Download CSV file
-        function downloadCSV(csv, filename) {
-            const csvFile = new Blob([csv], { type: 'text/csv' });
-            const downloadLink = document.createElement('a');
-            downloadLink.download = filename;
-            downloadLink.href = window.URL.createObjectURL(csvFile);
-            downloadLink.style.display = 'none';
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-            document.body.removeChild(downloadLink);
-        }
 
         // Initialize tooltips
         document.addEventListener('DOMContentLoaded', function() {
-            // Scroll chat to bottom
-            scrollChatToBottom();
-
             // Initialize Bootstrap tooltips
             var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl);
             });
 
-            // Auto-focus chat input
+            // Auto-focus report input
             const chatInput = document.querySelector('input[name="chatInput"]');
             if (chatInput) {
                 chatInput.focus();
             }
+
+            document.querySelectorAll('.prompt-chip').forEach(function(button) {
+                button.addEventListener('click', function() {
+                    const input = document.querySelector('input[name="chatInput"]');
+                    if (!input) {
+                        return;
+                    }
+
+                    input.value = button.dataset.prompt || button.textContent.trim();
+                    input.focus();
+                });
+            });
+
+            document.querySelectorAll('.ai-report-form, .run-sql-form').forEach(function(form) {
+                form.addEventListener('submit', function() {
+                    const submitButton = form.querySelector('button[type="submit"]');
+                    if (!submitButton) {
+                        return;
+                    }
+
+                    submitButton.querySelector('.ready-label')?.classList.add('d-none');
+                    submitButton.querySelector('.loading-label')?.classList.remove('d-none');
+                    submitButton.disabled = true;
+                });
+            });
         });
 
         // Auto-resize SQL query display
@@ -667,13 +645,13 @@
     <style>
         .report-card {
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
             border: 1px solid #dee2e6;
+            border-radius: 8px;
         }
 
             .report-card:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+                box-shadow: 0 4px 14px rgba(0,0,0,0.08);
                 border-color: #0d6efd;
             }
 
@@ -681,39 +659,30 @@
                 border-width: 2px !important;
             }
 
-        .user-message .alert {
-            max-width: 80%;
-            margin-left: auto;
-        }
-
-        .ai-message .alert {
-            max-width: 80%;
-            margin-right: auto;
-        }
-
-        .system-message .alert {
-            max-width: 90%;
-            margin: 0 auto;
+        .report-query-panel {
+            border-radius: 8px;
         }
 
         #sqlQuery {
             background-color: #f8f9fa;
             border: 1px solid #dee2e6;
-            border-radius: 4px;
+            border-radius: 6px;
             padding: 10px;
             white-space: pre-wrap;
             word-break: break-word;
             font-family: 'Courier New', monospace;
-            background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+            font-size: 12px;
+            max-height: 180px;
+            overflow-y: auto;
         }
 
-        #chatContainer {
-            scroll-behavior: smooth;
+        .prompt-chip {
+            border-radius: 999px;
+            white-space: nowrap;
         }
 
-        .chat-timestamp {
-            font-size: 0.7rem;
-            opacity: 0.7;
+        .table-responsive {
+            min-height: 0;
         }
     </style>
 }
