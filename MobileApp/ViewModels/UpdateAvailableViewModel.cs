@@ -62,14 +62,17 @@ namespace MobileApp.ViewModels
 
             Title = versionInfo.IsMandatory ? "Critical Update Required" : "Update Available";
             CurrentVersion = _versionCheckService.GetCurrentVersion();
-            LatestVersion = versionInfo.LatestVersion;
+            LatestVersion = versionInfo.IsPrerelease
+                ? $"{versionInfo.LatestVersion} (beta)"
+                : versionInfo.LatestVersion;
             IsMandatory = versionInfo.IsMandatory;
             HasReleaseNotes = !string.IsNullOrEmpty(versionInfo.ReleaseNotesUrl);
 
-            // Set subtitle
             Subtitle = versionInfo.IsMandatory
                 ? "This update is required to continue using the app"
-                : $"A new version is available";
+                : versionInfo.IsPrerelease
+                    ? "A new beta version is available"
+                    : "A new version is available";
 
             // Format file size
             if (versionInfo.FileSize > 0)

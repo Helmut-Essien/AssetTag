@@ -323,6 +323,72 @@
                            FontAttributes="Bold"
                            TextColor="#333333"
                            Margin="0,0,0,4"/>
+
+                    <!-- Beta updates toggle -->
+                    <Border BackgroundColor="White"
+                            Stroke="#EEEEEE"
+                            StrokeThickness="1"
+                            Padding="16"
+                            MinimumHeightRequest="72">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="12"/>
+                        </Border.StrokeShape>
+                        <Border.Shadow>
+                            <Shadow Brush="Black" Opacity="0.04" Radius="6" Offset="0,1"/>
+                        </Border.Shadow>
+                        <Grid ColumnDefinitions="Auto,*,Auto"
+                              ColumnSpacing="14"
+                              VerticalOptions="Center">
+                            <Border Grid.Column="0"
+                                    BackgroundColor="#FFF8E1"
+                                    WidthRequest="44"
+                                    HeightRequest="44"
+                                    Stroke="Transparent"
+                                    VerticalOptions="Center">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="22"/>
+                                </Border.StrokeShape>
+                                <Image WidthRequest="24"
+                                       HeightRequest="24"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center"
+                                       mci:MauiIcon.Value="{mi:Material Icon=Science, IconColor=#F9A825}"/>
+                            </Border>
+
+                            <VerticalStackLayout Grid.Column="1"
+                                               VerticalOptions="Center"
+                                               Spacing="2">
+                                <Label Text="Beta updates"
+                                       FontFamily="OpenSansSemibold"
+                                       FontSize="16"
+                                       TextColor="#212121"/>
+                                <Label Text="{Binding BetaUpdatesStatusText}"
+                                       FontFamily="OpenSansRegular"
+                                       FontSize="13"
+                                       TextColor="#666666"
+                                       LineBreakMode="WordWrap"/>
+                            </VerticalStackLayout>
+
+                            <Border Grid.Column="2"
+                                    BackgroundColor="{Binding BetaUpdatesEnabled, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#005A9C|#BDBDBD'}"
+                                    Stroke="Transparent"
+                                    WidthRequest="52"
+                                    HeightRequest="32"
+                                    VerticalOptions="Center"
+                                    HorizontalOptions="End"
+                                    Padding="0">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="16"/>
+                                </Border.StrokeShape>
+                                <Switch IsToggled="{Binding BetaUpdatesEnabled}"
+                                        OnColor="#005A9C"
+                                        ThumbColor="White"
+                                        BackgroundColor="Transparent"
+                                        VerticalOptions="Center"
+                                        HorizontalOptions="Center"/>
+                            </Border>
+                        </Grid>
+                    </Border>
                     
                     <!-- Check for Updates Button -->
                     <Border BackgroundColor="White"
@@ -385,12 +451,6 @@
                                FontSize="12"
                                HorizontalOptions="Center"
                                TextColor="#999999"/>
-                        <Label Text="✅ Update Test - Build Working!"
-                               FontFamily="OpenSansRegular"
-                               FontSize="11"
-                               HorizontalOptions="Center"
-                               TextColor="#4CAF50"
-                               Margin="0,4,0,0"/>
                     </VerticalStackLayout>
                 </VerticalStackLayout>
                 
