@@ -16,6 +16,11 @@ Dependency chain: `MobileApp` → `MobileData` → `Shared` ← `AssetTag` ← `
 
 `Portal` calls `AssetTag` over HTTP. They are separate processes and must both run for local dev.
 
+**Hosted URLs (repo secrets in CI):**
+- API `FrontendBaseUrl` — public Portal URL used in invitation/password-reset emails (`FRONTEND_BASE_URL`)
+- Portal `Api:BaseUrl` — API the Portal talks to (`API_BASE_URL`)  
+Set via GitHub Actions secrets in deploy, or `appsettings.Development.json` / user secrets locally. Never hardcode production/test hostnames in workflow or base appsettings.
+
 ## Essential commands
 
 ```bash
@@ -71,3 +76,12 @@ Read the relevant skill file before modifying the mobile app.
 ## CI/CD
 
 Triggered on push to `master` when any project source changes. Key jobs: detect-changes → build-and-publish → run-migrations → deploy (API/Portal via Web Deploy) → build-android (signed APK) → release-android (GitHub Release).
+
+**Required Actions secrets** (Settings → Secrets and variables → Actions → Secrets) for deploy-time appsettings:
+
+| Secret | Used by | Example (current test host) |
+|---|---|---|
+| `FRONTEND_BASE_URL` | API — invitation / password-reset links | `https://mugasset.runasp.net/` |
+| `API_BASE_URL` | Portal — `Api:BaseUrl` for HttpClients | `https://mugassetapi.runasp.net/` |
+
+Local overrides: `appsettings.Development.json` or user secrets (`FrontendBaseUrl`, `Api:BaseUrl`). Do not hardcode hosted URLs in workflow or base `appsettings.json`.

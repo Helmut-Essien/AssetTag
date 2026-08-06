@@ -1029,9 +1029,14 @@ namespace AssetTag.Controllers
                 
                 var token = await _userManager.GeneratePasswordResetTokenAsync(fullUser);
 
-                // Prepare email data
-                var frontendBaseUrl = _configuration["FrontendBaseUrl"] ?? "https://1qtrdwgx-44369.uks1.devtunnels.ms";
-                var resetUrl = $"{frontendBaseUrl}/Account/ResetPassword";
+                // Prepare email data — FrontendBaseUrl is required env config (CI: secrets.FRONTEND_BASE_URL)
+                var frontendBaseUrl = _configuration["FrontendBaseUrl"];
+                if (string.IsNullOrWhiteSpace(frontendBaseUrl))
+                {
+                    _logger.LogError("FrontendBaseUrl is not configured; cannot build password reset link");
+                    return StatusCode(500, new { Message = "Server configuration error." });
+                }
+                var resetUrl = $"{frontendBaseUrl.TrimEnd('/')}/Account/ResetPassword";
 
                 var userEmail = user.Email ?? "";
                 // Fire and forget email for performance
