@@ -10,7 +10,7 @@ using System.Text.Json;
 
 namespace Portal.Pages.Diagnostics;
 
-[Authorize]
+[Authorize(Roles = "Admin")]
 public class TokenDiagnosticsModel : PageModel
 {
     private readonly HttpClient _httpClient;
@@ -28,7 +28,6 @@ public class TokenDiagnosticsModel : PageModel
     }
 
     public bool IsAuthenticated { get; set; }
-    public string? RawToken { get; set; }
     public string? TruncatedToken { get; set; }
     public TokenValidationResult? ValidationResult { get; set; }
     public List<TokenClaim>? TokenClaims { get; set; }
@@ -104,13 +103,10 @@ public class TokenDiagnosticsModel : PageModel
                 return Page();
             }
 
-            RawToken = token;
+            // Never put the full JWT in page HTML (XSS/leak). UI shows TruncatedToken only.
             TruncatedToken = TruncateToken(token);
 
-            _logger.LogDebug("Token retrieved - Length: {TokenLength}, Truncated: {TruncatedToken}, CorrelationId: {CorrelationId}",
-                token.Length, TruncatedToken, CorrelationId);
-
-            // Parse token claims
+            // Parse claims from in-memory token only (not assigned to RawToken)
             var parseStopwatch = Stopwatch.StartNew();
             TokenClaims = ParseTokenClaims(token);
             parseStopwatch.Stop();
@@ -170,12 +166,7 @@ public class TokenDiagnosticsModel : PageModel
             _logger.LogInformation("Validating custom token - Length: {TokenLength}, CorrelationId: {CorrelationId}",
                 customToken.Length, CorrelationId);
 
-            // Validate custom token entered by user
-            RawToken = customToken;
             TruncatedToken = TruncateToken(customToken);
-
-            _logger.LogDebug("Custom token truncated - Original: {TokenLength}, Truncated: {TruncatedToken}, CorrelationId: {CorrelationId}",
-                customToken.Length, TruncatedToken, CorrelationId);
 
             var parseStopwatch = Stopwatch.StartNew();
             TokenClaims = ParseTokenClaims(customToken);
@@ -445,7 +436,7 @@ public class TokenDiagnosticsModel : PageModel
             CorrelationId,
             UserId,
             IsAuthenticated,
-            TokenLength = RawToken?.Length ?? 0,
+            TokenLength = TruncatedToken?.Length ?? 0,
             ValidationResult = ValidationResult?.IsValid ?? false,
             ValidationMessage = ValidationResult?.Message,
             ClaimsCount = TokenClaims?.Count ?? 0,

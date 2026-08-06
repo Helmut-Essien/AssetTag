@@ -129,7 +129,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
           GITHUB_OWNER: ${{ github.repository_owner }}
           GITHUB_REPO: ${{ github.event.repository.name }}
+          # Hosted Portal URL for invitation / password-reset links (repo secret).
+          FRONTEND_BASE_URL: ${{ secrets.FRONTEND_BASE_URL }}
         run: |
+          if [ -z "$FRONTEND_BASE_URL" ]; then
+            echo "ERROR: Repository secret FRONTEND_BASE_URL is not set."
+            echo "Settings → Secrets and variables → Actions → Secrets"
+            echo "Example: https://mugasset.runasp.net/"
+            exit 1
+          fi
+
+          # Normalize trailing slash for consistent email link URLs
+          FRONTEND_BASE_URL="${FRONTEND_BASE_URL%/}/"
+
           dotnet publish AssetTag/AssetTag.csproj \
             --configuration Release \
             --output ./publish/api \
@@ -143,6 +155,7 @@ jobs:
           # LatestVersion/DownloadUrl come from MobileApp.csproj via get-mobile-version.
           # Hardcode/edit MinimumSupportedVersion below ONLY when you must force-update
           # clients older than that version (mandatory update prompt).
+          # FrontendBaseUrl: required repo secret (never hardcode test/prod hosts here).
           cat > ./publish/api/appsettings.Production.json << EOF
           {
             "ConnectionStrings": { "DefaultConnection": "$CONN" },
@@ -155,6 +168,7 @@ jobs:
               "Username": "$EMAIL_USER",
               "Password": "$EMAIL_PASS"
             },
+            "FrontendBaseUrl": "$FRONTEND_BASE_URL",
             "Groq": {
             "ApiKey": "$APIKey"
             },
@@ -197,7 +211,20 @@ jobs:
 
       - name: Build and Publish Portal (if changed)
         if: needs.detect-changes.outputs.portal-changed == 'true'
+        env:
+          # Hosted API URL the Portal HttpClients call (repo secret).
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
         run: |
+          if [ -z "$API_BASE_URL" ]; then
+            echo "ERROR: Repository secret API_BASE_URL is not set."
+            echo "Settings → Secrets and variables → Actions → Secrets"
+            echo "Example: https://mugassetapi.runasp.net/"
+            exit 1
+          fi
+
+          # Normalize trailing slash for HttpClient BaseAddress
+          API_BASE_URL="${API_BASE_URL%/}/"
+
           dotnet publish Portal/Portal.csproj \
             --configuration Release \
             --output ./publish/portal \
@@ -207,7 +234,8 @@ jobs:
 
           mkdir -p ./publish/portal/logs
 
-          cat > ./publish/portal/appsettings.Production.json << 'EOF'
+          # Api:BaseUrl: required repo secret (never hardcode test/prod hosts here).
+          cat > ./publish/portal/appsettings.Production.json << EOF
           {
             "Logging": {
               "LogLevel": {
@@ -215,7 +243,7 @@ jobs:
                 "Microsoft.AspNetCore": "Warning"
               }
             },
-            "Api": { "BaseUrl": "http://mugassetapi.runasp.net/" },
+            "Api": { "BaseUrl": "$API_BASE_URL" },
             "Dashboard": {
               "EnableCaching": true,
               "CacheDurationMinutes": 5,

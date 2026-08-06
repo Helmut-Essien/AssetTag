@@ -16,13 +16,18 @@ ghanaianCulture.NumberFormat.CurrencyDecimalDigits = 2;
 CultureInfo.DefaultThreadCurrentCulture = ghanaianCulture;
 CultureInfo.DefaultThreadCurrentUICulture = ghanaianCulture;
 
+// Secure cookies in Production; SameAsRequest so local HTTP (launch profile) works.
+var cookieSecurePolicy = builder.Environment.IsDevelopment()
+    ? CookieSecurePolicy.SameAsRequest
+    : CookieSecurePolicy.Always;
+
 builder.Services.AddSession(options =>
 {
     options.IdleTimeout = TimeSpan.FromMinutes(60);
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
     options.Cookie.Name = "Portal.Session";
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SecurePolicy = cookieSecurePolicy;
     options.Cookie.SameSite = SameSiteMode.Strict;
 });
 
@@ -32,10 +37,21 @@ builder.Services.AddScoped<IApiAuthService, ApiAuthService>();
 builder.Services.AddTransient<TokenRefreshHandler>();
 builder.Services.AddScoped<UnauthorizedRedirectHandler>();
 
+// Api:BaseUrl is first-class env config (appsettings / user secrets / CI vars.API_BASE_URL).
+var apiBaseUrl = builder.Configuration["Api:BaseUrl"];
+if (string.IsNullOrWhiteSpace(apiBaseUrl))
+{
+    throw new InvalidOperationException(
+        "Api:BaseUrl is not configured. " +
+        "Local: set Api:BaseUrl in appsettings.Development.json or user secrets. " +
+        "CI: set repository secret API_BASE_URL.");
+}
+var apiBaseUri = new Uri(apiBaseUrl.EndsWith('/') ? apiBaseUrl : apiBaseUrl + "/");
+
 // IMPORTANT: Separate HttpClient for auth operations (no handlers to avoid circular dependencies)
 builder.Services.AddHttpClient("AuthApi", client =>
 {
-    client.BaseAddress = new Uri(builder.Configuration["Api:BaseUrl"] ?? "https://mugassetapi.runasp.net/");
+    client.BaseAddress = apiBaseUri;
     client.DefaultRequestHeaders.Accept.Clear();
     client.DefaultRequestHeaders.Accept.Add(
         new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
@@ -46,7 +62,7 @@ builder.Services.AddHttpClient("AuthApi", client =>
 // CRITICAL: TokenRefreshHandler MUST come BEFORE UnauthorizedRedirectHandler
 builder.Services.AddHttpClient("AssetTagApi", client =>
 {
-    client.BaseAddress = new Uri(builder.Configuration["Api:BaseUrl"] ?? "https://mugassetapi.runasp.net/");
+    client.BaseAddress = apiBaseUri;
     client.DefaultRequestHeaders.Accept.Clear();
     client.DefaultRequestHeaders.Accept.Add(
         new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
@@ -79,7 +95,7 @@ builder.Services.AddAuthentication("PortalCookie")
     {
         options.Cookie.Name = "PortalAuth";
         options.Cookie.HttpOnly = true;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SecurePolicy = cookieSecurePolicy;
         options.Cookie.SameSite = SameSiteMode.Lax; // Allow cookies to be sent on redirects
         options.LoginPath = "/Account/Login";
         options.LogoutPath = "/Account/Logout";
@@ -88,21 +104,22 @@ builder.Services.AddAuthentication("PortalCookie")
         options.Cookie.IsEssential = true;
     });
 
-// Configure anti - forgery for production
-//builder.Services.AddAntiforgery(options =>
-//{
-//    options.HeaderName = "RequestVerificationToken";
-//    options.Cookie.Name = "AntiForgeryToken";
-//    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-//    options.Cookie.SameSite = SameSiteMode.None;
-//    options.SuppressXFrameOptionsHeader = false;
-//});
+// Accept antiforgery token from AJAX header (Users /Assets page scripts send this name)
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "RequestVerificationToken";
+    options.Cookie.Name = "Portal.AntiForgery";
+    options.Cookie.SecurePolicy = cookieSecurePolicy;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+});
 
 builder.Services.AddRazorPages(options =>
 {
     options.Conventions.AuthorizeFolder("/");
     options.Conventions.AllowAnonymousToFolder("/Account");
     options.Conventions.AllowAnonymousToPage("/Unauthorized");
+    options.Conventions.AllowAnonymousToPage("/Forbidden");
+    options.Conventions.AllowAnonymousToPage("/Error");
 });
 
 var app = builder.Build();

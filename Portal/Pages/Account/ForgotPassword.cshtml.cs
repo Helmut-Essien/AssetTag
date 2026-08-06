@@ -63,16 +63,14 @@ namespace Portal.Pages.Account
                 }
                 else
                 {
-                    // Even if the API call fails, show success message for security
-                    SuccessMessage = "If the email exists, a password reset link has been sent.(Syke)";
+                    // Same message when API fails — do not reveal whether the email exists
+                    SuccessMessage = "If the email exists, a password reset link has been sent to your email address.";
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred during forgot password for {Email}", Input.Email);
-                // For security, don't reveal the error - show success message anyway
-                SuccessMessage = "If the email exists, a password reset link has been sent.(Syke)";
-                
+                SuccessMessage = "If the email exists, a password reset link has been sent to your email address.";
             }
 
             // Clear the form

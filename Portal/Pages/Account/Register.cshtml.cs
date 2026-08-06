@@ -89,7 +89,7 @@ namespace Portal.Pages.Account
 
             try
             {
-                _logger.LogInformation("Validating invitation token: {Token}", token);
+                _logger.LogInformation("Validating invitation token (length {Length})", token.Length);
 
                 using var client = CreateApiClient();
                 var response = await client.GetAsync($"api/Invitations/validate/{token}");
@@ -113,8 +113,8 @@ namespace Portal.Pages.Account
                     else
                     {
                         TokenErrorMessage = validationResult?.Message ?? "Invalid or expired invitation token. Please request a new invitation.";
-                        _logger.LogWarning("Invalid invitation token: {Token}, Message: {Message}",
-                            token, validationResult?.Message);
+                        _logger.LogWarning("Invalid invitation token (length {Length}), Message: {Message}",
+                            token.Length, validationResult?.Message);
                         return Page();
                     }
                 }
@@ -139,8 +139,7 @@ namespace Portal.Pages.Account
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error validating invitation token: {Token}, Error: {ErrorMessage}",
-                    token, ex.Message);
+                _logger.LogError(ex, "Error validating invitation token (length {Length})", token.Length);
                 TokenErrorMessage = $"An error occurred while validating your invitation: {ex.Message}. Please try again or request a new invitation.";
                 return Page();
             }
@@ -175,7 +174,7 @@ namespace Portal.Pages.Account
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error re-validating token during POST: {Token}", Input.Token);
+                    _logger.LogError(ex, "Error re-validating invitation token during POST");
                     IsValidToken = false;
                 }
                 return Page();
@@ -247,9 +246,10 @@ namespace Portal.Pages.Account
 
                     // Clear the form
                     ModelState.Clear();
+                    var registeredEmail = registerDto.Email;
                     Input = new InputModel();
 
-                    _logger.LogInformation("Successful registration with invitation for email: {Email}", Input.Email);
+                    _logger.LogInformation("Successful registration with invitation for email: {Email}", registeredEmail);
                 }
                 else
                 {

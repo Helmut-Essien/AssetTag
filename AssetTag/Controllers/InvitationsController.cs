@@ -81,8 +81,7 @@ namespace AssetTag.Controllers
                 await _context.SaveChangesAsync();
 
                 // Send invitation email
-                var frontendBaseUrl = _configuration["FrontendBaseUrl"] ?? "https://1qtrdwgx-44369.uks1.devtunnels.ms";
-                var invitationUrl = $"{frontendBaseUrl}/Account/Register";
+                var invitationUrl = $"{GetFrontendBaseUrl()}/Account/Register";
 
                 var emailSent = await _emailService.SendInvitationEmailAsync(
                     dto.Email,
@@ -177,8 +176,7 @@ namespace AssetTag.Controllers
                 var currentUser = await _userManager.GetUserAsync(User);
 
                 // Send invitation email
-                var frontendBaseUrl = _configuration["FrontendBaseUrl"] ?? "https://1qtrdwgx-44369.uks1.devtunnels.ms";
-                var invitationUrl = $"{frontendBaseUrl}/Account/Register";
+                var invitationUrl = $"{GetFrontendBaseUrl()}/Account/Register";
 
                 var emailSent = await _emailService.SendInvitationEmailAsync(
                     invitation.Email,
@@ -237,8 +235,7 @@ namespace AssetTag.Controllers
                     return Unauthorized();
                 }
 
-                var frontendBaseUrl = _configuration["FrontendBaseUrl"] ?? "https://1qtrdwgx-44369.uks1.devtunnels.ms";
-                var invitationUrl = $"{frontendBaseUrl}/Account/Register";
+                var invitationUrl = $"{GetFrontendBaseUrl()}/Account/Register";
 
                 var results = new List<BulkInvitationResponseDTO>();
                 var successfulInvitations = new List<InvitationResponseDTO>();
@@ -445,6 +442,21 @@ namespace AssetTag.Controllers
             }
         }
 
-        
+        /// <summary>
+        /// Portal public URL for email deep links. Required config (CI: secrets.FRONTEND_BASE_URL).
+        /// </summary>
+        private string GetFrontendBaseUrl()
+        {
+            var url = _configuration["FrontendBaseUrl"];
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                throw new InvalidOperationException(
+                    "FrontendBaseUrl is not configured. " +
+                    "Local: set FrontendBaseUrl in appsettings.Development.json or user secrets. " +
+                    "CI: set repository secret FRONTEND_BASE_URL.");
+            }
+
+            return url.TrimEnd('/');
+        }
     }
 }

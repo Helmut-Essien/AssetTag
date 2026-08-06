@@ -63,12 +63,15 @@
                         </a>
                     </li>
                 }
-                <li class="nav-item">
-                    <a class="nav-link" asp-area="" asp-page="/Users/Index">
-                        <i class="bi bi-people-fill me-2"></i>
-                        <span>Users</span>
-                    </a>
-                </li>
+                @if (UserRoleService.IsInRole("Admin"))
+                {
+                    <li class="nav-item">
+                        <a class="nav-link" asp-area="" asp-page="/Users/Index">
+                            <i class="bi bi-people-fill me-2"></i>
+                            <span>Users</span>
+                        </a>
+                    </li>
+                }
                 <li class="nav-item">
                     <a class="nav-link" asp-area="" asp-page="/Reports/Index">
                         <i class="bi bi-file-earmark-bar-graph me-2"></i>
