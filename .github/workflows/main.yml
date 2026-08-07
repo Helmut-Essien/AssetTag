@@ -121,6 +121,8 @@ jobs:
           JWT: ${{ secrets.JWT_SECURITY_KEY }}
           EMAIL_USER: ${{ secrets.EMAIL_USERNAME }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_FROM_NAME: ${{ secrets.EMAIL_FROM_NAME }}
           APIKey: ${{ secrets.API_KEY }}
           GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
           GITHUB_OWNER: ${{ github.repository_owner }}
@@ -132,6 +134,18 @@ jobs:
             echo "ERROR: Repository secret FRONTEND_BASE_URL is not set."
             echo "Settings → Secrets and variables → Actions → Secrets"
             echo "Example: https://mugasset.runasp.net/"
+            exit 1
+          fi
+
+          if [ -z "$EMAIL_FROM" ]; then
+            echo "ERROR: Repository secret EMAIL_FROM is not set."
+            echo "Settings → Secrets and variables → Actions → Secrets"
+            exit 1
+          fi
+
+          if [ -z "$EMAIL_FROM_NAME" ]; then
+            echo "ERROR: Repository secret EMAIL_FROM_NAME is not set."
+            echo "Settings → Secrets and variables → Actions → Secrets"
             exit 1
           fi
 
@@ -162,7 +176,12 @@ jobs:
             },
             "EmailSettings": {
               "Username": "$EMAIL_USER",
-              "Password": "$EMAIL_PASS"
+              "Password": "$EMAIL_PASS",
+              "FromEmail": "$EMAIL_FROM",
+              "FromName": "$EMAIL_FROM_NAME",
+              "SmtpServer": "smtp.gmail.com",
+              "Port": 587,
+              "EnableSsl": true
             },
             "FrontendBaseUrl": "$FRONTEND_BASE_URL",
             "Groq": {

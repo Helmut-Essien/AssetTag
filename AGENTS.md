@@ -83,5 +83,8 @@ Triggered on push to `master` when any project source changes. Key jobs: detect-
 |---|---|---|
 | `FRONTEND_BASE_URL` | API — invitation / password-reset links | `https://mugasset.runasp.net/` |
 | `API_BASE_URL` | Portal — `Api:BaseUrl` for HttpClients | `https://mugassetapi.runasp.net/` |
+| `EMAIL_USERNAME` / `EMAIL_PASSWORD` | API — SMTP auth | test vs production mailboxes |
+| `EMAIL_FROM` | API — `EmailSettings:FromEmail` | address shown as sender |
+| `EMAIL_FROM_NAME` | API — `EmailSettings:FromName` | display name in client |
 
-Local overrides: `appsettings.Development.json` or user secrets (`FrontendBaseUrl`, `Api:BaseUrl`). Do not hardcode hosted URLs in workflow or base `appsettings.json`.
+Local overrides: `appsettings.Development.json` or user secrets (`FrontendBaseUrl`, `Api:BaseUrl`, `EmailSettings:*`). Do not hardcode hosted URLs or sender identity in workflow or base `appsettings.json`.
