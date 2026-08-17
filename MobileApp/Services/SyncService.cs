@@ -1633,6 +1633,7 @@ public class SyncService : ISyncService, IDisposable
                 dbContext.Categories.RemoveRange(dbContext.Categories);
                 dbContext.Locations.RemoveRange(dbContext.Locations);
                 dbContext.Departments.RemoveRange(dbContext.Departments);
+                dbContext.SkippedAssets.RemoveRange(dbContext.SkippedAssets);
 
                 await dbContext.SaveChangesAsync();
 

@@ -31,9 +31,12 @@ Use this skill when the task involves:
 
 ## Hard rules
 
-- Token refresh returns `TokenRefreshResult`. `IsTransientFailure` (offline, timeout, `HttpRequestException`) must **not** clear SecureStorage tokens.
+- Token refresh returns `TokenRefreshResult`. `IsTransientFailure` (offline, timeout, `HttpRequestException`, 5xx/429) must **not** clear SecureStorage tokens. Only HTTP 401/403 from `/api/auth/refresh-token` is an invalid session.
 - `TokenRefreshHandler` must buffer request content and clone the message before a 401 retry. Do not resend the original `HttpRequestMessage`.
-- Do not kick the user to login from Inventory/Locations/Splash solely because refresh failed while offline. Open main tabs with the stored session instead.
+- Do not kick the user to login from Inventory/Locations/Splash solely because refresh failed while offline or the API returned 5xx. Open main tabs with the stored session instead.
+- Splash must not `ShowLoginAsync()` when startup/migrations fail and tokens are still stored. Retry on splash. `WaitForCompletionAsync` must start a new `MigrateAsync` when the previous task faulted.
+- Explicit logout must call `ClearAllLocalDataAsync` and disable biometric keys. If the wipe fails, abort logout. Session expiry must not wipe SQLite.
+- When DEBUG fallback ping succeeds, set `ApiEndpointSelector` so subsequent Auth/API HTTP calls use `FallbackApiUrl`. Ping the host with a client that does **not** use `ApiEndpointHandler`.
 - Background sync should fail the HTTP call quietly on transient auth failure; it must not wipe the session.
 
 ## Important paths

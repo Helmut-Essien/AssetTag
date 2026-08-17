@@ -157,10 +157,16 @@ finally
 1. Login → Store access token + refresh token
 2. API calls → Attach access token to Authorization header
 3. Token expires → `TokenRefreshHandler` automatically refreshes
-4. Refresh fails **because the session is invalid** → `ShowLoginAsync()` (never `GoToAsync("/LoginPage")`)
-5. Refresh fails **because the device is offline or timed out** → keep tokens, keep using local SQLite. Do not `ClearTokens()` and do not send the user to login.
+4. Refresh fails **because the session is invalid** (refresh endpoint 401/403) → `ShowLoginAsync()` (never `GoToAsync("/LoginPage")`)
+5. Refresh fails **because the device is offline, timed out, or the API returned 5xx/429** → keep tokens, keep using local SQLite. Do not `ClearTokens()` and do not send the user to login.
 
-`RefreshTokenAsync()` returns `TokenRefreshResult`. Use `IsTransientFailure` to distinguish connectivity from an invalid refresh token.
+`RefreshTokenAsync()` returns `TokenRefreshResult`. Use `IsTransientFailure` to distinguish connectivity/server errors from an invalid refresh token. Only 401/403 clear the session.
+
+Explicit **logout** must disable biometric storage and clear local SQLite so the next person on the device cannot resume the previous user's data. If `ClearAllLocalDataAsync` fails, abort logout and keep the session. Session expiry is not logout — keep local data.
+
+Splash: if tokens exist and migrations/startup throw, retry on splash. Do not treat that as logged out. Retry must re-run migrations when the previous attempt faulted.
+
+Health pings for primary vs fallback must not go through `ApiEndpointHandler`. That handler rewrites primary-host URIs to the current fallback, which makes primary look healthy and flips the app back to production.
 
 **Token Validation Pattern** (MUST use in all ViewModels):
 ```csharp

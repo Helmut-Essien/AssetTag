@@ -1,4 +1,5 @@
 using Shared.DTOs;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -12,23 +13,31 @@ namespace MobileApp.Services
     {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ApiSettings _apiSettings;
+        private readonly ApiEndpointSelector _apiEndpoint;
         private const string ACCESS_TOKEN_KEY = "access_token";
         private const string REFRESH_TOKEN_KEY = "refresh_token";
         private const string BIOMETRIC_ENABLED_KEY = "biometric_enabled";
         private const string BIOMETRIC_EMAIL_KEY = "biometric_email";
         private const string BIOMETRIC_PASSWORD_KEY = "biometric_password";
         private const string SESSION_EMAIL_KEY = "session_email";
-        private string _currentBaseUrl;
         private static readonly SemaphoreSlim _refreshLock = new SemaphoreSlim(1, 1);
 
-        public AuthService(IHttpClientFactory httpClientFactory, IOptions<ApiSettings> apiSettings)
+        public AuthService(
+            IHttpClientFactory httpClientFactory,
+            IOptions<ApiSettings> apiSettings,
+            ApiEndpointSelector apiEndpoint)
         {
             _httpClientFactory = httpClientFactory;
             _apiSettings = apiSettings.Value;
-            _currentBaseUrl = _apiSettings.PrimaryApiUrl;
+            _apiEndpoint = apiEndpoint;
         }
 
-        private HttpClient CreateClient() => _httpClientFactory.CreateClient("AuthClient");
+        private HttpClient CreateClient()
+        {
+            var client = _httpClientFactory.CreateClient("AuthClient");
+            client.BaseAddress = new Uri(_apiEndpoint.BaseUrl);
+            return client;
+        }
 
         public async Task<bool> IsConnectedToInternet()
         {
@@ -47,13 +56,7 @@ namespace MobileApp.Services
                 // Try primary API first
                 if (await TryPingApi(_apiSettings.PrimaryApiUrl))
                 {
-                    // Only update if it's different from current
-                    if (_currentBaseUrl != _apiSettings.PrimaryApiUrl)
-                    {
-                        _currentBaseUrl = _apiSettings.PrimaryApiUrl;
-                        // Don't modify the existing HttpClient - it's already been used
-                        // The BaseAddress is set in the constructor and shouldn't change
-                    }
+                    _apiEndpoint.SetBaseUrl(_apiSettings.PrimaryApiUrl);
                     System.Diagnostics.Debug.WriteLine($"Connected to PRIMARY: {_apiSettings.PrimaryApiUrl}");
                     return true;
                 }
@@ -64,11 +67,7 @@ namespace MobileApp.Services
                 #if DEBUG
                 if (await TryPingApi(_apiSettings.FallbackApiUrl))
                 {
-                    if (_currentBaseUrl != _apiSettings.FallbackApiUrl)
-                    {
-                        _currentBaseUrl = _apiSettings.FallbackApiUrl;
-                        // Don't modify the existing HttpClient - it's already been used
-                    }
+                    _apiEndpoint.SetBaseUrl(_apiSettings.FallbackApiUrl);
                     System.Diagnostics.Debug.WriteLine($"Connected to FALLBACK: {_apiSettings.FallbackApiUrl}");
                     return true;
                 }
@@ -88,13 +87,17 @@ namespace MobileApp.Services
         {
             try
             {
+                // Do not use AuthClient: ApiEndpointHandler rewrites primary-host
+                // URIs to the current fallback, which makes a primary ping look
+                // healthy and then flips BaseUrl back to production.
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-                var request = new HttpRequestMessage(HttpMethod.Get, new Uri(new Uri(baseUrl), "api/test/ping"));
-                
-                System.Diagnostics.Debug.WriteLine($"Pinging: {baseUrl}api/test/ping");
-                
-                var response = await CreateClient().SendAsync(request, cts.Token);
-                
+                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+                var requestUri = new Uri(new Uri(baseUrl), "api/test/ping");
+
+                System.Diagnostics.Debug.WriteLine($"Pinging: {requestUri}");
+
+                var response = await client.GetAsync(requestUri, cts.Token);
+
                 System.Diagnostics.Debug.WriteLine($"Response: {response.StatusCode}");
                 return response.IsSuccessStatusCode;
             }
@@ -185,6 +188,7 @@ namespace MobileApp.Services
                 // Always clear local tokens first - this is the critical part for instant logout
                 ClearTokens();
                 SecureStorage.Remove(SESSION_EMAIL_KEY);
+                await DisableBiometricAuthenticationAsync();
 
                 if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
                 {
@@ -214,8 +218,10 @@ namespace MobileApp.Services
             }
             catch (Exception)
             {
-                // Always clear tokens on logout attempt
+                // Always clear tokens and biometric keys on logout attempt
                 ClearTokens();
+                SecureStorage.Remove(SESSION_EMAIL_KEY);
+                await DisableBiometricAuthenticationAsync();
                 return (true, "Logged out successfully");
             }
         }
@@ -367,12 +373,16 @@ namespace MobileApp.Services
                     
                     return TokenRefreshResult.Transient("Invalid response from server");
                 }
-                else
+
+                // Only 401/403 mean the refresh token is actually invalid.
+                // 5xx, 429, 408, etc. must keep the stored session for offline SQLite.
+                if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
                 {
-                    // Refresh token is invalid or expired
                     ClearTokens();
                     return TokenRefreshResult.InvalidSession("Session expired. Please login again.");
                 }
+
+                return TokenRefreshResult.Transient($"Token refresh failed: {(int)response.StatusCode} {response.StatusCode}");
             }
             catch (TaskCanceledException)
             {

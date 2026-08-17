@@ -49,6 +49,31 @@ public partial class AddAssetPage : ContentPage, IQueryAttributable
         await viewModel.RefreshFormLookupsAsync();
     }
 
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+
+        if (BindingContext is AddAssetViewModel viewModel && viewModel.IsLocationPickerOpen)
+            viewModel.CloseLocationPickerCommand.Execute(null);
+    }
+
+    protected override bool OnBackButtonPressed()
+    {
+        if (BindingContext is not AddAssetViewModel viewModel)
+            return base.OnBackButtonPressed();
+
+        if (viewModel.IsLocationPickerOpen)
+        {
+            viewModel.CloseLocationPickerCommand.Execute(null);
+            return true;
+        }
+
+        if (viewModel.CancelCommand.CanExecute(null))
+            _ = viewModel.CancelCommand.ExecuteAsync(null);
+
+        return true;
+    }
+
     private void LocationResult_Tapped(object? sender, TappedEventArgs e)
     {
         if (BindingContext is not AddAssetViewModel viewModel) return;

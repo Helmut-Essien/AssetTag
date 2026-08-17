@@ -97,6 +97,8 @@ namespace MobileApp
             // Register HttpClient and Services
             // ────────────────────────────────────────────────────────────────
             builder.Services.AddTransient<TokenRefreshHandler>();
+            builder.Services.AddSingleton<ApiEndpointSelector>();
+            builder.Services.AddTransient<ApiEndpointHandler>();
             
             // Register AuthService as Singleton with HttpClient and Configuration
             builder.Services.AddSingleton<IAuthService, AuthService>();
@@ -109,14 +111,16 @@ namespace MobileApp
                 client.BaseAddress = new Uri(settings.PrimaryApiUrl);
                 client.Timeout = TimeSpan.FromSeconds(settings.RequestTimeout);
             })
-            .AddHttpMessageHandler<TokenRefreshHandler>();
+            .AddHttpMessageHandler<TokenRefreshHandler>()
+            .AddHttpMessageHandler<ApiEndpointHandler>();
 
             builder.Services.AddHttpClient("AuthClient", (sp, client) =>
             {
                 var settings = sp.GetRequiredService<IOptions<ApiSettings>>().Value;
                 client.BaseAddress = new Uri(settings.PrimaryApiUrl);
                 client.Timeout = TimeSpan.FromSeconds(settings.RequestTimeout);
-            });
+            })
+            .AddHttpMessageHandler<ApiEndpointHandler>();
 
             // ────────────────────────────────────────────────────────────────
             // Register Services for dependency injection
@@ -203,6 +207,7 @@ namespace MobileApp
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<MigrationBackgroundService> _logger;
+        private readonly object _migrationLock = new();
         private Task? _migrationTask;
 
         public MigrationBackgroundService(
@@ -252,16 +257,23 @@ namespace MobileApp
         }
 
         /// <summary>
-        /// Await until migrations finish (success or fault). Callers should handle faults.
+        /// Await until migrations finish (success or fault). A faulted attempt is
+        /// replaced so splash Retry actually re-runs MigrateAsync.
         /// </summary>
         public async Task WaitForCompletionAsync()
         {
-            if (_migrationTask == null)
-                return;
+            Task task;
+            lock (_migrationLock)
+            {
+                if (_migrationTask == null || _migrationTask.IsFaulted || _migrationTask.IsCanceled)
+                    _migrationTask = Task.Run(RunMigrationsAsync);
+
+                task = _migrationTask;
+            }
 
             try
             {
-                await _migrationTask;
+                await task;
             }
             catch (Exception ex)
             {

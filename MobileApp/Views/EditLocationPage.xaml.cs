@@ -30,4 +30,12 @@ public partial class EditLocationPage : ContentPage
         _viewModel = viewModel;
         BindingContext = _viewModel;
     }
+
+    protected override bool OnBackButtonPressed()
+    {
+        if (_viewModel.CancelCommand.CanExecute(null))
+            _ = _viewModel.CancelCommand.ExecuteAsync(null);
+
+        return true;
+    }
 }

@@ -417,6 +417,19 @@ namespace MobileApp.ViewModels
 
                 IsBusy = true;
 
+                try
+                {
+                    await _syncService.ClearAllLocalDataAsync();
+                }
+                catch (Exception ex)
+                {
+                    await _navigationService.DisplayAlertAsync(
+                        "Logout Failed",
+                        $"Could not clear local data. You are still logged in.\n\n{ex.Message}",
+                        "OK");
+                    return;
+                }
+
                 var (success, message) = await _authService.LogoutAsync();
 
                 if (success)

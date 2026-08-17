@@ -3,8 +3,9 @@ using Shared.DTOs;
 namespace MobileApp.Services;
 
 /// <summary>
-/// Outcome of an access-token refresh. Transient failures (offline, timeout)
-/// must not clear the stored session — local SQLite should keep working.
+/// Outcome of an access-token refresh. Transient failures (offline, timeout,
+/// 5xx, 429) must not clear the stored session — local SQLite should keep working.
+/// Only 401/403 from the refresh endpoint are an invalid session.
 /// </summary>
 public readonly record struct TokenRefreshResult(
     bool Succeeded,
