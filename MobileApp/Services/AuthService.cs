@@ -14,6 +14,8 @@ namespace MobileApp.Services
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ApiSettings _apiSettings;
         private readonly ApiEndpointSelector _apiEndpoint;
+        private readonly ISecureStorageService _secureStorage;
+        private readonly INetworkAccessService _networkAccess;
         private const string ACCESS_TOKEN_KEY = "access_token";
         private const string REFRESH_TOKEN_KEY = "refresh_token";
         private const string BIOMETRIC_ENABLED_KEY = "biometric_enabled";
@@ -25,11 +27,15 @@ namespace MobileApp.Services
         public AuthService(
             IHttpClientFactory httpClientFactory,
             IOptions<ApiSettings> apiSettings,
-            ApiEndpointSelector apiEndpoint)
+            ApiEndpointSelector apiEndpoint,
+            ISecureStorageService secureStorage,
+            INetworkAccessService networkAccess)
         {
             _httpClientFactory = httpClientFactory;
             _apiSettings = apiSettings.Value;
             _apiEndpoint = apiEndpoint;
+            _secureStorage = secureStorage;
+            _networkAccess = networkAccess;
         }
 
         private HttpClient CreateClient()
@@ -43,9 +49,7 @@ namespace MobileApp.Services
         {
             try
             {
-                var current = Connectivity.NetworkAccess;
-                
-                if (current != NetworkAccess.Internet)
+                if (!_networkAccess.HasInternetAccess)
                 {
                     System.Diagnostics.Debug.WriteLine("No network access detected");
                     return false;
@@ -91,7 +95,7 @@ namespace MobileApp.Services
                 // URIs to the current fallback, which makes a primary ping look
                 // healthy and then flips BaseUrl back to production.
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+                var client = _httpClientFactory.CreateClient("HealthClient");
                 var requestUri = new Uri(new Uri(baseUrl), "api/test/ping");
 
                 System.Diagnostics.Debug.WriteLine($"Pinging: {requestUri}");
@@ -187,7 +191,7 @@ namespace MobileApp.Services
 
                 // Always clear local tokens first - this is the critical part for instant logout
                 ClearTokens();
-                SecureStorage.Remove(SESSION_EMAIL_KEY);
+                _secureStorage.Remove(SESSION_EMAIL_KEY);
                 await DisableBiometricAuthenticationAsync();
 
                 if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
@@ -220,7 +224,7 @@ namespace MobileApp.Services
             {
                 // Always clear tokens and biometric keys on logout attempt
                 ClearTokens();
-                SecureStorage.Remove(SESSION_EMAIL_KEY);
+                _secureStorage.Remove(SESSION_EMAIL_KEY);
                 await DisableBiometricAuthenticationAsync();
                 return (true, "Logged out successfully");
             }
@@ -231,16 +235,16 @@ namespace MobileApp.Services
         public async Task SaveTokensAsync(string accessToken, string refreshToken)
         {
             // Use asynchronous storage to avoid blocking the calling thread
-            await SecureStorage.SetAsync(ACCESS_TOKEN_KEY, accessToken);
-            await SecureStorage.SetAsync(REFRESH_TOKEN_KEY, refreshToken);
+            await _secureStorage.SetAsync(ACCESS_TOKEN_KEY, accessToken);
+            await _secureStorage.SetAsync(REFRESH_TOKEN_KEY, refreshToken);
         }
 
         public async Task<(string? AccessToken, string? RefreshToken)> GetStoredTokensAsync()
         {
             try
             {
-                var accessToken = await SecureStorage.GetAsync(ACCESS_TOKEN_KEY);
-                var refreshToken = await SecureStorage.GetAsync(REFRESH_TOKEN_KEY);
+                var accessToken = await _secureStorage.GetAsync(ACCESS_TOKEN_KEY);
+                var refreshToken = await _secureStorage.GetAsync(REFRESH_TOKEN_KEY);
                 return (accessToken, refreshToken);
             }
             catch
@@ -251,8 +255,8 @@ namespace MobileApp.Services
 
         public void ClearTokens()
         {
-            SecureStorage.Remove(ACCESS_TOKEN_KEY);
-            SecureStorage.Remove(REFRESH_TOKEN_KEY);
+            _secureStorage.Remove(ACCESS_TOKEN_KEY);
+            _secureStorage.Remove(REFRESH_TOKEN_KEY);
         }
 
         public async Task<(bool Success, string Message)> ForgotPasswordAsync(string email)
@@ -428,22 +432,22 @@ namespace MobileApp.Services
         public async Task EnableBiometricAuthenticationAsync(string email, string password)
         {
             // Store credentials securely for biometric re-authentication
-            await SecureStorage.SetAsync(BIOMETRIC_ENABLED_KEY, "true");
-            await SecureStorage.SetAsync(BIOMETRIC_EMAIL_KEY, email);
-            await SecureStorage.SetAsync(BIOMETRIC_PASSWORD_KEY, password);
+            await _secureStorage.SetAsync(BIOMETRIC_ENABLED_KEY, "true");
+            await _secureStorage.SetAsync(BIOMETRIC_EMAIL_KEY, email);
+            await _secureStorage.SetAsync(BIOMETRIC_PASSWORD_KEY, password);
         }
 
         public Task DisableBiometricAuthenticationAsync()
         {
-            SecureStorage.Remove(BIOMETRIC_ENABLED_KEY);
-            SecureStorage.Remove(BIOMETRIC_EMAIL_KEY);
-            SecureStorage.Remove(BIOMETRIC_PASSWORD_KEY);
+            _secureStorage.Remove(BIOMETRIC_ENABLED_KEY);
+            _secureStorage.Remove(BIOMETRIC_EMAIL_KEY);
+            _secureStorage.Remove(BIOMETRIC_PASSWORD_KEY);
             return Task.CompletedTask;
         }
 
         public async Task<bool> IsBiometricEnabledAsync()
         {
-            var enabled = await SecureStorage.GetAsync(BIOMETRIC_ENABLED_KEY);
+            var enabled = await _secureStorage.GetAsync(BIOMETRIC_ENABLED_KEY);
             return enabled == "true";
         }
 
@@ -451,8 +455,8 @@ namespace MobileApp.Services
         {
             try
             {
-                var email = await SecureStorage.GetAsync(BIOMETRIC_EMAIL_KEY);
-                var password = await SecureStorage.GetAsync(BIOMETRIC_PASSWORD_KEY);
+                var email = await _secureStorage.GetAsync(BIOMETRIC_EMAIL_KEY);
+                var password = await _secureStorage.GetAsync(BIOMETRIC_PASSWORD_KEY);
                 return (email, password);
             }
             catch
@@ -549,7 +553,7 @@ namespace MobileApp.Services
         {
             try
             {
-                await SecureStorage.SetAsync(SESSION_EMAIL_KEY, email);
+                await _secureStorage.SetAsync(SESSION_EMAIL_KEY, email);
             }
             catch (Exception ex)
             {
@@ -561,7 +565,7 @@ namespace MobileApp.Services
         {
             try
             {
-                return await SecureStorage.GetAsync(SESSION_EMAIL_KEY);
+                return await _secureStorage.GetAsync(SESSION_EMAIL_KEY);
             }
             catch
             {

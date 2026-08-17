@@ -65,11 +65,18 @@ public class SyncService : ISyncService, IDisposable
             Message = message
         };
 
-        // FIX #6: Invoke on main thread for UI safety
-        MainThread.BeginInvokeOnMainThread(() =>
+        void Raise() => SyncProgressChanged?.Invoke(this, args);
+        try
         {
-            SyncProgressChanged?.Invoke(this, args);
-        });
+            if (MainThread.IsMainThread)
+                Raise();
+            else
+                MainThread.BeginInvokeOnMainThread(Raise);
+        }
+        catch
+        {
+            Raise();
+        }
 
         _logger.LogDebug("Sync progress: {Phase} - {Current}/{Total} - {Message}",
             phase, current, total, message);

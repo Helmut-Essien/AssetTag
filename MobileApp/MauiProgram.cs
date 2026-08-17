@@ -99,6 +99,8 @@ namespace MobileApp
             builder.Services.AddTransient<TokenRefreshHandler>();
             builder.Services.AddSingleton<ApiEndpointSelector>();
             builder.Services.AddTransient<ApiEndpointHandler>();
+            builder.Services.AddSingleton<ISecureStorageService, MauiSecureStorageService>();
+            builder.Services.AddSingleton<INetworkAccessService, MauiNetworkAccessService>();
             
             // Register AuthService as Singleton with HttpClient and Configuration
             builder.Services.AddSingleton<IAuthService, AuthService>();
@@ -121,6 +123,13 @@ namespace MobileApp
                 client.Timeout = TimeSpan.FromSeconds(settings.RequestTimeout);
             })
             .AddHttpMessageHandler<ApiEndpointHandler>();
+
+            // Health pings must not use ApiEndpointHandler — it rewrites primary
+            // URIs to the current fallback and then looks like primary is up.
+            builder.Services.AddHttpClient("HealthClient", client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(3);
+            });
 
             // ────────────────────────────────────────────────────────────────
             // Register Services for dependency injection
