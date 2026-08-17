@@ -465,4 +465,24 @@ public class LocationService : ILocationService
             return (null, null, $"Error getting location: {ex.Message}");
         }
     }
+
+    public async Task<List<string>> GetLocationNamesAsync()
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
+
+            return await dbContext.Locations
+                .AsNoTracking()
+                .OrderBy(l => l.Name)
+                .Select(l => l.Name)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting location names");
+            return new List<string>();
+        }
+    }
 }

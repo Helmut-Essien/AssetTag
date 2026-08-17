@@ -1,4 +1,5 @@
 using Shared.DTOs;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.IdentityModel.Tokens.Jwt;
@@ -9,7 +10,7 @@ namespace MobileApp.Services
 {
     public class AuthService : IAuthService
     {
-        private readonly HttpClient _httpClient;
+        private readonly IHttpClientFactory _httpClientFactory;
         private readonly ApiSettings _apiSettings;
         private const string ACCESS_TOKEN_KEY = "access_token";
         private const string REFRESH_TOKEN_KEY = "refresh_token";
@@ -17,18 +18,17 @@ namespace MobileApp.Services
         private const string BIOMETRIC_EMAIL_KEY = "biometric_email";
         private const string BIOMETRIC_PASSWORD_KEY = "biometric_password";
         private const string SESSION_EMAIL_KEY = "session_email";
-        private const string SESSION_PASSWORD_KEY = "session_password";
         private string _currentBaseUrl;
         private static readonly SemaphoreSlim _refreshLock = new SemaphoreSlim(1, 1);
 
-        public AuthService(HttpClient httpClient, IOptions<ApiSettings> apiSettings)
+        public AuthService(IHttpClientFactory httpClientFactory, IOptions<ApiSettings> apiSettings)
         {
-            _httpClient = httpClient;
+            _httpClientFactory = httpClientFactory;
             _apiSettings = apiSettings.Value;
             _currentBaseUrl = _apiSettings.PrimaryApiUrl;
-            _httpClient.BaseAddress = new Uri(_currentBaseUrl);
-            _httpClient.Timeout = TimeSpan.FromSeconds(_apiSettings.RequestTimeout);
         }
+
+        private HttpClient CreateClient() => _httpClientFactory.CreateClient("AuthClient");
 
         public async Task<bool> IsConnectedToInternet()
         {
@@ -88,15 +88,12 @@ namespace MobileApp.Services
         {
             try
             {
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-                
-                // Create a temporary request with the base URL to test
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
                 var request = new HttpRequestMessage(HttpMethod.Get, new Uri(new Uri(baseUrl), "api/test/ping"));
                 
                 System.Diagnostics.Debug.WriteLine($"Pinging: {baseUrl}api/test/ping");
                 
-                // Reuse the main HttpClient but with a custom request
-                var response = await _httpClient.SendAsync(request, cts.Token);
+                var response = await CreateClient().SendAsync(request, cts.Token);
                 
                 System.Diagnostics.Debug.WriteLine($"Response: {response.StatusCode}");
                 return response.IsSuccessStatusCode;
@@ -130,7 +127,7 @@ namespace MobileApp.Services
 
                 var loginDto = new LoginDTO(email, password);
 
-                var response = await _httpClient.PostAsJsonAsync("api/auth/login", loginDto);
+                var response = await CreateClient().PostAsJsonAsync("api/auth/login", loginDto);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -139,8 +136,7 @@ namespace MobileApp.Services
                     if (token != null)
                     {
                         await SaveTokensAsync(token.AccessToken, token.RefreshToken);
-                        // Store session credentials for biometric re-enabling
-                        await StoreCurrentSessionCredentialsAsync(email, password);
+                        await StoreCurrentSessionEmailAsync(email);
                         return (true, token, "Login successful");
                     }
 
@@ -188,34 +184,27 @@ namespace MobileApp.Services
 
                 // Always clear local tokens first - this is the critical part for instant logout
                 ClearTokens();
-                
-                // Clear session credentials
                 SecureStorage.Remove(SESSION_EMAIL_KEY);
-                SecureStorage.Remove(SESSION_PASSWORD_KEY);
 
-                // Try to revoke tokens on server in background (best effort, non-blocking)
-                // This ensures the user gets logged out instantly without waiting for network operations
                 if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
                 {
-                    // Fire and forget - don't await this operation
                     _ = Task.Run(async () =>
                     {
                         try
                         {
-                            // Set a short timeout for the logout request (5 seconds)
                             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-                            
-                            _httpClient.DefaultRequestHeaders.Authorization =
-                                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
-
+                            var client = CreateClient();
                             var tokenDto = new TokenResponseDTO(accessToken, refreshToken);
-                            await _httpClient.PostAsJsonAsync("api/auth/logout", tokenDto, cts.Token);
-                            
+                            using var request = new HttpRequestMessage(HttpMethod.Post, "api/auth/logout")
+                            {
+                                Content = JsonContent.Create(tokenDto)
+                            };
+                            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                            await client.SendAsync(request, cts.Token);
                             System.Diagnostics.Debug.WriteLine("Server-side logout successful");
                         }
                         catch (Exception ex)
                         {
-                            // Ignore server errors - local logout already succeeded
                             System.Diagnostics.Debug.WriteLine($"Background server logout failed (non-critical): {ex.Message}");
                         }
                     });
@@ -272,7 +261,7 @@ namespace MobileApp.Services
 
                 var forgotPasswordDto = new ForgotPasswordDTO { Email = email };
                 
-                var response = await _httpClient.PostAsJsonAsync("api/auth/forgot-password", forgotPasswordDto);
+                var response = await CreateClient().PostAsJsonAsync("api/auth/forgot-password", forgotPasswordDto);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -322,7 +311,7 @@ namespace MobileApp.Services
             }
         }
 
-        public async Task<(bool Success, TokenResponseDTO? Token, string Message)> RefreshTokenAsync()
+        public async Task<TokenRefreshResult> RefreshTokenAsync()
         {
             // Prevent concurrent refresh attempts
             await _refreshLock.WaitAsync();
@@ -334,7 +323,7 @@ namespace MobileApp.Services
 
                 if (string.IsNullOrEmpty(refreshToken))
                 {
-                    return (false, null, "No refresh token available. Please login again.");
+                    return TokenRefreshResult.InvalidSession("No refresh token available. Please login again.");
                 }
 
                 // Check if access token was recently refreshed (within last 10 seconds)
@@ -349,7 +338,9 @@ namespace MobileApp.Services
                         if (tokenAge.TotalSeconds < 10)
                         {
                             // Token was just refreshed, reuse it
-                            return (true, new TokenResponseDTO(currentAccessToken, refreshToken), "Using recently refreshed token");
+                            return TokenRefreshResult.Ok(
+                                new TokenResponseDTO(currentAccessToken, refreshToken),
+                                "Using recently refreshed token");
                         }
                     }
                 }
@@ -357,12 +348,12 @@ namespace MobileApp.Services
                 // Check internet connectivity
                 if (!await IsConnectedToInternet())
                 {
-                    return (false, null, "No internet connection. Please check your network.");
+                    return TokenRefreshResult.Transient("No internet connection. Please check your network.");
                 }
 
                 var tokenRequest = new TokenResponseDTO(string.Empty, refreshToken);
                 
-                var response = await _httpClient.PostAsJsonAsync("api/auth/refresh-token", tokenRequest);
+                var response = await CreateClient().PostAsJsonAsync("api/auth/refresh-token", tokenRequest);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -371,21 +362,29 @@ namespace MobileApp.Services
                     if (newTokens != null)
                     {
                         await SaveTokensAsync(newTokens.AccessToken, newTokens.RefreshToken);
-                        return (true, newTokens, "Token refreshed successfully");
+                        return TokenRefreshResult.Ok(newTokens, "Token refreshed successfully");
                     }
                     
-                    return (false, null, "Invalid response from server");
+                    return TokenRefreshResult.Transient("Invalid response from server");
                 }
                 else
                 {
                     // Refresh token is invalid or expired
                     ClearTokens();
-                    return (false, null, "Session expired. Please login again.");
+                    return TokenRefreshResult.InvalidSession("Session expired. Please login again.");
                 }
+            }
+            catch (TaskCanceledException)
+            {
+                return TokenRefreshResult.Transient("Token refresh timed out. Please check your connection.");
+            }
+            catch (HttpRequestException ex)
+            {
+                return TokenRefreshResult.Transient($"Network error: {ex.Message}");
             }
             catch (Exception ex)
             {
-                return (false, null, $"Token refresh failed: {ex.Message}");
+                return TokenRefreshResult.Transient($"Token refresh failed: {ex.Message}");
             }
             finally
             {
@@ -482,11 +481,16 @@ namespace MobileApp.Services
                     }
 
                     // Try to refresh the token
-                    var (refreshSuccess, newTokens, refreshMessage) = await RefreshTokenAsync();
+                    var refresh = await RefreshTokenAsync();
                     
-                    if (refreshSuccess && newTokens != null)
+                    if (refresh.Succeeded && refresh.Token != null)
                     {
-                        return (true, newTokens, "Login successful");
+                        return (true, refresh.Token, "Login successful");
+                    }
+
+                    if (refresh.IsTransientFailure)
+                    {
+                        return (false, null, refresh.Message);
                     }
                 }
 
@@ -531,30 +535,27 @@ namespace MobileApp.Services
             }
         }
 
-        public async Task StoreCurrentSessionCredentialsAsync(string email, string password)
+        public async Task StoreCurrentSessionEmailAsync(string email)
         {
             try
             {
                 await SecureStorage.SetAsync(SESSION_EMAIL_KEY, email);
-                await SecureStorage.SetAsync(SESSION_PASSWORD_KEY, password);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error storing session credentials: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error storing session email: {ex.Message}");
             }
         }
 
-        public async Task<(string? Email, string? Password)> GetCurrentSessionCredentialsAsync()
+        public async Task<string?> GetCurrentSessionEmailAsync()
         {
             try
             {
-                var email = await SecureStorage.GetAsync(SESSION_EMAIL_KEY);
-                var password = await SecureStorage.GetAsync(SESSION_PASSWORD_KEY);
-                return (email, password);
+                return await SecureStorage.GetAsync(SESSION_EMAIL_KEY);
             }
             catch
             {
-                return (null, null);
+                return null;
             }
         }
     }

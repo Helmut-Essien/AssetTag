@@ -111,6 +111,13 @@ namespace MobileApp
             })
             .AddHttpMessageHandler<TokenRefreshHandler>();
 
+            builder.Services.AddHttpClient("AuthClient", (sp, client) =>
+            {
+                var settings = sp.GetRequiredService<IOptions<ApiSettings>>().Value;
+                client.BaseAddress = new Uri(settings.PrimaryApiUrl);
+                client.Timeout = TimeSpan.FromSeconds(settings.RequestTimeout);
+            });
+
             // ────────────────────────────────────────────────────────────────
             // Register Services for dependency injection
             // ────────────────────────────────────────────────────────────────
@@ -122,6 +129,7 @@ namespace MobileApp
             builder.Services.AddSingleton<ISyncService, SyncService>();
             builder.Services.AddSingleton<IAssetService, AssetService>();
             builder.Services.AddSingleton<ILocationService, LocationService>();
+            builder.Services.AddSingleton<IBarcodeScannerService, BarcodeScannerService>();
             
             // Register BackgroundSyncService as Singleton (runs for app lifetime)
             builder.Services.AddSingleton<BackgroundSyncService>();
@@ -165,6 +173,7 @@ namespace MobileApp
             builder.Services.AddTransient<EditLocationPage>();
             builder.Services.AddTransient<AddAssetPage>();
             builder.Services.AddTransient<BarcodeScannerPage>();
+            builder.Services.AddTransient<PasswordPromptPage>();
             
             // Login/Splash pages are transient as they're used once per session
             builder.Services.AddTransient<LoginPage>();
@@ -174,17 +183,7 @@ namespace MobileApp
             builder.Services.AddSingleton<AppShell>();
 
             // ────────────────────────────────────────────────────────────────
-            // Configure MAUI Handlers for Performance Optimization
-            // ────────────────────────────────────────────────────────────────
-            builder.ConfigureMauiHandlers(handlers =>
-            {
-                // Enable compiled bindings globally for all ContentPages
-                // This provides 2-3x faster binding performance across the entire app
-                handlers.AddHandler<ContentPage, Microsoft.Maui.Handlers.PageHandler>();
-            });
-
-            // ────────────────────────────────────────────────────────────────
-            // Logging – keep your debug logging and add file/app logging if desired
+            // Logging
             // ────────────────────────────────────────────────────────────────
 #if DEBUG
             builder.Logging.AddDebug();

@@ -1,9 +1,11 @@
-﻿using MobileApp.Services;
+﻿using Microsoft.Maui.Controls.PlatformConfiguration;
+using Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific;
+using MobileApp.Services;
 using Shared.DTOs;
 
 namespace MobileApp
 {
-    public partial class App : Application
+    public partial class App : Microsoft.Maui.Controls.Application
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly BackgroundSyncService _backgroundSyncService;
@@ -19,6 +21,8 @@ namespace MobileApp
             IVersionCheckService versionCheckService)
         {
             InitializeComponent();
+            this.On<Microsoft.Maui.Controls.PlatformConfiguration.Android>()
+                .UseWindowSoftInputModeAdjust(WindowSoftInputModeAdjust.Resize);
             _serviceProvider = serviceProvider;
             _backgroundSyncService = backgroundSyncService;
             _migrationService = migrationService;
@@ -149,7 +153,7 @@ namespace MobileApp
                     var updatePage = new Views.UpdateAvailablePage(_versionCheckService, versionInfo);
                     
                     // Show as modal page
-                    await Application.Current?.Windows[0]?.Page?.Navigation.PushModalAsync(updatePage)!;
+                    await Microsoft.Maui.Controls.Application.Current?.Windows[0]?.Page?.Navigation.PushModalAsync(updatePage)!;
                     
                     // For mandatory updates, prevent dismissal by monitoring the modal stack
                     if (versionInfo.IsMandatory)
@@ -165,7 +169,7 @@ namespace MobileApp
                                 // Check if modal was dismissed
                                 var hasModal = await MainThread.InvokeOnMainThreadAsync(() =>
                                 {
-                                    var navigation = Application.Current?.Windows[0]?.Page?.Navigation;
+                                    var navigation = Microsoft.Maui.Controls.Application.Current?.Windows[0]?.Page?.Navigation;
                                     return navigation?.ModalStack.Count > 0;
                                 });
                                 

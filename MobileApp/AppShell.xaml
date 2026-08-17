@@ -13,10 +13,10 @@
     <!-- Define Shell Resources for Tab Bar Styling -->
     <Shell.Resources>
         <Style TargetType="TabBar">
-            <Setter Property="Shell.TabBarBackgroundColor" Value="White"/>
-            <Setter Property="Shell.TabBarTitleColor" Value="#666666"/>
-            <Setter Property="Shell.TabBarUnselectedColor" Value="#666666"/>
-            <Setter Property="Shell.TabBarForegroundColor" Value="#005A9C"/>
+            <Setter Property="Shell.TabBarBackgroundColor" Value="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"/>
+            <Setter Property="Shell.TabBarTitleColor" Value="{AppThemeBinding Light={StaticResource AppBlue}, Dark={StaticResource White}}"/>
+            <Setter Property="Shell.TabBarUnselectedColor" Value="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"/>
+            <Setter Property="Shell.TabBarForegroundColor" Value="{AppThemeBinding Light={StaticResource AppBlue}, Dark={StaticResource White}}"/>
         </Style>
     </Shell.Resources>
 

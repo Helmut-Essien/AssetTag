@@ -31,6 +31,52 @@
     <Color x:Key="BrandGreen">#7CB342</Color>
     <Color x:Key="DarkBackground">#1a1a1a</Color>
 
+    <!-- AssetTag semantic tokens -->
+    <Color x:Key="AppBlue">#005A9C</Color>
+    <Color x:Key="SyncGreen">#4CAF50</Color>
+    <Color x:Key="SyncOrange">#FF9800</Color>
+    <Color x:Key="SyncRed">#F44336</Color>
+    <Color x:Key="PendingText">#E65100</Color>
+    <Color x:Key="PendingTextDark">#FFB74D</Color>
+    <Color x:Key="ErrorBackground">#FFEBEE</Color>
+    <Color x:Key="ErrorBackgroundDark">#3E1A1A</Color>
+    <Color x:Key="ErrorBorder">#EF5350</Color>
+    <Color x:Key="ErrorText">#C62828</Color>
+    <Color x:Key="ErrorTextDark">#EF9A9A</Color>
+    <Color x:Key="CancelGray">#6C757D</Color>
+    <Color x:Key="DangerRed">#DC3545</Color>
+    <Color x:Key="OverlayScrim">#80000000</Color>
+
+    <Color x:Key="PageBackground">#F8F9FA</Color>
+    <Color x:Key="PageBackgroundDark">#1f1f1f</Color>
+    <Color x:Key="CardBackground">#FFFFFF</Color>
+    <Color x:Key="CardBackgroundDark">#2a2a2a</Color>
+    <Color x:Key="TextPrimary">#333333</Color>
+    <Color x:Key="TextPrimaryDark">#FFFFFF</Color>
+    <Color x:Key="TextSecondary">#666666</Color>
+    <Color x:Key="TextSecondaryDark">#C8C8C8</Color>
+    <Color x:Key="TextTertiary">#999999</Color>
+    <Color x:Key="TextTertiaryDark">#919191</Color>
+    <Color x:Key="TextMuted">#CCCCCC</Color>
+    <Color x:Key="ChipInactive">#E0E0E0</Color>
+    <Color x:Key="ChipInactiveDark">#404040</Color>
+    <Color x:Key="IconBackgroundBlue">#E3F2FD</Color>
+    <Color x:Key="IconBackgroundBlueDark">#1A3A52</Color>
+    <Color x:Key="IconBackgroundGreen">#E8F5E9</Color>
+    <Color x:Key="IconBackgroundGreenDark">#1B3A1F</Color>
+    <Color x:Key="IconBackgroundOrange">#FFF3E0</Color>
+    <Color x:Key="IconBackgroundOrangeDark">#3E2E1A</Color>
+    <Color x:Key="IconBackgroundRed">#FFEBEE</Color>
+    <Color x:Key="IconBackgroundIndigo">#E8EAF6</Color>
+    <Color x:Key="IconBackgroundIndigoDark">#1E1F3A</Color>
+    <Color x:Key="IconBackgroundAmber">#FFF8E1</Color>
+    <Color x:Key="IconBackgroundAmberDark">#3E351A</Color>
+    <Color x:Key="BorderSubtle">#EEEEEE</Color>
+    <Color x:Key="BorderSubtleDark">#404040</Color>
+    <Color x:Key="InputFill">#F8F9FA</Color>
+    <Color x:Key="InputFillDark">#333333</Color>
+    <Color x:Key="SwitchOff">#BDBDBD</Color>
+
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}"/>
     <SolidColorBrush x:Key="BrandGreenBrush" Color="{StaticResource BrandGreen}"/>
     <SolidColorBrush x:Key="DarkBackgroundBrush" Color="{StaticResource DarkBackground}"/>

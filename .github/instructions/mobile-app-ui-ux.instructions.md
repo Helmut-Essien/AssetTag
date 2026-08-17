@@ -75,7 +75,13 @@ Apply MAUI/Mobile-specific best practices:
 
 **Don't:**
 - Hard-code colors outside of Resources/Styles/Styles.xaml
-- Use emojis as icons (always use SVG/Material Icons)
+- Use emojis as icons or in user-facing strings (always use Material Icons)
+- Bind `RefreshView.IsRefreshing` to `IsBusy` (use a separate `IsRefreshing` flag)
+- Re-initialize add/edit forms in `OnAppearing` after a modal scanner or child page returns
+- Refresh add/edit lookup lists while a scan is still loading an existing asset
+- Replace a modal `TaskCompletionSource` in `OnAppearing` (orphans the caller on resume)
+- Show login without popping modals and **every** Shell tab stack to root
+- Leave singleton-VM overlays (filter pickers) open in `OnDisappearing`
 - Create layout shifts on hover/press states
 - Use invisible borders or low-contrast text
 - Mix different container widths or max-width values
@@ -97,4 +103,6 @@ Before considering UI work complete, verify:
 - [ ] Has empty state when applicable (no data scenarios)
 - [ ] Has error state when applicable (validation, network errors)
 - [ ] Respects AppShell tab caching and navigation patterns
+- [ ] Pull-to-refresh uses `IsRefreshing`, not `IsBusy` (skeletons only on first load)
+- [ ] Login form can scroll above the Android IME (edge-to-edge + inset padding)
 - [ ] Optimized images (appropriate sizes, FontImageSource for icons)

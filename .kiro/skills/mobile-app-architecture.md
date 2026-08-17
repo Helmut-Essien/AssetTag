@@ -152,7 +152,32 @@ finally
 1. Login → Store access token + refresh token
 2. API calls → Attach access token to Authorization header
 3. Token expires → `TokenRefreshHandler` automatically refreshes
-4. Refresh fails → Redirect to login
+4. Refresh fails **because the session is invalid** → `ShowLoginAsync()` (never `GoToAsync("/LoginPage")`)
+5. Refresh fails **because the device is offline or timed out** → keep tokens, keep using local SQLite. Do not `ClearTokens()` and do not send the user to login.
+
+`RefreshTokenAsync()` returns `TokenRefreshResult`. Use `IsTransientFailure` to distinguish connectivity from an invalid refresh token.
+
+**Token Validation Pattern** (MUST use in all ViewModels):
+```csharp
+protected async Task<bool> TryValidateTokenSilentAsync(IAuthService authService)
+{
+    var (accessToken, refreshToken) = await authService.GetStoredTokensAsync();
+    if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
+        return false;
+
+    if (!await authService.IsTokenExpiredAsync())
+        return true;
+
+    var refresh = await authService.RefreshTokenAsync();
+    if (refresh.Succeeded)
+        return true;
+
+    // Offline / timeout: stay in the app with the stored session
+    return refresh.IsTransientFailure;
+}
+```
+
+Forced login must go through `INavigationService.ShowLoginAsync()` / `AppShell.ShowLoginAsync()` so the tab bar is hidden. Do not push `LoginPage` onto the Shell stack. `ShowLoginAsync` must dismiss modals and pop **each tab** to root (Home, Inventory, Locations) before showing login. `Shell.Current.Navigation` is only the active tab.
 
 **Biometric Authentication Flow**:
 ```csharp
@@ -166,33 +191,6 @@ var (success, token, message) = await _authService.BiometricLoginAsync();
 // 2. Try to use existing tokens
 // 3. Refresh tokens if expired
 // 4. Re-authenticate with stored credentials if refresh fails
-```
-
-**Token Validation Pattern** (MUST use in all ViewModels):
-```csharp
-protected async Task<bool> ValidateTokenAsync(IAuthService authService)
-{
-    var (accessToken, refreshToken) = await authService.GetStoredTokensAsync();
-    
-    if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
-    {
-        await NavigateToLoginAsync();
-        return false;
-    }
-    
-    if (await authService.IsTokenExpiredAsync())
-    {
-        var (success, newTokens, message) = await authService.RefreshTokenAsync();
-        if (!success)
-        {
-            authService.ClearTokens();
-            await NavigateToLoginAsync();
-            return false;
-        }
-    }
-    
-    return true;
-}
 ```
 
 ---
@@ -283,8 +281,9 @@ builder.Services.AddHttpClient("ApiClient", (sp, client) =>
 **TokenRefreshHandler** automatically:
 - Checks if token is expired before each request
 - Refreshes token if needed
-- Retries request with new token
-- Redirects to login if refresh fails
+- Buffers the request body and **clones** `HttpRequestMessage` before a 401 retry (a message can only be sent once)
+- Does **not** clear tokens or redirect to login on offline/timeout refresh failures
+- Only treats a rejected refresh token as an invalid session
 
 ### Entity Framework Core with SQLite
 
@@ -587,6 +586,10 @@ public partial class InventoryPage : ContentPage
 }
 ```
 
+**Add/Edit forms (transient pages):** `OnAppearing` also fires when a modal scanner or child page (Add Location) returns. Do **not** call `InitializeAsync()` on every appearance — that wipes edit mode and picker selections. Initialize once per page instance; on later appearances only refresh lookup lists (`RefreshFormLookupsAsync`). Skip that refresh while a scan is still applying a tag or calling `LoadAssetAsync`, or the refresh can finish last and restore add-form pickers onto the loaded asset.
+
+**Modal pages that return a `TaskCompletionSource`:** Create the TCS in the constructor/`Configure`. Do not assign a new TCS in `OnAppearing` (orphans the caller on pause/resume). Complete with null in `OnDisappearing` if the task is still open so swipe-away cannot hang the caller.
+
 ### 3. Batch Database Operations
 
 ```csharp
@@ -815,8 +818,8 @@ MobileApp/
 | Stateless service | Singleton | `AuthService` |
 | Background service | Singleton | `BackgroundSyncService` |
 | API call | HttpClient with TokenRefreshHandler | All API calls |
-| Navigation | Shell.Current.GoToAsync | All navigation |
-| Loading state | IsBusy + SkeletonLoader | All data loading |
+| Navigation | Shell routes; session expiry uses `ShowLoginAsync()` | Tabs and login |
+| Loading state | `IsBusy` skeleton on first load; `IsRefreshing` for pull-to-refresh | Lists and Home |
 | Error handling | try/catch + DisplayAlert | All user operations |
 
 ---

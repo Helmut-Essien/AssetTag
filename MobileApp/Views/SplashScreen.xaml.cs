@@ -36,7 +36,7 @@ namespace MobileApp.Views
             
             // Run minimum display time and auth check concurrently for faster startup.
             // Auth check waits for DB migrations before opening main tabs.
-            var minimumDisplayTask = Task.Delay(1500);
+            var minimumDisplayTask = Task.Delay(400);
             var authCheckTask = PerformAuthenticationCheckAsync();
             
             await Task.WhenAll(minimumDisplayTask, authCheckTask);
@@ -61,9 +61,9 @@ namespace MobileApp.Views
                     if (await _authService.IsTokenExpiredAsync())
                     {
                         // Token is expired, try to refresh
-                        var (success, newTokens, message) = await _authService.RefreshTokenAsync();
+                        var refresh = await _authService.RefreshTokenAsync();
                         
-                        if (success && newTokens != null)
+                        if (refresh.Succeeded && refresh.Token != null)
                         {
                             // Stop animation right before navigation
                             _isAnimating = false;
@@ -71,14 +71,18 @@ namespace MobileApp.Views
                             // Token refreshed successfully, navigate to main tabs
                             await _navigationService.ShowMainTabsAsync();
                         }
+                        else if (refresh.IsTransientFailure)
+                        {
+                            // Offline or timeout — keep the stored session and open the app
+                            _isAnimating = false;
+                            await _navigationService.ShowMainTabsAsync();
+                        }
                         else
                         {
                             // Stop animation right before navigation
                             _isAnimating = false;
                             
-                            // Refresh failed, clear tokens and go to login
-                            _authService.ClearTokens();
-                            await _navigationService.NavigateToAsync($"/{nameof(LoginPage)}");
+                            await _navigationService.ShowLoginAsync();
                         }
                     }
                     else
@@ -96,7 +100,7 @@ namespace MobileApp.Views
                     _isAnimating = false;
                     
                     // No tokens, navigate to login page
-                    await _navigationService.NavigateToAsync($"/{nameof(LoginPage)}");
+                    await _navigationService.ShowLoginAsync();
                 }
             }
             catch (Exception)
@@ -105,7 +109,7 @@ namespace MobileApp.Views
                 _isAnimating = false;
                 
                 // Log error if you have a logger, for now just navigate to login as fallback
-                await _navigationService.NavigateToAsync($"/{nameof(LoginPage)}");
+                await _navigationService.ShowLoginAsync();
             }
         }
 

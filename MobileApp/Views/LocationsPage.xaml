@@ -9,27 +9,16 @@
              x:Name="RootPage"
              x:DataType="viewmodels:LocationsViewModel"
              Title="Locations"
-             BackgroundColor="#F8F9FA"
+             BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource PageBackgroundDark}}"
              Shell.NavBarIsVisible="False">
 
     <Grid RowDefinitions="56,Auto,*">
         
-        <!-- Top Header Bar -->
-        <Frame Grid.Row="0" 
-               BackgroundColor="#005A9C" 
-               CornerRadius="0" 
-               Padding="0"
-               HasShadow="True">
-            <Grid ColumnDefinitions="56,*,56" Padding="0">
-                <!-- Back Button -->
-                <Button Grid.Column="0"
-                        ImageSource="{mi:Material Icon=ArrowBack, IconColor=White}"
-                        BackgroundColor="Transparent"
-                        Command="{Binding CancelCommand}"
-                        HorizontalOptions="Center"
-                        VerticalOptions="Center"/>
-                
-                <!-- Title -->
+        <Border Grid.Row="0"
+                BackgroundColor="{StaticResource AppBlue}"
+                StrokeThickness="0"
+                Padding="0">
+            <Grid ColumnDefinitions="16,*,56" Padding="0">
                 <Label Grid.Column="1"
                        Text="Locations"
                        FontFamily="OpenSansSemibold"
@@ -38,26 +27,27 @@
                        HorizontalOptions="Center"
                        VerticalOptions="Center"/>
                 
-                <!-- Sort Button -->
                 <Button Grid.Column="2"
                         ImageSource="{mi:Material Icon=Sort, IconColor=White}"
                         BackgroundColor="Transparent"
                         Command="{Binding ShowSortOptionsCommand}"
                         HorizontalOptions="Center"
-                        VerticalOptions="Center"/>
+                        VerticalOptions="Center"
+                        MinimumWidthRequest="44"
+                        MinimumHeightRequest="44"
+                        SemanticProperties.Description="Sort locations"/>
             </Grid>
-        </Frame>
+        </Border>
 
-        <!-- Search and Action Section -->
         <VerticalStackLayout Grid.Row="1" Padding="16,12" Spacing="12">
             
-            <!-- Search Bar -->
-            <Frame BackgroundColor="White" 
-                   CornerRadius="24" 
-                   Padding="12,8"
-                   HasShadow="True">
-                <Grid ColumnDefinitions="24,*,24">
-                    <!-- Search Icon -->
+            <Border BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
+                    StrokeThickness="0"
+                    Padding="12,8">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="24"/>
+                </Border.StrokeShape>
+                <Grid ColumnDefinitions="24,*,44">
                     <Image Grid.Column="0"
                            WidthRequest="20"
                            HeightRequest="20"
@@ -65,159 +55,147 @@
                         <Image.Source>
                             <FontImageSource FontFamily="MaterialIcons-Regular"
                                            Glyph="{mi:Material Icon=Search}"
-                                           Color="#666666"
+                                           Color="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
                                            Size="20"/>
                         </Image.Source>
                     </Image>
                     
-                    <!-- Search Entry -->
                     <Entry Grid.Column="1"
                            Placeholder="Search by name, campus, building..."
-                           PlaceholderColor="#999999"
+                           PlaceholderColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
                            Text="{Binding SearchText}"
-                           TextColor="#333333"
+                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                            FontSize="14"
                            VerticalOptions="Center"
                            Margin="8,0"/>
                     
-                    <!-- Clear Button (visible when text exists) -->
                     <Button Grid.Column="2"
-                            ImageSource="{mi:Material Icon=Close, IconColor=#666666}"
+                            ImageSource="{mi:Material Icon=Close, IconColor={StaticResource TextSecondary}}"
                             BackgroundColor="Transparent"
                             Command="{Binding ClearFiltersCommand}"
                             IsVisible="{Binding SearchText, Converter={StaticResource StringToBoolConverter}}"
                             VerticalOptions="Center"
-                            WidthRequest="24"
-                            HeightRequest="24"
-                            Padding="0"/>
+                            MinimumWidthRequest="44"
+                            MinimumHeightRequest="44"
+                            Padding="0"
+                            SemanticProperties.Description="Clear search"/>
                 </Grid>
-            </Frame>
+            </Border>
 
-            <!-- Action Buttons -->
-            <HorizontalStackLayout Spacing="8">
-                <!-- Sync Button -->
-                <Frame Padding="12,8"
-                       CornerRadius="16"
-                       HasShadow="False"
-                       BackgroundColor="#E3F2FD">
-                    <Frame.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding SyncLocationsCommand}"/>
-                    </Frame.GestureRecognizers>
-                    <HorizontalStackLayout Spacing="4">
-                        <Image WidthRequest="12" HeightRequest="12" VerticalOptions="Center">
-                            <Image.Source>
-                                <FontImageSource FontFamily="MaterialIcons-Regular"
-                                               Glyph="{mi:Material Icon=Sync}"
-                                               Color="#005A9C"
-                                               Size="12"/>
-                            </Image.Source>
-                        </Image>
-                        <Label Text="Sync"
-                               FontFamily="OpenSansSemibold"
-                               FontSize="14"
-                               TextColor="#005A9C"
-                               VerticalOptions="Center"/>
-                    </HorizontalStackLayout>
-                </Frame>
-            </HorizontalStackLayout>
+            <Border Padding="12,8"
+                    StrokeThickness="0"
+                    MinimumHeightRequest="44"
+                    HorizontalOptions="Start"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource IconBackgroundBlue}, Dark={StaticResource IconBackgroundBlueDark}}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="16"/>
+                </Border.StrokeShape>
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding SyncLocationsCommand}"/>
+                </Border.GestureRecognizers>
+                <HorizontalStackLayout Spacing="4">
+                    <Image WidthRequest="16" HeightRequest="16" VerticalOptions="Center">
+                        <Image.Source>
+                            <FontImageSource FontFamily="MaterialIcons-Regular"
+                                           Glyph="{mi:Material Icon=Sync}"
+                                           Color="{StaticResource AppBlue}"
+                                           Size="16"/>
+                        </Image.Source>
+                    </Image>
+                    <Label Text="Sync"
+                           FontFamily="OpenSansSemibold"
+                           FontSize="14"
+                           TextColor="{StaticResource AppBlue}"
+                           VerticalOptions="Center"/>
+                </HorizontalStackLayout>
+            </Border>
         </VerticalStackLayout>
 
-        <!-- Location List / Empty State -->
         <Grid Grid.Row="2">
             
-            <!-- Skeleton Loaders (visible when IsBusy is true) -->
-            <ScrollView x:Name="SkeletonView"
-                        Margin="16,0"
+            <ScrollView Margin="16,0"
                         IsVisible="{Binding IsBusy}">
                 <controls:SkeletonListView Type="AssetItem" Count="8" ItemSpacing="0"/>
             </ScrollView>
             
-            <!-- Location List (CollectionView) - Show when NOT busy AND has locations -->
-            <RefreshView x:Name="LocationListView"
-                         x:DataType="viewmodels:LocationsViewModel"
-                         IsRefreshing="False"
+            <RefreshView x:DataType="viewmodels:LocationsViewModel"
+                         IsRefreshing="{Binding IsRefreshing}"
                          Command="{Binding RefreshCommand}"
+                         RefreshColor="{StaticResource AppBlue}"
                          IsVisible="{Binding HasLocations}">
                 <CollectionView x:DataType="viewmodels:LocationsViewModel"
-                                ItemsSource="{Binding FilteredLocations}"
+                                ItemsSource="{Binding Locations}"
                                 SelectionMode="None"
                                 Margin="16,0"
-                                ItemsUpdatingScrollMode="KeepLastItemInView"
+                                ItemsUpdatingScrollMode="KeepScrollOffset"
                                 RemainingItemsThreshold="5"
                                 RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}">
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="viewmodels:LocationItemViewModel">
-                            <!-- Location Card -->
-                            <Frame Margin="0,8"
-                                   Padding="0"
-                                   CornerRadius="12"
-                                   BackgroundColor="White"
-                                   HasShadow="True">
-                                <Frame.GestureRecognizers>
+                            <Border Margin="0,8"
+                                    Padding="0"
+                                    StrokeThickness="0"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="12"/>
+                                </Border.StrokeShape>
+                                <Border.GestureRecognizers>
                                     <TapGestureRecognizer Command="{Binding TapCommand}"/>
-                                </Frame.GestureRecognizers>
+                                </Border.GestureRecognizers>
                                 
-                                <Grid ColumnDefinitions="4,56,*,24" 
-                                      Padding="0"
+                                <Grid ColumnDefinitions="4,56,*,24"
                                       HeightRequest="80">
                                     
-                                    <!-- Left Edge Indicator -->
                                     <BoxView Grid.Column="0"
-                                             BackgroundColor="#005A9C"
-                                             CornerRadius="12,0,0,12"/>
+                                             Color="{StaticResource AppBlue}"/>
                                     
-                                    <!-- Location Icon -->
-                                    <Frame Grid.Column="1"
-                                           WidthRequest="40"
-                                           HeightRequest="40"
-                                           CornerRadius="20"
-                                           BackgroundColor="#E8F5E9"
-                                           Padding="0"
-                                           HasShadow="False"
-                                           HorizontalOptions="Center"
-                                           VerticalOptions="Center"
-                                           Margin="8,0">
+                                    <Border Grid.Column="1"
+                                            WidthRequest="40"
+                                            HeightRequest="40"
+                                            StrokeThickness="0"
+                                            BackgroundColor="{AppThemeBinding Light={StaticResource IconBackgroundGreen}, Dark={StaticResource IconBackgroundGreenDark}}"
+                                            HorizontalOptions="Center"
+                                            VerticalOptions="Center"
+                                            Margin="8,0">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="20"/>
+                                        </Border.StrokeShape>
                                         <Image WidthRequest="24"
                                                HeightRequest="24"
                                                HorizontalOptions="Center"
                                                VerticalOptions="Center"
-                                               mci:MauiIcon.Value="{mi:Material Icon={Binding LocationIcon}, IconColor=#4CAF50}"/>
-                                    </Frame>
+                                               mci:MauiIcon.Value="{mi:Material Icon={Binding LocationIcon}, IconColor={StaticResource SyncGreen}}"/>
+                                    </Border>
                                     
-                                    <!-- Content Area -->
                                     <VerticalStackLayout Grid.Column="2"
                                                          Padding="12,16"
                                                          Spacing="4"
                                                          VerticalOptions="Center">
-                                        <!-- Location Name -->
                                         <Label Text="{Binding Name}"
                                                FontFamily="OpenSansSemibold"
                                                FontSize="16"
-                                               TextColor="#333333"
+                                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                                LineBreakMode="TailTruncation"
                                                MaxLines="1"/>
                                         
-                                        <!-- Location Address -->
                                         <HorizontalStackLayout Spacing="4">
                                             <Label Text="{Binding DisplayAddress}"
                                                    FontSize="14"
-                                                   TextColor="#666666"
+                                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
                                                    LineBreakMode="TailTruncation"/>
-                                            <!-- GPS Indicator -->
                                             <Image WidthRequest="12" HeightRequest="12"
                                                    IsVisible="{Binding HasCoordinates}"
                                                    VerticalOptions="Center">
                                                 <Image.Source>
                                                     <FontImageSource FontFamily="MaterialIcons-Regular"
                                                                    Glyph="{mi:Material Icon=GpsFixed}"
-                                                                   Color="#4CAF50"
+                                                                   Color="{StaticResource SyncGreen}"
                                                                    Size="12"/>
                                                 </Image.Source>
                                             </Image>
                                         </HorizontalStackLayout>
                                     </VerticalStackLayout>
                                     
-                                    <!-- Chevron Icon -->
                                     <Image Grid.Column="3"
                                            WidthRequest="24"
                                            HeightRequest="24"
@@ -227,40 +205,34 @@
                                         <Image.Source>
                                             <FontImageSource FontFamily="MaterialIcons-Regular"
                                                            Glyph="{mi:Material Icon=ChevronRight}"
-                                                           Color="#999999"
+                                                           Color="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
                                                            Size="24"/>
                                         </Image.Source>
                                     </Image>
                                 </Grid>
-                            </Frame>
+                            </Border>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                     
-                    <!-- Footer: Loading More Indicator -->
                     <CollectionView.Footer>
                         <Grid Padding="16,12"
                               IsVisible="{Binding IsLoadingMore}"
                               HeightRequest="60">
-                            <Border BackgroundColor="White"
+                            <Border BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                                     Padding="16,12"
                                     StrokeThickness="0"
                                     StrokeShape="RoundRectangle 8">
-                                <Border.Shadow>
-                                    <Shadow Brush="Black" Opacity="0.06" Radius="4" Offset="0,1"/>
-                                </Border.Shadow>
                                 <HorizontalStackLayout HorizontalOptions="Center"
                                                       VerticalOptions="Center"
                                                       Spacing="12">
                                     <ActivityIndicator IsRunning="True"
-                                                     Color="#005A9C"
+                                                     Color="{StaticResource AppBlue}"
                                                      WidthRequest="20"
-                                                     HeightRequest="20"
-                                                     VerticalOptions="Center"/>
+                                                     HeightRequest="20"/>
                                     <Label Text="Loading more locations..."
                                            FontFamily="OpenSansRegular"
                                            FontSize="14"
-                                           TextColor="#666666"
-                                           VerticalOptions="Center"/>
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"/>
                                 </HorizontalStackLayout>
                             </Border>
                         </Grid>
@@ -269,44 +241,38 @@
                 </CollectionView>
             </RefreshView>
 
-            <!-- Empty State -->
-            <VerticalStackLayout x:Name="EmptyStateView"
-                                 IsVisible="{Binding ShowEmptyState}"
+            <VerticalStackLayout IsVisible="{Binding ShowEmptyState}"
                                  HorizontalOptions="Center"
                                  VerticalOptions="Center"
                                  Spacing="16"
                                  Padding="32">
-                <!-- Empty Icon -->
                 <Image WidthRequest="64" HeightRequest="64" HorizontalOptions="Center">
                     <Image.Source>
                         <FontImageSource FontFamily="MaterialIcons-Regular"
                                        Glyph="{mi:Material Icon=LocationOff}"
-                                       Color="#CCCCCC"
+                                       Color="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource Gray500}}"
                                        Size="64"/>
                     </Image.Source>
                 </Image>
                 
-                <!-- Empty Title -->
                 <Label Text="No Locations Found"
                        FontFamily="OpenSansSemibold"
                        FontSize="18"
-                       TextColor="#666666"
+                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
                        HorizontalOptions="Center"/>
                 
-                <!-- Empty Description -->
                 <Label Text="{Binding EmptyStateMessage}"
                        FontSize="14"
-                       TextColor="#999999"
+                       TextColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
                        HorizontalOptions="Center"
                        HorizontalTextAlignment="Center"/>
             </VerticalStackLayout>
 
         </Grid>
 
-        <!-- Floating Action Button (FAB) -->
         <Button Grid.Row="2"
                 ImageSource="{mi:Material Icon=Add, IconColor=White}"
-                BackgroundColor="#005A9C"
+                BackgroundColor="{StaticResource AppBlue}"
                 CornerRadius="28"
                 WidthRequest="56"
                 HeightRequest="56"
@@ -314,11 +280,11 @@
                 VerticalOptions="End"
                 Margin="16"
                 Command="{Binding AddLocationCommand}"
-                Shadow="{StaticResource FABShadow}"/>
+                Shadow="{StaticResource FABShadow}"
+                SemanticProperties.Description="Add new location"/>
 
-        <!-- Location Capture Overlay -->
         <Grid Grid.Row="0" Grid.RowSpan="3"
-              BackgroundColor="#80000000"
+              BackgroundColor="{StaticResource OverlayScrim}"
               IsVisible="{Binding IsCapturingLocation}">
             <VerticalStackLayout HorizontalOptions="Center"
                                 VerticalOptions="Center"

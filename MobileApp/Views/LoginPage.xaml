@@ -9,14 +9,15 @@
     xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
     xmlns:mci="clr-namespace:MauiIcons.Core;assembly=MauiIcons.Core"
     x:DataType="viewmodels:LoginViewModel"
+    HideSoftInputOnTapped="True"
     Shell.NavBarIsVisible="False">
 
     <ContentPage.Resources>
         <ResourceDictionary>
             <!--  Gradient Background  -->
             <LinearGradientBrush x:Key="LoginGradient" StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Offset="0.0" Color="#512BD4" />
-                <GradientStop Offset="1.0" Color="#2B0B98" />
+                <GradientStop Offset="0.0" Color="{StaticResource Primary}" />
+                <GradientStop Offset="1.0" Color="{StaticResource Tertiary}" />
             </LinearGradientBrush>
         </ResourceDictionary>
     </ContentPage.Resources>
@@ -74,8 +75,10 @@
                 WidthRequest="120" />
         </AbsoluteLayout>
 
-        <!--  Main Content - Removed ScrollView for single screen fit  -->
+        <!--  Main Content: fill the page so the form can scroll when the keyboard opens  -->
+        <ScrollView VerticalOptions="Fill">
         <VerticalStackLayout
+            x:Name="LoginContent"
             Padding="30,20,30,20"
             Spacing="15"
             VerticalOptions="Center">
@@ -132,8 +135,11 @@
                         Hint="Email Address"
                         OutlineCornerRadius="20">
                         <Entry
+                            x:Name="EmailEntry"
                             FontSize="12"
                             Keyboard="Email"
+                            ReturnType="Next"
+                            Completed="OnEmailCompleted"
                             Text="{Binding Email}"
                             TextColor="{StaticResource Gray900}" />
                     </inputLayout:SfTextInputLayout>
@@ -145,8 +151,11 @@
                         Hint="Password"
                         OutlineCornerRadius="20">
                         <Entry
+                            x:Name="PasswordEntry"
                             FontSize="12"
                             IsPassword="True"
+                            ReturnType="Go"
+                            Completed="OnPasswordCompleted"
                             Text="{Binding Password}"
                             TextColor="{StaticResource Gray900}" />
                     </inputLayout:SfTextInputLayout>
@@ -154,9 +163,9 @@
                     <!--  Error Message - Compact  -->
                     <Border
                         Padding="10,8"
-                        BackgroundColor="#FFEBEE"
+                        BackgroundColor="{StaticResource ErrorBackground}"
                         IsVisible="{Binding HasError}"
-                        Stroke="#EF5350"
+                        Stroke="{StaticResource ErrorBorder}"
                         StrokeThickness="1">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="8" />
@@ -165,7 +174,7 @@
                             FontSize="12"
                             LineBreakMode="WordWrap"
                             Text="{Binding ErrorMessage}"
-                            TextColor="#C62828" />
+                            TextColor="{StaticResource ErrorText}" />
                     </Border>
 
                     <!--  Login Button - Compact  -->
@@ -179,8 +188,8 @@
                         Text="Sign In">
                         <buttons:SfButton.Background>
                             <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                <GradientStop Offset="0.0" Color="#512BD4" />
-                                <GradientStop Offset="1.0" Color="#2B0B98" />
+                                <GradientStop Offset="0.0" Color="{StaticResource Primary}" />
+                                <GradientStop Offset="1.0" Color="{StaticResource Tertiary}" />
                             </LinearGradientBrush>
                         </buttons:SfButton.Background>
                     </buttons:SfButton>
@@ -208,12 +217,12 @@
                                 WidthRequest="22"
                                 HeightRequest="22"
                                 VerticalOptions="Center"
-                                mci:MauiIcon.Value="{mi:Material Icon=Fingerprint, IconColor=#512BD4}" />
+                                mci:MauiIcon.Value="{mi:Material Icon=Fingerprint, IconColor={StaticResource Primary}}" />
                             <Label
                                 FontFamily="OpenSansSemibold"
                                 FontSize="15"
                                 Text="Sign in with biometrics"
-                                TextColor="#512BD4"
+                                TextColor="{StaticResource Primary}"
                                 VerticalOptions="Center" />
                         </HorizontalStackLayout>
                     </Border>
@@ -238,14 +247,15 @@
                 FontSize="11"
                 HorizontalTextAlignment="Center"
                 Opacity="0.7"
-                Text="AssetTag Mobile v1.0"
+                Text="{Binding AppVersion}"
                 TextColor="White" />
 
-        </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
 
         <!--  Busy Overlay  -->
         <Grid
-            BackgroundColor="#80000000"
+            BackgroundColor="{StaticResource OverlayScrim}"
             IsVisible="{Binding IsBusy}">
             <VerticalStackLayout
                 HorizontalOptions="Center"

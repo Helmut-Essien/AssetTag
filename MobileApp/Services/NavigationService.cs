@@ -104,5 +104,13 @@ namespace MobileApp.Services
                 placeholder, 
                 keyboard: keyboard ?? Keyboard.Default);
         }
+
+        public async Task<string?> DisplayPasswordPromptAsync(string title, string message)
+        {
+            var page = _serviceProvider.GetRequiredService<Views.PasswordPromptPage>();
+            page.Configure(title, message);
+            await Shell.Current.Navigation.PushModalAsync(page);
+            return await page.GetResultAsync();
+        }
     }
 }

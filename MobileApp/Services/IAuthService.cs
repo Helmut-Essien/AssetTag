@@ -11,7 +11,7 @@ namespace MobileApp.Services
         Task<(string? AccessToken, string? RefreshToken)> GetStoredTokensAsync();
         void ClearTokens();
         Task<(bool Success, string Message)> ForgotPasswordAsync(string email);
-        Task<(bool Success, TokenResponseDTO? Token, string Message)> RefreshTokenAsync();
+        Task<TokenRefreshResult> RefreshTokenAsync();
         Task<bool> IsTokenExpiredAsync();
         Task<bool> AuthenticateWithBiometricsAsync(string reason);
         Task EnableBiometricAuthenticationAsync(string email, string password);
@@ -19,7 +19,6 @@ namespace MobileApp.Services
         Task<bool> IsBiometricEnabledAsync();
         Task<(bool Success, TokenResponseDTO? Token, string Message)> BiometricLoginAsync();
         Task<(string? Email, string? Password)> GetStoredCredentialsAsync();
-        Task<(string? Email, string? Password)> GetCurrentSessionCredentialsAsync();
-        Task StoreCurrentSessionCredentialsAsync(string email, string password);
+        Task<string?> GetCurrentSessionEmailAsync();
     }
 }

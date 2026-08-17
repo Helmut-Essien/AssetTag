@@ -2,30 +2,32 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewmodels="clr-namespace:MobileApp.ViewModels"
+             xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
              x:Class="MobileApp.Views.EditLocationPage"
              x:DataType="viewmodels:EditLocationViewModel"
              Title="Edit Location"
-             BackgroundColor="#F8F9FA"
+             BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource PageBackgroundDark}}"
              Shell.NavBarIsVisible="False">
 
     <Grid RowDefinitions="56,*,Auto">
         
         <!-- Top Header Bar -->
         <Frame Grid.Row="0" 
-               BackgroundColor="#005A9C" 
+               BackgroundColor="{StaticResource AppBlue}" 
                CornerRadius="0" 
                Padding="0"
                HasShadow="True">
             <Grid ColumnDefinitions="56,*,56" Padding="0">
                 <!-- Back Button -->
                 <Button Grid.Column="0"
-                        Text="←"
-                        FontSize="24"
-                        TextColor="White"
+                        ImageSource="{mi:Material Icon=ArrowBack, IconColor=White}"
                         BackgroundColor="Transparent"
                         Command="{Binding CancelCommand}"
                         HorizontalOptions="Center"
-                        VerticalOptions="Center"/>
+                        VerticalOptions="Center"
+                        MinimumWidthRequest="44"
+                        MinimumHeightRequest="44"
+                        SemanticProperties.Description="Go back"/>
                 
                 <!-- Title -->
                 <Label Grid.Column="1"
@@ -36,15 +38,15 @@
                        HorizontalOptions="Center"
                        VerticalOptions="Center"/>
                 
-                <!-- Save Button -->
                 <Button Grid.Column="2"
-                        Text="save"
-                        FontSize="24"
-                        TextColor="White"
+                        ImageSource="{mi:Material Icon=Save, IconColor=White}"
                         BackgroundColor="Transparent"
                         Command="{Binding SaveLocationCommand}"
                         HorizontalOptions="Center"
-                        VerticalOptions="Center"/>
+                        VerticalOptions="Center"
+                        MinimumWidthRequest="44"
+                        MinimumHeightRequest="44"
+                        SemanticProperties.Description="Save location"/>
             </Grid>
         </Frame>
 
@@ -53,7 +55,7 @@
             <VerticalStackLayout Spacing="16">
                 
                 <!-- Location Name -->
-                <Frame BackgroundColor="White" 
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}" 
                        CornerRadius="12" 
                        Padding="16"
                        HasShadow="True">
@@ -61,17 +63,17 @@
                         <Label Text="Location Name *"
                                FontFamily="OpenSansSemibold"
                                FontSize="14"
-                               TextColor="#333333"/>
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                         <Entry Text="{Binding Name}"
                                Placeholder="e.g., Main Building"
-                               PlaceholderColor="#999999"
-                               TextColor="#333333"
+                               PlaceholderColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                FontSize="16"/>
                     </VerticalStackLayout>
                 </Frame>
 
                 <!-- Campus -->
-                <Frame BackgroundColor="White" 
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}" 
                        CornerRadius="12" 
                        Padding="16"
                        HasShadow="True">
@@ -79,17 +81,17 @@
                         <Label Text="Campus *"
                                FontFamily="OpenSansSemibold"
                                FontSize="14"
-                               TextColor="#333333"/>
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                         <Entry Text="{Binding Campus}"
                                Placeholder="e.g., Main Campus"
-                               PlaceholderColor="#999999"
-                               TextColor="#333333"
+                               PlaceholderColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                FontSize="16"/>
                     </VerticalStackLayout>
                 </Frame>
 
                 <!-- Building -->
-                <Frame BackgroundColor="White" 
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}" 
                        CornerRadius="12" 
                        Padding="16"
                        HasShadow="True">
@@ -97,17 +99,17 @@
                         <Label Text="Building (Optional)"
                                FontFamily="OpenSansSemibold"
                                FontSize="14"
-                               TextColor="#333333"/>
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                         <Entry Text="{Binding Building}"
                                Placeholder="e.g., Science Building"
-                               PlaceholderColor="#999999"
-                               TextColor="#333333"
+                               PlaceholderColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                FontSize="16"/>
                     </VerticalStackLayout>
                 </Frame>
 
                 <!-- Room -->
-                <Frame BackgroundColor="White" 
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}" 
                        CornerRadius="12" 
                        Padding="16"
                        HasShadow="True">
@@ -115,17 +117,17 @@
                         <Label Text="Room (Optional)"
                                FontFamily="OpenSansSemibold"
                                FontSize="14"
-                               TextColor="#333333"/>
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                         <Entry Text="{Binding Room}"
                                Placeholder="e.g., Room 101"
-                               PlaceholderColor="#999999"
-                               TextColor="#333333"
+                               PlaceholderColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                FontSize="16"/>
                     </VerticalStackLayout>
                 </Frame>
 
                 <!-- Description -->
-                <Frame BackgroundColor="White" 
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}" 
                        CornerRadius="12" 
                        Padding="16"
                        HasShadow="True">
@@ -133,11 +135,11 @@
                         <Label Text="Description (Optional)"
                                FontFamily="OpenSansSemibold"
                                FontSize="14"
-                               TextColor="#333333"/>
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                         <Editor Text="{Binding Description}"
                                 Placeholder="Additional details about this location..."
-                                PlaceholderColor="#999999"
-                                TextColor="#333333"
+                                PlaceholderColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                 FontSize="16"
                                 HeightRequest="100"
                                 AutoSize="TextChanges"/>
@@ -145,7 +147,7 @@
                 </Frame>
 
                 <!-- GPS Coordinates Section -->
-                <Frame BackgroundColor="White" 
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}" 
                        CornerRadius="12" 
                        Padding="16"
                        HasShadow="True">
@@ -153,20 +155,25 @@
                         <Label Text="GPS Coordinates (Optional)"
                                FontFamily="OpenSansSemibold"
                                FontSize="14"
-                               TextColor="#333333"/>
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                         
                         <!-- Coordinates Display -->
-                        <Frame BackgroundColor="#F0F0F0"
+                        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource InputFill}, Dark={StaticResource InputFillDark}}"
                                CornerRadius="8"
                                Padding="12"
                                HasShadow="False">
                             <HorizontalStackLayout Spacing="8">
-                                <Label Text="📍"
-                                       FontSize="20"
-                                       VerticalOptions="Center"/>
+                                <Image WidthRequest="20" HeightRequest="20" VerticalOptions="Center">
+                                    <Image.Source>
+                                        <FontImageSource FontFamily="MaterialIcons-Regular"
+                                                       Glyph="{mi:Material Icon=LocationOn}"
+                                                       Color="{StaticResource AppBlue}"
+                                                       Size="20"/>
+                                    </Image.Source>
+                                </Image>
                                 <Label Text="{Binding CoordinatesDisplay}"
                                        FontSize="14"
-                                       TextColor="#666666"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
                                        VerticalOptions="Center"
                                        HorizontalOptions="FillAndExpand"/>
                             </HorizontalStackLayout>
@@ -175,16 +182,16 @@
                         <!-- Capture/Clear Buttons -->
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
                             <Button Grid.Column="0"
-                                    Text="📡 Capture"
-                                    BackgroundColor="#005A9C"
+                                    Text="Capture"
+                                    BackgroundColor="{StaticResource AppBlue}"
                                     TextColor="White"
                                     CornerRadius="8"
                                     Command="{Binding CaptureLocationCommand}"
                                     IsEnabled="{Binding IsCapturingLocation, Converter={StaticResource InvertedBoolConverter}}"/>
                             
                             <Button Grid.Column="1"
-                                    Text="✕ Clear"
-                                    BackgroundColor="#DC3545"
+                                    Text="Clear"
+                                    BackgroundColor="{StaticResource DangerRed}"
                                     TextColor="White"
                                     CornerRadius="8"
                                     Command="{Binding ClearCoordinatesCommand}"
@@ -196,7 +203,7 @@
                 <!-- Required Fields Note -->
                 <Label Text="* Required fields"
                        FontSize="12"
-                       TextColor="#999999"
+                       TextColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
                        HorizontalOptions="Start"
                        Margin="4,0,0,0"/>
 
@@ -208,7 +215,7 @@
               ColumnDefinitions="*,*" 
               ColumnSpacing="12"
               Padding="16"
-              BackgroundColor="White"
+              BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
               IsVisible="{Binding IsLoading, Converter={StaticResource InvertedBoolConverter}}">
             <Border Grid.Column="0"
                     StrokeThickness="0">
@@ -219,7 +226,7 @@
             
             <Button Grid.Column="0"
                     Text="Cancel"
-                    BackgroundColor="#6C757D"
+                    BackgroundColor="{StaticResource CancelGray}"
                     TextColor="White"
                     CornerRadius="8"
                     HeightRequest="50"
@@ -228,7 +235,7 @@
             
             <Button Grid.Column="1"
                     Text="Save Changes"
-                    BackgroundColor="#005A9C"
+                    BackgroundColor="{StaticResource AppBlue}"
                     TextColor="White"
                     CornerRadius="8"
                     HeightRequest="50"
@@ -238,26 +245,26 @@
 
         <!-- Loading Overlay -->
         <Grid Grid.Row="0" Grid.RowSpan="3"
-              BackgroundColor="#F8F9FA"
+              BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource PageBackgroundDark}}"
               IsVisible="{Binding IsLoading}">
             <VerticalStackLayout HorizontalOptions="Center"
                                 VerticalOptions="Center"
                                 Spacing="16">
                 <ActivityIndicator IsRunning="True"
-                                 Color="#005A9C"
+                                 Color="{StaticResource AppBlue}"
                                  WidthRequest="48"
                                  HeightRequest="48"/>
                 <Label Text="Loading location..."
                        FontFamily="OpenSansSemibold"
                        FontSize="16"
-                       TextColor="#666666"
+                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
                        HorizontalOptions="Center"/>
             </VerticalStackLayout>
         </Grid>
 
         <!-- Location Capture Overlay -->
         <Grid Grid.Row="0" Grid.RowSpan="3"
-              BackgroundColor="#80000000"
+              BackgroundColor="{StaticResource OverlayScrim}"
               IsVisible="{Binding IsCapturingLocation}">
             <VerticalStackLayout HorizontalOptions="Center"
                                 VerticalOptions="Center"
@@ -276,7 +283,7 @@
 
         <!-- Busy Overlay -->
         <Grid Grid.Row="0" Grid.RowSpan="3"
-              BackgroundColor="#80000000"
+              BackgroundColor="{StaticResource OverlayScrim}"
               IsVisible="{Binding IsBusy}">
             <VerticalStackLayout HorizontalOptions="Center"
                                 VerticalOptions="Center"

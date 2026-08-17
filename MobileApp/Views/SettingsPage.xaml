@@ -8,13 +8,13 @@
              x:Class="MobileApp.Views.SettingsPage"
              x:DataType="vm:SettingsViewModel"
              Title="Settings"
-             BackgroundColor="#F8F9FA">
+             BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource PageBackgroundDark}}">
 
     <Grid RowDefinitions="Auto,*">
         
         <!-- Header Section -->
         <Grid Grid.Row="0"
-              BackgroundColor="#005A9C"
+              BackgroundColor="{StaticResource AppBlue}"
               Padding="20,15,20,20">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
@@ -26,16 +26,24 @@
                     BackgroundColor="Transparent"
                     Stroke="Transparent"
                     Padding="8"
+                    MinimumWidthRequest="44"
+                    MinimumHeightRequest="44"
                     VerticalOptions="Center"
-                    HorizontalOptions="Start">
+                    HorizontalOptions="Start"
+                    SemanticProperties.Description="Go back">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="20"/>
                 </Border.StrokeShape>
-                <Label Text="←"
-                       FontSize="28"
-                       TextColor="White"
+                <Image WidthRequest="24" HeightRequest="24"
                        HorizontalOptions="Center"
-                       VerticalOptions="Center"/>
+                       VerticalOptions="Center">
+                    <Image.Source>
+                        <FontImageSource FontFamily="MaterialIcons-Regular"
+                                       Glyph="{mi:Material Icon=ArrowBack}"
+                                       Color="White"
+                                       Size="24"/>
+                    </Image.Source>
+                </Image>
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding GoBackCommand}"/>
                 </Border.GestureRecognizers>
@@ -58,16 +66,16 @@
                 <!-- Skeleton Loaders (visible while loading) -->
                 <VerticalStackLayout Spacing="24" Padding="20,20,20,20" IsVisible="{Binding IsBusy}">
                     <VerticalStackLayout Spacing="12">
-                        <BoxView BackgroundColor="#E0E0E0" HeightRequest="18" WidthRequest="80" CornerRadius="4"/>
+                        <BoxView BackgroundColor="{AppThemeBinding Light={StaticResource ChipInactive}, Dark={StaticResource ChipInactiveDark}}" HeightRequest="18" WidthRequest="80" CornerRadius="4"/>
                         <controls:SkeletonLoader Type="Card"/>
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="12">
-                        <BoxView BackgroundColor="#E0E0E0" HeightRequest="18" WidthRequest="120" CornerRadius="4"/>
+                        <BoxView BackgroundColor="{AppThemeBinding Light={StaticResource ChipInactive}, Dark={StaticResource ChipInactiveDark}}" HeightRequest="18" WidthRequest="120" CornerRadius="4"/>
                         <controls:SkeletonLoader Type="Card"/>
                         <controls:SkeletonLoader Type="Card"/>
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="12">
-                        <BoxView BackgroundColor="#E0E0E0" HeightRequest="18" WidthRequest="70" CornerRadius="4"/>
+                        <BoxView BackgroundColor="{AppThemeBinding Light={StaticResource ChipInactive}, Dark={StaticResource ChipInactiveDark}}" HeightRequest="18" WidthRequest="70" CornerRadius="4"/>
                         <controls:SkeletonLoader Type="Card"/>
                     </VerticalStackLayout>
                 </VerticalStackLayout>
@@ -80,12 +88,12 @@
                     <Label Text="Security"
                            FontFamily="OpenSansSemibold"
                            FontSize="14"
-                           TextColor="#666666"
+                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
                            Margin="4,0,0,0"/>
                     
                     <!-- Biometric Login Toggle -->
-                    <Border BackgroundColor="White"
-                            Stroke="#EEEEEE"
+                    <Border BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
+                            Stroke="{AppThemeBinding Light={StaticResource BorderSubtle}, Dark={StaticResource BorderSubtleDark}}"
                             StrokeThickness="1"
                             Padding="16"
                             MinimumHeightRequest="72">
@@ -99,7 +107,7 @@
                               ColumnSpacing="14"
                               VerticalOptions="Center">
                             <Border Grid.Column="0"
-                                    BackgroundColor="#E3F2FD"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource IconBackgroundBlue}, Dark={StaticResource IconBackgroundBlueDark}}"
                                     WidthRequest="44"
                                     HeightRequest="44"
                                     Stroke="Transparent"
@@ -111,7 +119,7 @@
                                        HeightRequest="24"
                                        HorizontalOptions="Center"
                                        VerticalOptions="Center"
-                                       mci:MauiIcon.Value="{mi:Material Icon=Fingerprint, IconColor=#005A9C}"/>
+                                       mci:MauiIcon.Value="{mi:Material Icon=Fingerprint, IconColor={StaticResource AppBlue}}"/>
                             </Border>
                             
                             <VerticalStackLayout Grid.Column="1"
@@ -120,11 +128,11 @@
                                 <Label Text="Biometric login"
                                        FontFamily="OpenSansSemibold"
                                        FontSize="16"
-                                       TextColor="#212121"/>
+                                       TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource TextPrimaryDark}}"/>
                                 <Label Text="{Binding BiometricStatusText}"
                                        FontFamily="OpenSansRegular"
                                        FontSize="13"
-                                       TextColor="#666666"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
                                        LineBreakMode="TailTruncation"/>
                             </VerticalStackLayout>
                             
@@ -141,7 +149,7 @@
                                     <RoundRectangle CornerRadius="16"/>
                                 </Border.StrokeShape>
                                 <Switch IsToggled="{Binding BiometricEnabled}"
-                                        OnColor="#005A9C"
+                                        OnColor="{StaticResource AppBlue}"
                                         ThumbColor="White"
                                         BackgroundColor="Transparent"
                                         VerticalOptions="Center"
@@ -157,11 +165,11 @@
                            FontFamily="OpenSansRegular"
                            FontSize="18"
                            FontAttributes="Bold"
-                           TextColor="#333333"
+                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                            Margin="0,0,0,4"/>
                     
                     <!-- Clear Local Data Button -->
-                    <Border BackgroundColor="White"
+                    <Border BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                             Stroke="Transparent"
                             Padding="20,18"
                             Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
@@ -170,17 +178,23 @@
                         </Border.StrokeShape>
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
                             <Border Grid.Column="0"
-                                    BackgroundColor="#FFEBEE"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource IconBackgroundRed}, Dark={StaticResource ErrorBackgroundDark}}"
                                     WidthRequest="48"
                                     HeightRequest="48"
                                     Stroke="Transparent">
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="24"/>
                                 </Border.StrokeShape>
-                                <Label Text="🗑️"
-                                       FontSize="24"
+                                <Image WidthRequest="24" HeightRequest="24"
                                        HorizontalOptions="Center"
-                                       VerticalOptions="Center"/>
+                                       VerticalOptions="Center">
+                                    <Image.Source>
+                                        <FontImageSource FontFamily="MaterialIcons-Regular"
+                                                       Glyph="{mi:Material Icon=Delete}"
+                                                       Color="{StaticResource DangerRed}"
+                                                       Size="24"/>
+                                    </Image.Source>
+                                </Image>
                             </Border>
                             
                             <VerticalStackLayout Grid.Column="1"
@@ -190,18 +204,24 @@
                                        FontFamily="OpenSansRegular"
                                        FontSize="16"
                                        FontAttributes="Bold"
-                                       TextColor="#333333"/>
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                                 <Label Text="Delete all locally stored assets and sync queue"
                                        FontFamily="OpenSansRegular"
                                        FontSize="13"
-                                       TextColor="#666666"/>
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"/>
                             </VerticalStackLayout>
                             
-                            <Label Grid.Column="2"
-                                   Text="›"
-                                   FontSize="28"
-                                   TextColor="#CCCCCC"
-                                   VerticalOptions="Center"/>
+                            <Image Grid.Column="2"
+                                   WidthRequest="24"
+                                   HeightRequest="24"
+                                   VerticalOptions="Center">
+                                <Image.Source>
+                                    <FontImageSource FontFamily="MaterialIcons-Regular"
+                                                   Glyph="{mi:Material Icon=ChevronRight}"
+                                                   Color="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource Gray500}}"
+                                                   Size="24"/>
+                                </Image.Source>
+                            </Image>
                         </Grid>
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding ClearLocalDataCommand}"/>
@@ -209,7 +229,7 @@
                     </Border>
                     
                     <!-- Reset Sync State Button -->
-                    <Border BackgroundColor="White"
+                    <Border BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                             Stroke="Transparent"
                             Padding="20,18"
                             Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
@@ -218,17 +238,23 @@
                         </Border.StrokeShape>
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
                             <Border Grid.Column="0"
-                                    BackgroundColor="#FFF3E0"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource IconBackgroundOrange}, Dark={StaticResource IconBackgroundOrangeDark}}"
                                     WidthRequest="48"
                                     HeightRequest="48"
                                     Stroke="Transparent">
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="24"/>
                                 </Border.StrokeShape>
-                                <Label Text="🔄"
-                                       FontSize="24"
+                                <Image WidthRequest="24" HeightRequest="24"
                                        HorizontalOptions="Center"
-                                       VerticalOptions="Center"/>
+                                       VerticalOptions="Center">
+                                    <Image.Source>
+                                        <FontImageSource FontFamily="MaterialIcons-Regular"
+                                                       Glyph="{mi:Material Icon=Sync}"
+                                                       Color="{StaticResource SyncOrange}"
+                                                       Size="24"/>
+                                    </Image.Source>
+                                </Image>
                             </Border>
                             
                             <VerticalStackLayout Grid.Column="1"
@@ -238,18 +264,24 @@
                                        FontFamily="OpenSansRegular"
                                        FontSize="16"
                                        FontAttributes="Bold"
-                                       TextColor="#333333"/>
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                                 <Label Text="Force full re-sync from server on next pull"
                                        FontFamily="OpenSansRegular"
                                        FontSize="13"
-                                       TextColor="#666666"/>
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"/>
                             </VerticalStackLayout>
                             
-                            <Label Grid.Column="2"
-                                   Text="›"
-                                   FontSize="28"
-                                   TextColor="#CCCCCC"
-                                   VerticalOptions="Center"/>
+                            <Image Grid.Column="2"
+                                   WidthRequest="24"
+                                   HeightRequest="24"
+                                   VerticalOptions="Center">
+                                <Image.Source>
+                                    <FontImageSource FontFamily="MaterialIcons-Regular"
+                                                   Glyph="{mi:Material Icon=ChevronRight}"
+                                                   Color="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource Gray500}}"
+                                                   Size="24"/>
+                                </Image.Source>
+                            </Image>
                         </Grid>
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding ResetSyncStateCommand}"/>
@@ -263,11 +295,11 @@
                            FontFamily="OpenSansRegular"
                            FontSize="18"
                            FontAttributes="Bold"
-                           TextColor="#333333"
+                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                            Margin="0,0,0,4"/>
                     
                     <!-- Logout Button -->
-                    <Border BackgroundColor="White"
+                    <Border BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                             Stroke="Transparent"
                             Padding="20,18"
                             Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
@@ -276,17 +308,23 @@
                         </Border.StrokeShape>
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
                             <Border Grid.Column="0"
-                                    BackgroundColor="#E8EAF6"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource IconBackgroundIndigo}, Dark={StaticResource IconBackgroundIndigoDark}}"
                                     WidthRequest="48"
                                     HeightRequest="48"
                                     Stroke="Transparent">
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="24"/>
                                 </Border.StrokeShape>
-                                <Label Text="🚪"
-                                       FontSize="24"
+                                <Image WidthRequest="24" HeightRequest="24"
                                        HorizontalOptions="Center"
-                                       VerticalOptions="Center"/>
+                                       VerticalOptions="Center">
+                                    <Image.Source>
+                                        <FontImageSource FontFamily="MaterialIcons-Regular"
+                                                       Glyph="{mi:Material Icon=Logout}"
+                                                       Color="{StaticResource AppBlue}"
+                                                       Size="24"/>
+                                    </Image.Source>
+                                </Image>
                             </Border>
                             
                             <VerticalStackLayout Grid.Column="1"
@@ -296,18 +334,24 @@
                                        FontFamily="OpenSansRegular"
                                        FontSize="16"
                                        FontAttributes="Bold"
-                                       TextColor="#333333"/>
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                                 <Label Text="Sign out of your account"
                                        FontFamily="OpenSansRegular"
                                        FontSize="13"
-                                       TextColor="#666666"/>
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"/>
                             </VerticalStackLayout>
                             
-                            <Label Grid.Column="2"
-                                   Text="›"
-                                   FontSize="28"
-                                   TextColor="#CCCCCC"
-                                   VerticalOptions="Center"/>
+                            <Image Grid.Column="2"
+                                   WidthRequest="24"
+                                   HeightRequest="24"
+                                   VerticalOptions="Center">
+                                <Image.Source>
+                                    <FontImageSource FontFamily="MaterialIcons-Regular"
+                                                   Glyph="{mi:Material Icon=ChevronRight}"
+                                                   Color="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource Gray500}}"
+                                                   Size="24"/>
+                                </Image.Source>
+                            </Image>
                         </Grid>
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding LogoutCommand}"/>
@@ -321,12 +365,12 @@
                            FontFamily="OpenSansRegular"
                            FontSize="18"
                            FontAttributes="Bold"
-                           TextColor="#333333"
+                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                            Margin="0,0,0,4"/>
 
                     <!-- Beta updates toggle -->
-                    <Border BackgroundColor="White"
-                            Stroke="#EEEEEE"
+                    <Border BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
+                            Stroke="{AppThemeBinding Light={StaticResource BorderSubtle}, Dark={StaticResource BorderSubtleDark}}"
                             StrokeThickness="1"
                             Padding="16"
                             MinimumHeightRequest="72">
@@ -340,7 +384,7 @@
                               ColumnSpacing="14"
                               VerticalOptions="Center">
                             <Border Grid.Column="0"
-                                    BackgroundColor="#FFF8E1"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource IconBackgroundAmber}, Dark={StaticResource IconBackgroundAmberDark}}"
                                     WidthRequest="44"
                                     HeightRequest="44"
                                     Stroke="Transparent"
@@ -361,11 +405,11 @@
                                 <Label Text="Beta updates"
                                        FontFamily="OpenSansSemibold"
                                        FontSize="16"
-                                       TextColor="#212121"/>
+                                       TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource TextPrimaryDark}}"/>
                                 <Label Text="{Binding BetaUpdatesStatusText}"
                                        FontFamily="OpenSansRegular"
                                        FontSize="13"
-                                       TextColor="#666666"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
                                        LineBreakMode="WordWrap"/>
                             </VerticalStackLayout>
 
@@ -381,7 +425,7 @@
                                     <RoundRectangle CornerRadius="16"/>
                                 </Border.StrokeShape>
                                 <Switch IsToggled="{Binding BetaUpdatesEnabled}"
-                                        OnColor="#005A9C"
+                                        OnColor="{StaticResource AppBlue}"
                                         ThumbColor="White"
                                         BackgroundColor="Transparent"
                                         VerticalOptions="Center"
@@ -391,7 +435,7 @@
                     </Border>
                     
                     <!-- Check for Updates Button -->
-                    <Border BackgroundColor="White"
+                    <Border BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                             Stroke="Transparent"
                             Padding="20,18"
                             Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
@@ -400,17 +444,23 @@
                         </Border.StrokeShape>
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
                             <Border Grid.Column="0"
-                                    BackgroundColor="#E3F2FD"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource IconBackgroundBlue}, Dark={StaticResource IconBackgroundBlueDark}}"
                                     WidthRequest="48"
                                     HeightRequest="48"
                                     Stroke="Transparent">
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="24"/>
                                 </Border.StrokeShape>
-                                <Label Text="⬇️"
-                                       FontSize="24"
+                                <Image WidthRequest="24" HeightRequest="24"
                                        HorizontalOptions="Center"
-                                       VerticalOptions="Center"/>
+                                       VerticalOptions="Center">
+                                    <Image.Source>
+                                        <FontImageSource FontFamily="MaterialIcons-Regular"
+                                                       Glyph="{mi:Material Icon=SystemUpdate}"
+                                                       Color="{StaticResource AppBlue}"
+                                                       Size="24"/>
+                                    </Image.Source>
+                                </Image>
                             </Border>
                             
                             <VerticalStackLayout Grid.Column="1"
@@ -420,18 +470,24 @@
                                        FontFamily="OpenSansRegular"
                                        FontSize="16"
                                        FontAttributes="Bold"
-                                       TextColor="#333333"/>
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                                 <Label Text="{Binding AppVersion}"
                                        FontFamily="OpenSansRegular"
                                        FontSize="13"
-                                       TextColor="#666666"/>
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"/>
                             </VerticalStackLayout>
                             
-                            <Label Grid.Column="2"
-                                   Text="›"
-                                   FontSize="28"
-                                   TextColor="#CCCCCC"
-                                   VerticalOptions="Center"/>
+                            <Image Grid.Column="2"
+                                   WidthRequest="24"
+                                   HeightRequest="24"
+                                   VerticalOptions="Center">
+                                <Image.Source>
+                                    <FontImageSource FontFamily="MaterialIcons-Regular"
+                                                   Glyph="{mi:Material Icon=ChevronRight}"
+                                                   Color="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource Gray500}}"
+                                                   Size="24"/>
+                                </Image.Source>
+                            </Image>
                         </Grid>
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding CheckForUpdatesCommand}"/>
@@ -445,12 +501,12 @@
                                FontSize="14"
                                FontAttributes="Bold"
                                HorizontalOptions="Center"
-                               TextColor="#666666"/>
+                               TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"/>
                         <Label Text="{Binding AppVersion}"
                                FontFamily="OpenSansRegular"
                                FontSize="12"
                                HorizontalOptions="Center"
-                               TextColor="#999999"/>
+                               TextColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"/>
                     </VerticalStackLayout>
                 </VerticalStackLayout>
                 

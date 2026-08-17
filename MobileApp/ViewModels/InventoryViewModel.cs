@@ -7,6 +7,7 @@ using MauiIcons.Material;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using SharedLocation = Shared.Models.Location;
 
 namespace MobileApp.ViewModels
 {
@@ -18,12 +19,11 @@ namespace MobileApp.ViewModels
         private readonly IServiceProvider _serviceProvider;
         private readonly IAuthService _authService;
         private readonly IAssetService _assetService;
+        private readonly ILocationService _locationService;
         private readonly ISyncService _syncService;
+        private readonly IBarcodeScannerService _barcodeScannerService;
         [ObservableProperty]
         private ObservableCollection<AssetItemViewModel> assets = new();
-
-        [ObservableProperty]
-        private IReadOnlyList<AssetItemViewModel> filteredAssets = new List<AssetItemViewModel>();
 
         [ObservableProperty]
         private string searchText = string.Empty;
@@ -62,10 +62,40 @@ namespace MobileApp.ViewModels
         private bool hasPendingSync;
 
         [ObservableProperty]
+        private bool isRefreshing;
+
+        [ObservableProperty]
         private bool isInitialLoad = true;
 
         [ObservableProperty]
+        private string filterChipLabel = "Filter";
+
+        [ObservableProperty]
         private bool isLoadingMore = false;
+
+        [ObservableProperty]
+        private bool isFilterPickerOpen;
+
+        [ObservableProperty]
+        private string filterPickerTitle = "Filter";
+
+        [ObservableProperty]
+        private string filterPickerSearchPlaceholder = "Search...";
+
+        [ObservableProperty]
+        private string filterPickerSearchText = string.Empty;
+
+        [ObservableProperty]
+        private List<FilterOption> filterPickerItems = new();
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasFilteredFilterOptions))]
+        private List<FilterOption> filteredFilterPickerItems = new();
+
+        public bool HasFilteredFilterOptions => FilteredFilterPickerItems.Count > 0;
+
+        private enum FilterPickerKind { Category, Location }
+        private FilterPickerKind _filterPickerKind;
 
         // Separate flag to prevent concurrent loads without blocking the very first call.
         // IsBusy cannot be used for this because the page sets it to true BEFORE calling
@@ -83,12 +113,16 @@ namespace MobileApp.ViewModels
             IServiceProvider serviceProvider,
             IAuthService authService,
             IAssetService assetService,
-            ISyncService syncService)
+            ILocationService locationService,
+            ISyncService syncService,
+            IBarcodeScannerService barcodeScannerService)
         {
             _serviceProvider = serviceProvider;
             _authService = authService;
             _assetService = assetService;
+            _locationService = locationService;
             _syncService = syncService;
+            _barcodeScannerService = barcodeScannerService;
             Title = "Inventory";
             
             // Start with IsBusy = true so skeleton shows immediately when page appears
@@ -119,6 +153,7 @@ namespace MobileApp.ViewModels
                 if (IsInitialLoad)
                 {
                     IsBusy = true;
+                    UpdateVisibilityState();
                 }
 
                 // Reset paging state and pending sync IDs
@@ -150,14 +185,7 @@ namespace MobileApp.ViewModels
                     {
                         await MainThread.InvokeOnMainThreadAsync(async () =>
                         {
-                            try
-                            {
-                                await Shell.Current.GoToAsync("/LoginPage");
-                            }
-                            catch (Exception ex)
-                            {
-                                System.Diagnostics.Debug.WriteLine($"Navigation to login failed: {ex.Message}");
-                            }
+                            await NavigateToLoginAsync();
                         });
                     }
                 });
@@ -171,7 +199,8 @@ namespace MobileApp.ViewModels
             {
                 _isLoading = false;
                 IsBusy = false;
-                IsInitialLoad = false; // Mark initial load as complete
+                IsInitialLoad = false;
+                UpdateVisibilityState(); // Mark initial load as complete
 
                 if (_reloadRequested)
                 {
@@ -225,7 +254,6 @@ namespace MobileApp.ViewModels
                         await MainThread.InvokeOnMainThreadAsync(() =>
                         {
                             Assets = new ObservableCollection<AssetItemViewModel>();
-                            FilteredAssets = Array.Empty<AssetItemViewModel>();
                             UpdateVisibilityState();
                         });
                     }
@@ -261,14 +289,11 @@ namespace MobileApp.ViewModels
                     if (reset)
                     {
                         Assets = new ObservableCollection<AssetItemViewModel>(newItems);
-                        FilteredAssets = newItems;
                     }
                     else
                     {
                         foreach (var item in newItems)
                             Assets.Add(item);
-
-                        FilteredAssets = Assets.ToList();
                     }
 
                     UpdateVisibilityState();
@@ -291,8 +316,9 @@ namespace MobileApp.ViewModels
 
         private void UpdateVisibilityState()
         {
-            HasAssets = FilteredAssets.Count > 0;
-            ShowEmptyState = FilteredAssets.Count == 0;
+            HasAssets = Assets.Count > 0;
+            ShowEmptyState = !IsBusy && Assets.Count == 0;
+            UpdateFilterChipLabel();
 
             if (ShowEmptyState && !string.IsNullOrEmpty(SearchText))
             {
@@ -309,6 +335,15 @@ namespace MobileApp.ViewModels
             {
                 EmptyStateMessage = "Your inventory is empty. Tap '+' to add one!";
             }
+        }
+
+        private void UpdateFilterChipLabel()
+        {
+            var active = 0;
+            if (SelectedCategory != "All Categories") active++;
+            if (SelectedLocation != "All Locations") active++;
+            if (SelectedSyncStatus != "All Status") active++;
+            FilterChipLabel = active == 0 ? "Filter" : $"Filter ({active})";
         }
 
         /// <summary>
@@ -447,11 +482,164 @@ namespace MobileApp.ViewModels
         [RelayCommand]
         private async Task ShowAdvancedFiltersAsync()
         {
-            // TODO: Implement bottom sheet with advanced filters
-            await Shell.Current.DisplayAlert(
-                "Advanced Filters",
-                "Advanced filter options will be available in the next update.",
-                "OK");
+            var action = await Shell.Current.DisplayActionSheet(
+                "Filter inventory",
+                "Cancel",
+                "Clear Filters",
+                "Category",
+                "Location",
+                "Sync Status");
+
+            if (action == "Cancel" || action == null)
+                return;
+
+            if (action == "Clear Filters")
+            {
+                ClearFilters();
+                return;
+            }
+
+            if (action == "Category")
+            {
+                await OpenCategoryPickerAsync();
+                return;
+            }
+
+            if (action == "Location")
+            {
+                await OpenLocationPickerAsync();
+                return;
+            }
+
+            if (action == "Sync Status")
+            {
+                var selected = await Shell.Current.DisplayActionSheet(
+                    "Sync Status",
+                    "Cancel",
+                    null,
+                    "All Status",
+                    "Pending",
+                    "Synced");
+                if (selected != null && selected != "Cancel")
+                {
+                    SelectedSyncStatus = selected;
+                    IsPendingSyncFilterActive = selected == "Pending";
+                    ApplySelectedFilters();
+                    await ReloadFromDatabaseAsync(debounce: false);
+                }
+            }
+        }
+
+        private async Task OpenCategoryPickerAsync()
+        {
+            var names = await _assetService.GetCategoryNamesAsync();
+            _filterPickerKind = FilterPickerKind.Category;
+            FilterPickerTitle = "Select Category";
+            FilterPickerSearchPlaceholder = "Search categories...";
+            var items = new List<FilterOption>
+            {
+                new() { Title = "All Categories", Value = "All Categories" }
+            };
+            items.AddRange(names.Select(name => new FilterOption { Title = name, Value = name }));
+            FilterPickerItems = items;
+            FilterPickerSearchText = string.Empty;
+            ApplyFilterPickerFilter();
+            IsFilterPickerOpen = true;
+        }
+
+        private async Task OpenLocationPickerAsync()
+        {
+            var locations = await _locationService.GetAllLocationsAsync();
+            _filterPickerKind = FilterPickerKind.Location;
+            FilterPickerTitle = "Select Location";
+            FilterPickerSearchPlaceholder = "Search by name, campus, building, room...";
+            var items = new List<FilterOption>
+            {
+                new() { Title = "All Locations", Value = "All Locations" }
+            };
+            items.AddRange(locations
+                .OrderBy(location => location.Name)
+                .Select(location => new FilterOption
+                {
+                    Title = location.Name,
+                    Subtitle = GetLocationSubtitle(location),
+                    Value = location.Name
+                }));
+            FilterPickerItems = items;
+            FilterPickerSearchText = string.Empty;
+            ApplyFilterPickerFilter();
+            IsFilterPickerOpen = true;
+        }
+
+        [RelayCommand]
+        private void CloseFilterPicker()
+        {
+            IsFilterPickerOpen = false;
+        }
+
+        [RelayCommand]
+        private void SelectFilterOption(FilterOption? option)
+        {
+            if (option == null) return;
+
+            if (_filterPickerKind == FilterPickerKind.Category)
+                SelectedCategory = option.Value;
+            else
+                SelectedLocation = option.Value;
+
+            IsFilterPickerOpen = false;
+            ApplySelectedFilters();
+            _ = ReloadFromDatabaseAsync(debounce: false);
+        }
+
+        partial void OnFilterPickerSearchTextChanged(string value)
+        {
+            ApplyFilterPickerFilter();
+        }
+
+        private void ApplyFilterPickerFilter()
+        {
+            var query = FilterPickerSearchText?.Trim();
+            IEnumerable<FilterOption> source = FilterPickerItems;
+
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                source = source.Where(option =>
+                    option.Title.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                    (!string.IsNullOrWhiteSpace(option.Subtitle) &&
+                     option.Subtitle.Contains(query, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            FilteredFilterPickerItems = source.ToList();
+        }
+
+        private void ApplySelectedFilters()
+        {
+            IsAllFilterActive = SelectedCategory == "All Categories"
+                && SelectedLocation == "All Locations"
+                && SelectedSyncStatus == "All Status"
+                && !IsPendingSyncFilterActive;
+        }
+
+        private static string GetLocationSubtitle(SharedLocation location)
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(location.Campus))
+                parts.Add(location.Campus);
+            if (!string.IsNullOrWhiteSpace(location.Building))
+                parts.Add(location.Building);
+            if (!string.IsNullOrWhiteSpace(location.Room))
+                parts.Add($"Room {location.Room}");
+            return string.Join(" | ", parts);
+        }
+
+        /// <summary>
+        /// Clear search text only (does not reset category/location/sync filters).
+        /// </summary>
+        [RelayCommand]
+        private void ClearSearch()
+        {
+            SearchText = string.Empty;
         }
 
         /// <summary>
@@ -526,31 +714,10 @@ namespace MobileApp.ViewModels
         {
             try
             {
-                // Check camera permission
-                var status = await Permissions.CheckStatusAsync<Permissions.Camera>();
-                if (status != PermissionStatus.Granted)
-                {
-                    status = await Permissions.RequestAsync<Permissions.Camera>();
-                    if (status != PermissionStatus.Granted)
-                    {
-                        await Shell.Current.DisplayAlert(
-                            "Permission Denied",
-                            "Camera permission is required to scan barcodes. Please enable it in settings.",
-                            "OK");
-                        return;
-                    }
-                }
-
-                // Create and navigate to scanner page
-                var scannerPage = new Views.BarcodeScannerPage();
-                await Shell.Current.Navigation.PushModalAsync(scannerPage);
-
-                // Wait for scan result
-                var scannedValue = await scannerPage.GetScanResultAsync();
+                var scannedValue = await _barcodeScannerService.ScanAsync();
 
                 if (!string.IsNullOrWhiteSpace(scannedValue))
                 {
-                    // Set the scanned value as search text to filter the inventory
                     SearchText = scannedValue;
                 }
             }
@@ -578,7 +745,7 @@ namespace MobileApp.ViewModels
                 var c when c.Contains("library") || c.Contains("book") || c.Contains("material") => MaterialIcons.Book,
                 var c when c.Contains("loose") || c.Contains("tool") => MaterialIcons.Build,
                 var c when c.Contains("motor") || c.Contains("vehicle") => MaterialIcons.DirectionsCar,
-                var c when c.Contains("office") || c.Contains("equipment") => MaterialIcons.Print,
+                var c when c.Contains("office") => MaterialIcons.Print,
                 var c when c.Contains("plant") || c.Contains("equipment") => MaterialIcons.PrecisionManufacturing,
                 var c when c.Contains("road") || c.Contains("curvert") => MaterialIcons.DirectionsRailway,
                 var c when c.Contains("software") => MaterialIcons.Code,
@@ -593,7 +760,16 @@ namespace MobileApp.ViewModels
         [RelayCommand]
         private async Task RefreshAsync()
         {
-            await LoadAssetsAsync();
+            if (IsRefreshing) return;
+            IsRefreshing = true;
+            try
+            {
+                await LoadAssetsAsync();
+            }
+            finally
+            {
+                IsRefreshing = false;
+            }
         }
     }
 
@@ -631,6 +807,7 @@ namespace MobileApp.ViewModels
         private string locationName = string.Empty;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(SyncStatusColor))]
         private bool isPendingSync = false;
 
         [ObservableProperty]
@@ -638,12 +815,20 @@ namespace MobileApp.ViewModels
 
         public string DisplayTag => $"ID: #{AssetTag}";
         public string DisplayLocation => LocationName;
-        public string SyncStatusColor => IsPendingSync ? "#FFC107" : "Transparent";
+        public Color SyncStatusColor => IsPendingSync ? Color.FromArgb("#FF9800") : Colors.Transparent;
 
         [RelayCommand]
         private void Tap()
         {
             _onTapped?.Invoke(this);
         }
+    }
+
+    public class FilterOption
+    {
+        public string Title { get; init; } = string.Empty;
+        public string Subtitle { get; init; } = string.Empty;
+        public string Value { get; init; } = string.Empty;
+        public bool HasSubtitle => !string.IsNullOrWhiteSpace(Subtitle);
     }
 }
