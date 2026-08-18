@@ -5,7 +5,7 @@ namespace Shared.DTOs
     public class GroqChatRequest
     {
         [JsonPropertyName("model")]
-        public string Model { get; set; } = "mixtral-8x7b-32768";
+        public string Model { get; set; } = "openai/gpt-oss-120b";
 
         [JsonPropertyName("messages")]
         public List<GroqChatMessage> Messages { get; set; } = new();
@@ -13,11 +13,17 @@ namespace Shared.DTOs
         [JsonPropertyName("temperature")]
         public double Temperature { get; set; } = 0.1;
 
-        [JsonPropertyName("max_tokens")]
-        public int MaxTokens { get; set; } = 1000;
+        [JsonPropertyName("max_completion_tokens")]
+        public int MaxTokens { get; set; } = 2048;
 
         [JsonPropertyName("top_p")]
         public double TopP { get; set; } = 0.9;
+
+        [JsonPropertyName("reasoning_effort")]
+        public string ReasoningEffort { get; set; } = "low";
+
+        [JsonPropertyName("reasoning_format")]
+        public string ReasoningFormat { get; set; } = "hidden";
 
         [JsonPropertyName("stream")]
         public bool Stream { get; set; } = false;
