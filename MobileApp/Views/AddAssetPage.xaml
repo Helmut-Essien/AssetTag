@@ -9,7 +9,7 @@
              x:Name="RootPage"
              x:DataType="viewmodels:AddAssetViewModel"
              Title="{Binding PageTitle}"
-             BackgroundColor="#F8F9FA"
+             BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource PageBackgroundDark}}"
              Shell.NavBarIsVisible="False">
 
     <ContentPage.Resources>
@@ -24,7 +24,7 @@
         
         <!-- Top Header Bar -->
         <Frame Grid.Row="0" 
-               BackgroundColor="#005A9C" 
+               BackgroundColor="{StaticResource AppBlue}" 
                CornerRadius="0" 
                Padding="0"
                HasShadow="True">
@@ -36,8 +36,9 @@
                         Command="{Binding CancelCommand}"
                         HorizontalOptions="Center"
                         VerticalOptions="Center"
-                        WidthRequest="40"
-                        HeightRequest="40"/>
+                        WidthRequest="44"
+                        HeightRequest="44"
+                        SemanticProperties.Description="Go back"/>
                 
                 <!-- Title -->
                 <Label Grid.Column="1"
@@ -55,8 +56,9 @@
                         Command="{Binding SaveAssetCommand}"
                         HorizontalOptions="Center"
                         VerticalOptions="Center"
-                        WidthRequest="40"
-                        HeightRequest="40"/>
+                        WidthRequest="44"
+                        HeightRequest="44"
+                        SemanticProperties.Description="Save asset"/>
             </Grid>
         </Frame>
 
@@ -65,7 +67,7 @@
             <VerticalStackLayout Spacing="16">
                 
                 <!-- Digital Asset Tag with Scanner -->
-                <Frame BackgroundColor="White"
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                        CornerRadius="12"
                        Padding="16"
                        HasShadow="True">
@@ -73,7 +75,7 @@
                         <Label Text="Digital Asset Tag (Optional)"
                                FontFamily="OpenSansSemibold"
                                FontSize="14"
-                               TextColor="#333333"/>
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                         
                         <!-- Entry with Scan Button -->
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -81,15 +83,15 @@
                                    Text="{Binding DigitalAssetTag}"
                                    Placeholder="Scan or enter digital tag"
                                    FontSize="14"
-                                   BackgroundColor="#F8F9FA"
-                                   TextColor="#333333"
-                                   PlaceholderColor="#999999"
+                                   BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource PageBackgroundDark}}"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                                   PlaceholderColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
                                    HeightRequest="48"
                                    VerticalOptions="Center"/>
                             
                             <Button Grid.Column="1"
                                     ImageSource="{mi:Material Icon=QrCodeScanner, IconColor=White}"
-                                    BackgroundColor="#005A9C"
+                                    BackgroundColor="{StaticResource AppBlue}"
                                     CornerRadius="8"
                                     WidthRequest="48"
                                     HeightRequest="48"
@@ -101,7 +103,7 @@
                 </Frame>
 
                 <!-- Asset Tag -->
-                <Frame BackgroundColor="White" 
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}" 
                        CornerRadius="12" 
                        Padding="16"
                        HasShadow="True">
@@ -109,17 +111,17 @@
                         <Label Text="Asset Tag *"
                                FontFamily="OpenSansSemibold"
                                FontSize="14"
-                               TextColor="#333333"/>
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                         <Entry Text="{Binding AssetTag}"
                                Placeholder="e.g., AT-2024-001"
-                               PlaceholderColor="#999999"
-                               TextColor="#333333"
+                               PlaceholderColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                FontSize="16"/>
                     </VerticalStackLayout>
                 </Frame>
 
                 <!-- Asset Name -->
-                <Frame BackgroundColor="White" 
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}" 
                        CornerRadius="12" 
                        Padding="16"
                        HasShadow="True">
@@ -127,17 +129,17 @@
                         <Label Text="Asset Name *"
                                FontFamily="OpenSansSemibold"
                                FontSize="14"
-                               TextColor="#333333"/>
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                         <Entry Text="{Binding Name}"
                                Placeholder="e.g., Dell Laptop"
-                               PlaceholderColor="#999999"
-                               TextColor="#333333"
+                               PlaceholderColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                FontSize="16"/>
                     </VerticalStackLayout>
                 </Frame>
 
                 <!-- Category Picker -->
-                <Frame BackgroundColor="White" 
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}" 
                        CornerRadius="12" 
                        Padding="16"
                        HasShadow="True">
@@ -145,11 +147,11 @@
                         <Label Text="Category *"
                                FontFamily="OpenSansSemibold"
                                FontSize="14"
-                               TextColor="#333333"/>
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                         <Picker ItemsSource="{Binding Categories}"
                                 SelectedItem="{Binding SelectedCategory}"
                                 Title="Select Category"
-                                TextColor="#333333"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                 FontSize="16">
                             <Picker.ItemDisplayBinding>
                                 <Binding Path="Name" x:DataType="models:Category"/>
@@ -159,7 +161,7 @@
                 </Frame>
 
                 <!-- Location Picker -->
-                <Frame BackgroundColor="White" 
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}" 
                        CornerRadius="12" 
                        Padding="16"
                        HasShadow="True">
@@ -167,28 +169,28 @@
                         <Label Text="Location *"
                                FontFamily="OpenSansSemibold"
                                FontSize="14"
-                               TextColor="#333333"/>
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
 
-                        <Frame BackgroundColor="#F8F9FA"
-                               BorderColor="#E5E7EB"
+                        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource PageBackgroundDark}}"
+                               BorderColor="{AppThemeBinding Light={StaticResource BorderSubtle}, Dark={StaticResource BorderSubtleDark}}"
                                CornerRadius="10"
                                Padding="12"
                                HasShadow="False">
                             <VerticalStackLayout Spacing="6">
                                 <Label Text="{Binding SelectedLocationDisplay}"
                                        FontSize="16"
-                                       TextColor="#333333"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                        LineBreakMode="TailTruncation"/>
                                 <Label Text="{Binding SelectedLocationContext}"
                                        FontSize="12"
-                                       TextColor="#666666"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
                                        LineBreakMode="WordWrap"/>
                             </VerticalStackLayout>
                         </Frame>
 
                         <Button Text="Choose location"
                                 Command="{Binding OpenLocationPickerCommand}"
-                                BackgroundColor="#005A9C"
+                                BackgroundColor="{StaticResource AppBlue}"
                                 TextColor="White"
                                 CornerRadius="8"
                                 HeightRequest="44"
@@ -196,7 +198,7 @@
 
                         <Label Text="No locations available. Add one to continue."
                                FontSize="12"
-                               TextColor="#C62828">
+                               TextColor="{AppThemeBinding Light={StaticResource ErrorText}, Dark={StaticResource ErrorTextDark}}">
                             <Label.Triggers>
                                 <DataTrigger TargetType="Label" Binding="{Binding HasLocations}" Value="True">
                                     <Setter Property="IsVisible" Value="False"/>
@@ -206,8 +208,8 @@
 
                         <Button Text="Add location"
                                 Command="{Binding AddLocationCommand}"
-                                BackgroundColor="#E3F2FD"
-                                TextColor="#005A9C"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource IconBackgroundBlue}, Dark={StaticResource IconBackgroundBlueDark}}"
+                                TextColor="{StaticResource AppBlue}"
                                 CornerRadius="8"
                                 HeightRequest="40">
                             <Button.Triggers>
@@ -220,7 +222,7 @@
                 </Frame>
 
                 <!-- Department Picker -->
-                <Frame BackgroundColor="White" 
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}" 
                        CornerRadius="12" 
                        Padding="16"
                        HasShadow="True">
@@ -228,11 +230,11 @@
                         <Label Text="Department *"
                                FontFamily="OpenSansSemibold"
                                FontSize="14"
-                               TextColor="#333333"/>
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                         <Picker ItemsSource="{Binding Departments}"
                                 SelectedItem="{Binding SelectedDepartment}"
                                 Title="Select Department"
-                                TextColor="#333333"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                 FontSize="16">
                             <Picker.ItemDisplayBinding>
                                 <Binding Path="Name" x:DataType="models:Department"/>
@@ -242,7 +244,7 @@
                 </Frame>
 
                 <!-- Status Picker -->
-                <Frame BackgroundColor="White" 
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}" 
                        CornerRadius="12" 
                        Padding="16"
                        HasShadow="True">
@@ -250,17 +252,17 @@
                         <Label Text="Status *"
                                FontFamily="OpenSansSemibold"
                                FontSize="14"
-                               TextColor="#333333"/>
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                         <Picker ItemsSource="{Binding StatusOptions}"
                                 SelectedItem="{Binding SelectedStatus}"
                                 Title="Select Status"
-                                TextColor="#333333"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                 FontSize="16"/>
                     </VerticalStackLayout>
                 </Frame>
 
                 <!-- Condition Picker -->
-                <Frame BackgroundColor="White" 
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}" 
                        CornerRadius="12" 
                        Padding="16"
                        HasShadow="True">
@@ -268,17 +270,17 @@
                         <Label Text="Condition *"
                                FontFamily="OpenSansSemibold"
                                FontSize="14"
-                               TextColor="#333333"/>
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                         <Picker ItemsSource="{Binding ConditionOptions}"
                                 SelectedItem="{Binding SelectedCondition}"
                                 Title="Select Condition"
-                                TextColor="#333333"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                 FontSize="16"/>
                     </VerticalStackLayout>
                 </Frame>
 
                 <!-- Description -->
-                <Frame BackgroundColor="White"
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                        CornerRadius="12"
                        Padding="16"
                        HasShadow="True">
@@ -286,11 +288,11 @@
                         <Label Text="Description (Optional)"
                                FontFamily="OpenSansSemibold"
                                FontSize="14"
-                               TextColor="#333333"/>
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                         <Editor Text="{Binding Description}"
                                 Placeholder="Additional details about this asset..."
-                                PlaceholderColor="#999999"
-                                TextColor="#333333"
+                                PlaceholderColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                 FontSize="16"
                                 HeightRequest="100"
                                 AutoSize="TextChanges"/>
@@ -298,7 +300,7 @@
                 </Frame>
 
                 <!-- Purchase Date and Serial Number -->
-                <Frame BackgroundColor="White"
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                        CornerRadius="12"
                        Padding="16"
                        HasShadow="True">
@@ -308,13 +310,13 @@
                             <Label Text="Purchase Date (Optional)"
                                    FontFamily="OpenSansSemibold"
                                    FontSize="14"
-                                   TextColor="#333333"/>
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                             <Grid>
                                 <DatePicker Date="{Binding PurchaseDate, Converter={StaticResource NullableDateTimeConverter}}"
                                            Format="yyyy-MM-dd"
-                                           TextColor="#333333"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                            FontSize="16"
-                                           BackgroundColor="#F8F9FA"
+                                           BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource PageBackgroundDark}}"
                                            Opacity="0"/>
                                 <Label Text="{Binding PurchaseDate, Converter={StaticResource NullableDateDisplayConverter}}"
                                        FontSize="16"
@@ -330,25 +332,39 @@
                             <Label Text="Serial Number (Optional)"
                                    FontFamily="OpenSansSemibold"
                                    FontSize="14"
-                                   TextColor="#333333"/>
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                             <Entry Text="{Binding SerialNumber}"
                                    Placeholder="e.g., SN123456789"
-                                   PlaceholderColor="#999999"
-                                   TextColor="#333333"
+                                   PlaceholderColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                    FontSize="16"/>
                         </VerticalStackLayout>
                     </Grid>
                 </Frame>
 
-                <!-- Financial Information Section Header -->
-                <Label Text="Financial Information"
-                       FontFamily="OpenSansSemibold"
-                       FontSize="16"
-                       TextColor="#005A9C"
-                       Margin="0,8,0,0"/>
+                <!-- Financial Information (collapsed by default for field entry) -->
+                <Grid>
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding ToggleFinancialSectionCommand}"/>
+                    </Grid.GestureRecognizers>
+                    <HorizontalStackLayout Spacing="8">
+                        <Label Text="Financial Information"
+                               FontFamily="OpenSansSemibold"
+                               FontSize="16"
+                               TextColor="{StaticResource AppBlue}"
+                               VerticalOptions="Center"/>
+                        <Label Text="{Binding FinancialSectionToggleText}"
+                               FontSize="14"
+                               TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                               VerticalOptions="Center"/>
+                    </HorizontalStackLayout>
+                </Grid>
+
+                <VerticalStackLayout Spacing="16"
+                                     IsVisible="{Binding IsFinancialSectionExpanded}">
 
                 <!-- Purchase Price and Quantity -->
-                <Frame BackgroundColor="White"
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                        CornerRadius="12"
                        Padding="16"
                        HasShadow="True">
@@ -358,12 +374,12 @@
                             <Label Text="Purchase Price (Optional)"
                                    FontFamily="OpenSansSemibold"
                                    FontSize="14"
-                                   TextColor="#333333"/>
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                             <Entry Text="{Binding PurchasePrice}"
                                    Placeholder="0.00"
                                    Keyboard="Numeric"
-                                   PlaceholderColor="#999999"
-                                   TextColor="#333333"
+                                   PlaceholderColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                    FontSize="16"/>
                         </VerticalStackLayout>
 
@@ -372,12 +388,12 @@
                             <Label Text="Quantity"
                                    FontFamily="OpenSansSemibold"
                                    FontSize="14"
-                                   TextColor="#333333"/>
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                             <Entry Text="{Binding Quantity}"
                                    Placeholder="1"
                                    Keyboard="Numeric"
-                                   PlaceholderColor="#999999"
-                                   TextColor="#333333"
+                                   PlaceholderColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                    FontSize="16"/>
                         </VerticalStackLayout>
 
@@ -386,12 +402,12 @@
                             <Label Text="Cost Per Unit (Optional)"
                                    FontFamily="OpenSansSemibold"
                                    FontSize="14"
-                                   TextColor="#333333"/>
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                             <Entry Text="{Binding CostPerUnit}"
                                    Placeholder="0.00"
                                    Keyboard="Numeric"
-                                   PlaceholderColor="#999999"
-                                   TextColor="#333333"
+                                   PlaceholderColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                    FontSize="16"/>
                         </VerticalStackLayout>
                     </Grid>
@@ -401,11 +417,11 @@
                 <Label Text="Additional Information"
                        FontFamily="OpenSansSemibold"
                        FontSize="16"
-                       TextColor="#005A9C"
+                       TextColor="{StaticResource AppBlue}"
                        Margin="0,8,0,0"/>
 
                 <!-- Vendor and Invoice -->
-                <Frame BackgroundColor="White"
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                        CornerRadius="12"
                        Padding="16"
                        HasShadow="True">
@@ -415,11 +431,11 @@
                             <Label Text="Vendor Name (Optional)"
                                    FontFamily="OpenSansSemibold"
                                    FontSize="14"
-                                   TextColor="#333333"/>
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                             <Entry Text="{Binding VendorName}"
                                    Placeholder="e.g., Dell Inc."
-                                   PlaceholderColor="#999999"
-                                   TextColor="#333333"
+                                   PlaceholderColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                    FontSize="16"/>
                         </VerticalStackLayout>
 
@@ -428,18 +444,18 @@
                             <Label Text="Invoice Number (Optional)"
                                    FontFamily="OpenSansSemibold"
                                    FontSize="14"
-                                   TextColor="#333333"/>
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                             <Entry Text="{Binding InvoiceNumber}"
                                    Placeholder="e.g., INV-2024-001"
-                                   PlaceholderColor="#999999"
-                                   TextColor="#333333"
+                                   PlaceholderColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                    FontSize="16"/>
                         </VerticalStackLayout>
                     </Grid>
                 </Frame>
 
                 <!-- Warranty and Disposal -->
-                <Frame BackgroundColor="White"
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                        CornerRadius="12"
                        Padding="16"
                        HasShadow="True">
@@ -449,13 +465,13 @@
                             <Label Text="Warranty Expiry (Optional)"
                                    FontFamily="OpenSansSemibold"
                                    FontSize="14"
-                                   TextColor="#333333"/>
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                             <Grid>
                                 <DatePicker Date="{Binding WarrantyExpiry, Converter={StaticResource NullableDateTimeConverter}}"
                                            Format="yyyy-MM-dd"
-                                           TextColor="#333333"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                            FontSize="16"
-                                           BackgroundColor="#F8F9FA"
+                                           BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource PageBackgroundDark}}"
                                            Opacity="0"/>
                                 <Label Text="{Binding WarrantyExpiry, Converter={StaticResource NullableDateDisplayConverter}}"
                                        FontSize="16"
@@ -471,13 +487,13 @@
                             <Label Text="Disposal Date (Optional)"
                                    FontFamily="OpenSansSemibold"
                                    FontSize="14"
-                                   TextColor="#333333"/>
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                             <Grid>
                                 <DatePicker Date="{Binding DisposalDate, Converter={StaticResource NullableDateTimeConverter}}"
                                            Format="yyyy-MM-dd"
-                                           TextColor="#333333"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                            FontSize="16"
-                                           BackgroundColor="#F8F9FA"
+                                           BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource PageBackgroundDark}}"
                                            Opacity="0"/>
                                 <Label Text="{Binding DisposalDate, Converter={StaticResource NullableDateDisplayConverter}}"
                                        FontSize="16"
@@ -493,19 +509,19 @@
                             <Label Text="Disposal Value (Optional)"
                                    FontFamily="OpenSansSemibold"
                                    FontSize="14"
-                                   TextColor="#333333"/>
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                             <Entry Text="{Binding DisposalValue}"
                                    Placeholder="0.00"
                                    Keyboard="Numeric"
-                                   PlaceholderColor="#999999"
-                                   TextColor="#333333"
+                                   PlaceholderColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                    FontSize="16"/>
                         </VerticalStackLayout>
                     </Grid>
                 </Frame>
 
                 <!-- Remarks -->
-                <Frame BackgroundColor="White"
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                        CornerRadius="12"
                        Padding="16"
                        HasShadow="True">
@@ -513,21 +529,23 @@
                         <Label Text="Remarks (Optional)"
                                FontFamily="OpenSansSemibold"
                                FontSize="14"
-                               TextColor="#333333"/>
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                         <Editor Text="{Binding Remarks}"
                                 Placeholder="Additional notes or comments..."
-                                PlaceholderColor="#999999"
-                                TextColor="#333333"
+                                PlaceholderColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                 FontSize="16"
                                 HeightRequest="80"
                                 AutoSize="TextChanges"/>
                     </VerticalStackLayout>
                 </Frame>
 
+                </VerticalStackLayout>
+
                 <!-- Required Fields Note -->
                 <Label Text="* Required fields"
                        FontSize="12"
-                       TextColor="#999999"
+                       TextColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
                        HorizontalOptions="Start"
                        Margin="4,0,0,0"/>
 
@@ -539,7 +557,7 @@
               ColumnDefinitions="*,*" 
               ColumnSpacing="12"
               Padding="16"
-              BackgroundColor="White">
+              BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}">
             <Border Grid.Column="0"
                     StrokeThickness="0">
                 <Border.Shadow>
@@ -549,7 +567,7 @@
             
             <Button Grid.Column="0"
                     Text="Cancel"
-                    BackgroundColor="#6C757D"
+                    BackgroundColor="{StaticResource CancelGray}"
                     TextColor="White"
                     CornerRadius="8"
                     HeightRequest="50"
@@ -558,7 +576,7 @@
             
             <Button Grid.Column="1"
                     Text="{Binding SaveButtonText}"
-                    BackgroundColor="#005A9C"
+                    BackgroundColor="{StaticResource AppBlue}"
                     TextColor="White"
                     CornerRadius="8"
                     HeightRequest="50"
@@ -568,7 +586,7 @@
 
         <!-- Busy Overlay -->
         <Grid Grid.Row="0" Grid.RowSpan="3"
-              BackgroundColor="#80000000"
+              BackgroundColor="{StaticResource OverlayScrim}"
               IsVisible="{Binding IsBusy}">
             <VerticalStackLayout HorizontalOptions="Center"
                                 VerticalOptions="Center"
@@ -589,7 +607,7 @@
         <Grid Grid.Row="0" Grid.RowSpan="3"
               IsVisible="{Binding IsLocationPickerOpen}"
               BackgroundColor="#99000000">
-            <Frame BackgroundColor="White"
+            <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                    CornerRadius="16"
                    Margin="16,64,16,16"
                    Padding="16"
@@ -600,7 +618,7 @@
                                Text="Select Location"
                                FontFamily="OpenSansSemibold"
                                FontSize="18"
-                               TextColor="#333333"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                VerticalOptions="Center"/>
                         <Button Grid.Column="1"
                                 ImageSource="{mi:Material Icon=Close, IconColor=#666666}"
@@ -613,9 +631,9 @@
                     <SearchBar Grid.Row="1"
                                Placeholder="Search by name, campus, building, room..."
                                Text="{Binding LocationSearchText}"
-                               TextColor="#333333"
-                               PlaceholderColor="#888888"
-                               CancelButtonColor="#005A9C"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
+                               PlaceholderColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
+                               CancelButtonColor="{StaticResource AppBlue}"
                                FontSize="14"/>
 
                     <CollectionView Grid.Row="2"
@@ -626,7 +644,7 @@
                                 <Frame Padding="12"
                                        Margin="0,0,0,8"
                                        CornerRadius="10"
-                                       BorderColor="#E5E7EB"
+                                       BorderColor="{AppThemeBinding Light={StaticResource BorderSubtle}, Dark={StaticResource BorderSubtleDark}}"
                                        HasShadow="False">
                                     <Frame.GestureRecognizers>
                                         <TapGestureRecognizer Tapped="LocationResult_Tapped"/>
@@ -635,9 +653,9 @@
                                         <Label Text="{Binding Name}"
                                                FontFamily="OpenSansSemibold"
                                                FontSize="15"
-                                               TextColor="#333333"/>
+                                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                                         <Label FontSize="13"
-                                               TextColor="#666666"
+                                               TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
                                                LineBreakMode="TailTruncation">
                                             <Label.FormattedText>
                                                 <FormattedString>
@@ -651,7 +669,7 @@
                                         </Label>
                                         <Label Text="{Binding Description}"
                                                FontSize="12"
-                                               TextColor="#888888"
+                                               TextColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
                                                LineBreakMode="TailTruncation"/>
                                     </VerticalStackLayout>
                                 </Frame>
@@ -666,7 +684,7 @@
                            VerticalOptions="Center"
                            InputTransparent="True"
                            FontSize="13"
-                           TextColor="#666666">
+                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}">
                         <Label.Triggers>
                             <DataTrigger TargetType="Label" Binding="{Binding HasFilteredLocations}" Value="True">
                                 <Setter Property="IsVisible" Value="False"/>
@@ -677,8 +695,8 @@
                     <Button Grid.Row="3"
                             Text="Close"
                             Command="{Binding CloseLocationPickerCommand}"
-                            BackgroundColor="#F3F4F6"
-                            TextColor="#333333"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource InputFill}, Dark={StaticResource InputFillDark}}"
+                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                             CornerRadius="8"
                             HeightRequest="44"/>
                 </Grid>

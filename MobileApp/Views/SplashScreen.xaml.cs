@@ -36,7 +36,7 @@ namespace MobileApp.Views
             
             // Run minimum display time and auth check concurrently for faster startup.
             // Auth check waits for DB migrations before opening main tabs.
-            var minimumDisplayTask = Task.Delay(1500);
+            var minimumDisplayTask = Task.Delay(400);
             var authCheckTask = PerformAuthenticationCheckAsync();
             
             await Task.WhenAll(minimumDisplayTask, authCheckTask);
@@ -47,65 +47,84 @@ namespace MobileApp.Views
 
         private async Task PerformAuthenticationCheckAsync()
         {
-            try
+            while (true)
             {
-                // Ensure local SQLite schema exists before opening main tabs
-                await _migrationService.WaitForCompletionAsync();
-
-                // Check if user is already logged in with valid tokens
-                var (accessToken, refreshToken) = await _authService.GetStoredTokensAsync();
-                
-                if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
+                try
                 {
-                    // Tokens exist, now check if they're expired
-                    if (await _authService.IsTokenExpiredAsync())
+                    // Ensure local SQLite schema exists before opening main tabs
+                    await _migrationService.WaitForCompletionAsync();
+
+                    // Check if user is already logged in with valid tokens
+                    var (accessToken, refreshToken) = await _authService.GetStoredTokensAsync();
+                    
+                    if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
                     {
-                        // Token is expired, try to refresh
-                        var (success, newTokens, message) = await _authService.RefreshTokenAsync();
-                        
-                        if (success && newTokens != null)
+                        // Tokens exist, now check if they're expired
+                        if (await _authService.IsTokenExpiredAsync())
                         {
-                            // Stop animation right before navigation
-                            _isAnimating = false;
+                            // Token is expired, try to refresh
+                            var refresh = await _authService.RefreshTokenAsync();
                             
-                            // Token refreshed successfully, navigate to main tabs
-                            await _navigationService.ShowMainTabsAsync();
+                            if (refresh.Succeeded && refresh.Token != null)
+                            {
+                                _isAnimating = false;
+                                await _navigationService.ShowMainTabsAsync();
+                                return;
+                            }
+                            else if (refresh.IsTransientFailure)
+                            {
+                                // Offline or timeout — keep the stored session and open the app
+                                _isAnimating = false;
+                                await _navigationService.ShowMainTabsAsync();
+                                return;
+                            }
+                            else
+                            {
+                                _isAnimating = false;
+                                await _navigationService.ShowLoginAsync();
+                                return;
+                            }
                         }
                         else
                         {
-                            // Stop animation right before navigation
                             _isAnimating = false;
-                            
-                            // Refresh failed, clear tokens and go to login
-                            _authService.ClearTokens();
-                            await _navigationService.NavigateToAsync($"/{nameof(LoginPage)}");
+                            await _navigationService.ShowMainTabsAsync();
+                            return;
                         }
                     }
                     else
                     {
-                        // Stop animation right before navigation
                         _isAnimating = false;
-                        
-                        // Token is still valid, navigate to main tabs
-                        await _navigationService.ShowMainTabsAsync();
+                        await _navigationService.ShowLoginAsync();
+                        return;
                     }
                 }
-                else
+                catch (Exception ex)
                 {
-                    // Stop animation right before navigation
                     _isAnimating = false;
-                    
-                    // No tokens, navigate to login page
-                    await _navigationService.NavigateToAsync($"/{nameof(LoginPage)}");
+                    System.Diagnostics.Debug.WriteLine($"Startup failed: {ex.Message}");
+
+                    var (accessToken, refreshToken) = await _authService.GetStoredTokensAsync();
+                    var hasSession = !string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken);
+
+                    if (!hasSession)
+                    {
+                        await _navigationService.ShowLoginAsync();
+                        return;
+                    }
+
+                    var retry = await DisplayAlert(
+                        "Startup Error",
+                        "The app could not finish starting. Your session is still saved.",
+                        "Retry",
+                        "Stay here");
+
+                    if (!retry)
+                        return;
+
+                    _isAnimating = true;
+                    _ = AnimateLoadingDots();
                 }
-            }
-            catch (Exception)
-            {
-                // Stop animation on error
-                _isAnimating = false;
-                
-                // Log error if you have a logger, for now just navigate to login as fallback
-                await _navigationService.NavigateToAsync($"/{nameof(LoginPage)}");
             }
         }
 

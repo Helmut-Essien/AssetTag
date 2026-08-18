@@ -63,15 +63,23 @@ There are **no test projects** and **no lint/format commands** configured.
 
 ## Agent skill files
 
-Several AI skill/instruction files exist that describe the mobile app in detail:
-- `.kiro/skills/mobile-app-architecture.md` — MVVM patterns, DI lifecycle, offline-first architecture, sync, background services
-- `.kiro/skills/mobile-app-data-models.md` — Entity model reference, LocalDbContext rules
-- `.github/skills/mobile-app/SKILL.md` — MAUI shell, navigation, barcode scanning
-- `.github/skills/mobile-app-sync/SKILL.md` — Offline sync service details
-- `.github/skills/mobile-app-ui-ux/SKILL.md` — Design system (same content as `DESIGN.md`)
-- `.github/instructions/mobile-app-ui-ux.instructions.md` — Structured UI/UX workflow
+Read the skill that matches the area you are changing.
 
-Read the relevant skill file before modifying the mobile app.
+Cursor loads project skills from `.cursor/skills/<name>/SKILL.md`. Copies also live in `.github/skills/` (GitHub Copilot) and `.kiro/skills/` (Kiro). Keep them in sync when you edit a skill.
+
+**Mobile (`MobileApp/`, `MobileData/`):**
+- `.cursor/skills/mobile-app/SKILL.md` — MAUI shell, navigation, barcode scanning, session
+- `.cursor/skills/mobile-app-sync/SKILL.md` — Offline sync, token refresh, SQLite
+- `.cursor/skills/mobile-app-ui-ux/SKILL.md` — Design system (same content as `DESIGN.md`)
+- `.cursor/skills/mobile-app-architecture/SKILL.md` — MVVM, DI, offline-first
+- `.cursor/skills/mobile-app-data-models/SKILL.md` — `LocalDbContext` and mobile entity mapping
+- `.github/instructions/mobile-app-ui-ux.instructions.md` — UI/UX workflow
+
+**API, Portal, Shared, CI:**
+- `.cursor/skills/api/SKILL.md` — ASP.NET API, JWT, SQL Server, DeletedItem, sync lock
+- `.cursor/skills/portal/SKILL.md` — Razor Pages, `Api:BaseUrl`, cookie session
+- `.cursor/skills/shared/SKILL.md` — ULID contracts and DTOs shared by all projects
+- `.cursor/skills/ci-cd/SKILL.md` — GitHub Actions, Web Deploy, APK, secrets
 
 ## CI/CD
 
@@ -83,5 +91,8 @@ Triggered on push to `master` when any project source changes. Key jobs: detect-
 |---|---|---|
 | `FRONTEND_BASE_URL` | API — invitation / password-reset links | `https://mugasset.runasp.net/` |
 | `API_BASE_URL` | Portal — `Api:BaseUrl` for HttpClients | `https://mugassetapi.runasp.net/` |
+| `EMAIL_USERNAME` / `EMAIL_PASSWORD` | API — SMTP auth | test vs production mailboxes |
+| `EMAIL_FROM` | API — `EmailSettings:FromEmail` | address shown as sender |
+| `EMAIL_FROM_NAME` | API — `EmailSettings:FromName` | display name in client |
 
-Local overrides: `appsettings.Development.json` or user secrets (`FrontendBaseUrl`, `Api:BaseUrl`). Do not hardcode hosted URLs in workflow or base `appsettings.json`.
+Local overrides: `appsettings.Development.json` or user secrets (`FrontendBaseUrl`, `Api:BaseUrl`, `EmailSettings:*`). Do not hardcode hosted URLs or sender identity in workflow or base `appsettings.json`.

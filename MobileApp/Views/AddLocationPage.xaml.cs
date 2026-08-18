@@ -9,4 +9,15 @@ public partial class AddLocationPage : ContentPage
         InitializeComponent();
         BindingContext = viewModel;
     }
+
+    protected override bool OnBackButtonPressed()
+    {
+        if (BindingContext is not AddLocationViewModel viewModel)
+            return base.OnBackButtonPressed();
+
+        if (viewModel.CancelCommand.CanExecute(null))
+            _ = viewModel.CancelCommand.ExecuteAsync(null);
+
+        return true;
+    }
 }

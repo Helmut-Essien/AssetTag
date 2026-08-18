@@ -8,11 +8,6 @@ namespace MobileApp.Services;
 public interface IAssetService
 {
     /// <summary>
-    /// Get all assets from local database
-    /// </summary>
-    Task<List<Asset>> GetAllAssetsAsync();
-
-    /// <summary>
     /// Get a page of assets from local database for incremental loading,
     /// with optional search/filter/sort applied in SQL.
     /// </summary>
@@ -50,4 +45,9 @@ public interface IAssetService
     /// Delete an asset (works offline, syncs when online)
     /// </summary>
     Task<(bool Success, string Message)> DeleteAssetAsync(string assetId);
+
+    /// <summary>
+    /// Distinct category names for filter UI, ordered alphabetically.
+    /// </summary>
+    Task<List<string>> GetCategoryNamesAsync();
 }

@@ -1,6 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.Extensions.DependencyInjection;
 using MobileApp.Services;
-using MobileApp.Views;
 
 namespace MobileApp.ViewModels
 {
@@ -19,58 +19,47 @@ namespace MobileApp.ViewModels
         public bool IsNotBusy => !IsBusy;
 
         /// <summary>
-        /// Validates the current access token and redirects to login if expired
+        /// Validates the current access token before an API call.
+        /// Connectivity failures keep the stored session so offline SQLite still works.
+        /// Invalid/revoked refresh tokens clear the session and show login.
         /// </summary>
-        /// <param name="authService">The authentication service</param>
-        /// <returns>True if token is valid, false if expired</returns>
         protected async Task<bool> ValidateTokenAsync(IAuthService authService)
         {
             try
             {
-                // Check if tokens exist
                 var (accessToken, refreshToken) = await authService.GetStoredTokensAsync();
                 
                 if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(refreshToken))
                 {
-                    // No tokens, redirect to login
                     await NavigateToLoginAsync();
                     return false;
                 }
 
-                // Check if token is expired
                 if (await authService.IsTokenExpiredAsync())
                 {
-                    // Try to refresh the token
-                    var (success, newTokens, message) = await authService.RefreshTokenAsync();
-                    
-                    if (!success || newTokens == null)
-                    {
-                        // Refresh failed, clear tokens and redirect to login
-                        authService.ClearTokens();
-                        await NavigateToLoginAsync();
+                    var refresh = await authService.RefreshTokenAsync();
+                    if (refresh.Succeeded && refresh.Token != null)
+                        return true;
+
+                    if (refresh.IsTransientFailure)
                         return false;
-                    }
-                    
-                    // Token refreshed successfully
-                    return true;
+
+                    await NavigateToLoginAsync();
+                    return false;
                 }
 
-                // Token is valid
                 return true;
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Token validation error: {ex.Message}");
-                // On error, redirect to login for safety
-                await NavigateToLoginAsync();
                 return false;
             }
         }
 
         /// <summary>
-        /// Silent token validation that attempts to refresh tokens but does not
-        /// perform navigation. Use when you want to check/refresh tokens in
-        /// the background without interrupting the current UI flow.
+        /// Background session check. Returns false only when the user must sign in again.
+        /// Offline / timeout while a session is stored returns true so local data stays available.
         /// </summary>
         protected async Task<bool> TryValidateTokenSilentAsync(IAuthService authService)
         {
@@ -85,14 +74,11 @@ namespace MobileApp.ViewModels
 
                 if (await authService.IsTokenExpiredAsync())
                 {
-                    var (success, newTokens, message) = await authService.RefreshTokenAsync();
-                    if (!success || newTokens == null)
-                    {
-                        authService.ClearTokens();
-                        return false;
-                    }
+                    var refresh = await authService.RefreshTokenAsync();
+                    if (refresh.Succeeded)
+                        return true;
 
-                    return true;
+                    return refresh.IsTransientFailure;
                 }
 
                 return true;
@@ -100,18 +86,27 @@ namespace MobileApp.ViewModels
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Silent token validation error: {ex.Message}");
-                return false;
+                return true;
             }
         }
 
         /// <summary>
-        /// Navigate to login page using the same pattern as the rest of the app
+        /// Replace the tab session with the login page. Do not GoToAsync("/LoginPage").
         /// </summary>
-        private async Task NavigateToLoginAsync()
+        protected async Task NavigateToLoginAsync()
         {
             try
             {
-                await Shell.Current.GoToAsync($"/{nameof(LoginPage)}");
+                if (Shell.Current is AppShell appShell)
+                {
+                    await appShell.ShowLoginAsync();
+                    return;
+                }
+
+                var navigation = Application.Current?.Handler?.MauiContext?.Services
+                    .GetService<INavigationService>();
+                if (navigation != null)
+                    await navigation.ShowLoginAsync();
             }
             catch (Exception ex)
             {

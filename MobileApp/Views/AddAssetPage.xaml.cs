@@ -6,6 +6,7 @@ namespace MobileApp.Views;
 public partial class AddAssetPage : ContentPage, IQueryAttributable
 {
     private string? _assetId;
+    private bool _hasInitialized;
 
     public AddAssetPage(AddAssetViewModel viewModel)
     {
@@ -24,19 +25,53 @@ public partial class AddAssetPage : ContentPage, IQueryAttributable
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        
-        if (BindingContext is AddAssetViewModel viewModel)
+
+        if (BindingContext is not AddAssetViewModel viewModel)
+            return;
+
+        // Scanner modal and Add Location both re-fire OnAppearing. Only initialize once
+        // so in-progress form state (and edit mode) is not wiped.
+        if (!string.IsNullOrEmpty(_assetId))
         {
-            if (!string.IsNullOrEmpty(_assetId))
-            {
-                await viewModel.LoadAssetAsync(_assetId);
-                _assetId = null; // Clear after loading to prevent reloading on subsequent appearances
-            }
-            else
-            {
-                await viewModel.InitializeAsync();
-            }
+            await viewModel.LoadAssetAsync(_assetId);
+            _assetId = null;
+            _hasInitialized = true;
+            return;
         }
+
+        if (!_hasInitialized)
+        {
+            await viewModel.InitializeAsync();
+            _hasInitialized = true;
+            return;
+        }
+
+        await viewModel.RefreshFormLookupsAsync();
+    }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+
+        if (BindingContext is AddAssetViewModel viewModel && viewModel.IsLocationPickerOpen)
+            viewModel.CloseLocationPickerCommand.Execute(null);
+    }
+
+    protected override bool OnBackButtonPressed()
+    {
+        if (BindingContext is not AddAssetViewModel viewModel)
+            return base.OnBackButtonPressed();
+
+        if (viewModel.IsLocationPickerOpen)
+        {
+            viewModel.CloseLocationPickerCommand.Execute(null);
+            return true;
+        }
+
+        if (viewModel.CancelCommand.CanExecute(null))
+            _ = viewModel.CancelCommand.ExecuteAsync(null);
+
+        return true;
     }
 
     private void LocationResult_Tapped(object? sender, TappedEventArgs e)

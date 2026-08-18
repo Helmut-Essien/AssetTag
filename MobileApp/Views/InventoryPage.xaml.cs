@@ -66,17 +66,36 @@ namespace MobileApp.Views
             }
         }
 
-        private async void OnBackButtonClicked(object sender, EventArgs e)
+        protected override bool OnBackButtonPressed()
         {
-            await Shell.Current.GoToAsync("..");
+            if (_viewModel.IsFilterPickerOpen)
+            {
+                _viewModel.CloseFilterPickerCommand.Execute(null);
+                return true;
+            }
+
+            return base.OnBackButtonPressed();
         }
 
         protected override void OnDisappearing()
         {
             base.OnDisappearing();
-            
+
+            if (_viewModel.IsFilterPickerOpen)
+                _viewModel.CloseFilterPickerCommand.Execute(null);
+
             // CRITICAL: Ensure IsBusy is false when leaving page
             _viewModel.IsBusy = false;
+        }
+
+        private void FilterOption_Tapped(object? sender, TappedEventArgs e)
+        {
+            if (BindingContext is not InventoryViewModel viewModel) return;
+            var option = (sender as BindableObject)?.BindingContext as FilterOption;
+            if (option == null) return;
+
+            if (viewModel.SelectFilterOptionCommand.CanExecute(option))
+                viewModel.SelectFilterOptionCommand.Execute(option);
         }
     }
 }

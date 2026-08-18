@@ -4,20 +4,12 @@
              xmlns:controls="clr-namespace:MobileApp.Controls"
              x:Class="MobileApp.Controls.SkeletonLoader"
              x:Name="this">
-    
-    <ContentView.Resources>
-        <ResourceDictionary>
-            <!-- Shimmer animation for skeleton -->
-            <Color x:Key="SkeletonBase">#E0E0E0</Color>
-            <Color x:Key="SkeletonHighlight">#F5F5F5</Color>
-        </ResourceDictionary>
-    </ContentView.Resources>
 
     <Grid>
         <!-- Skeleton content based on type -->
         <Grid IsVisible="{Binding Source={x:Reference this}, Path=Type, Converter={StaticResource SkeletonTypeConverter}, ConverterParameter='Card'}"
               x:DataType="controls:SkeletonLoader">
-            <Border BackgroundColor="White"
+            <Border BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                     Padding="20,18"
                     StrokeThickness="0"
                     StrokeShape="RoundRectangle 12">
@@ -27,7 +19,7 @@
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
                     <!-- Icon placeholder -->
                     <Border Grid.Column="0"
-                            BackgroundColor="{StaticResource SkeletonBase}"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource ChipInactive}, Dark={StaticResource ChipInactiveDark}}"
                             WidthRequest="48"
                             HeightRequest="48"
                             StrokeThickness="0"
@@ -36,13 +28,13 @@
                     
                     <!-- Text placeholders -->
                     <VerticalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
-                        <Border BackgroundColor="{StaticResource SkeletonBase}"
+                        <Border BackgroundColor="{AppThemeBinding Light={StaticResource ChipInactive}, Dark={StaticResource ChipInactiveDark}}"
                                 HeightRequest="16"
                                 WidthRequest="150"
                                 StrokeThickness="0"
                                 StrokeShape="RoundRectangle 4"
                                 x:Name="TitleSkeleton"/>
-                        <Border BackgroundColor="{StaticResource SkeletonBase}"
+                        <Border BackgroundColor="{AppThemeBinding Light={StaticResource ChipInactive}, Dark={StaticResource ChipInactiveDark}}"
                                 HeightRequest="12"
                                 WidthRequest="200"
                                 StrokeThickness="0"
@@ -53,7 +45,7 @@
                     
                     <!-- Chevron placeholder -->
                     <Border Grid.Column="2"
-                            BackgroundColor="{StaticResource SkeletonBase}"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource ChipInactive}, Dark={StaticResource ChipInactiveDark}}"
                             WidthRequest="24"
                             HeightRequest="24"
                             StrokeThickness="0"
@@ -68,7 +60,7 @@
         <Grid IsVisible="{Binding Source={x:Reference this}, Path=Type, Converter={StaticResource SkeletonTypeConverter}, ConverterParameter='AssetItem'}"
               x:DataType="controls:SkeletonLoader">
             <Border Margin="0,8"
-                    BackgroundColor="White"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                     StrokeThickness="0"
                     StrokeShape="RoundRectangle 12">
                 <Border.Shadow>
@@ -80,11 +72,11 @@
                     
                     <!-- Sync indicator placeholder -->
                     <BoxView Grid.Column="0"
-                             BackgroundColor="{StaticResource SkeletonBase}"/>
+                             BackgroundColor="{AppThemeBinding Light={StaticResource ChipInactive}, Dark={StaticResource ChipInactiveDark}}"/>
                     
                     <!-- Category icon placeholder -->
                     <Border Grid.Column="1"
-                            BackgroundColor="{StaticResource SkeletonBase}"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource ChipInactive}, Dark={StaticResource ChipInactiveDark}}"
                             WidthRequest="40"
                             HeightRequest="40"
                             StrokeThickness="0"
@@ -98,13 +90,13 @@
                                          Padding="12,16"
                                          Spacing="8"
                                          VerticalOptions="Center">
-                        <Border BackgroundColor="{StaticResource SkeletonBase}"
+                        <Border BackgroundColor="{AppThemeBinding Light={StaticResource ChipInactive}, Dark={StaticResource ChipInactiveDark}}"
                                 HeightRequest="16"
                                 WidthRequest="180"
                                 StrokeThickness="0"
                                 StrokeShape="RoundRectangle 4"
                                 x:Name="AssetNameSkeleton"/>
-                        <Border BackgroundColor="{StaticResource SkeletonBase}"
+                        <Border BackgroundColor="{AppThemeBinding Light={StaticResource ChipInactive}, Dark={StaticResource ChipInactiveDark}}"
                                 HeightRequest="14"
                                 WidthRequest="220"
                                 StrokeThickness="0"
@@ -115,7 +107,7 @@
                     
                     <!-- Chevron placeholder -->
                     <Border Grid.Column="3"
-                            BackgroundColor="{StaticResource SkeletonBase}"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource ChipInactive}, Dark={StaticResource ChipInactiveDark}}"
                             WidthRequest="20"
                             HeightRequest="20"
                             StrokeThickness="0"
@@ -130,7 +122,7 @@
         <!-- Dashboard stat card skeleton -->
         <Grid IsVisible="{Binding Source={x:Reference this}, Path=Type, Converter={StaticResource SkeletonTypeConverter}, ConverterParameter='StatCard'}"
               x:DataType="controls:SkeletonLoader">
-            <Border BackgroundColor="White"
+            <Border BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                     Padding="12,16"
                     StrokeThickness="0"
                     StrokeShape="RoundRectangle 12">
@@ -138,21 +130,21 @@
                     <Shadow Brush="Black" Opacity="0.1" Radius="8" Offset="0,2"/>
                 </Border.Shadow>
                 <VerticalStackLayout Spacing="8" HorizontalOptions="Center">
-                    <Border BackgroundColor="{StaticResource SkeletonBase}"
+                    <Border BackgroundColor="{AppThemeBinding Light={StaticResource ChipInactive}, Dark={StaticResource ChipInactiveDark}}"
                             WidthRequest="32"
                             HeightRequest="32"
                             StrokeThickness="0"
                             StrokeShape="RoundRectangle 16"
                             HorizontalOptions="Center"
                             x:Name="StatIconSkeleton"/>
-                    <Border BackgroundColor="{StaticResource SkeletonBase}"
+                    <Border BackgroundColor="{AppThemeBinding Light={StaticResource ChipInactive}, Dark={StaticResource ChipInactiveDark}}"
                             HeightRequest="24"
                             WidthRequest="40"
                             StrokeThickness="0"
                             StrokeShape="RoundRectangle 4"
                             HorizontalOptions="Center"
                             x:Name="StatNumberSkeleton"/>
-                    <Border BackgroundColor="{StaticResource SkeletonBase}"
+                    <Border BackgroundColor="{AppThemeBinding Light={StaticResource ChipInactive}, Dark={StaticResource ChipInactiveDark}}"
                             HeightRequest="11"
                             WidthRequest="60"
                             StrokeThickness="0"

@@ -15,6 +15,7 @@ public partial class AddAssetViewModel : BaseViewModel
     private readonly IAssetService _assetService;
     private readonly ILocationService _locationService;
     private readonly IAuthService _authService;
+    private readonly IBarcodeScannerService _barcodeScannerService;
 
     [ObservableProperty]
     private string? digitalAssetTag;
@@ -113,6 +114,12 @@ public partial class AddAssetViewModel : BaseViewModel
     private string pageTitle = "Add Asset";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FinancialSectionToggleText))]
+    private bool isFinancialSectionExpanded = false;
+
+    public string FinancialSectionToggleText => IsFinancialSectionExpanded ? "Hide" : "Show";
+
+    [ObservableProperty]
     private string saveButtonText = "Save";
 
     public string SelectedLocationDisplay =>
@@ -128,15 +135,19 @@ public partial class AddAssetViewModel : BaseViewModel
 
     // Store the asset ID when editing an existing asset
     private string? _editingAssetId;
+    private bool _isHandlingScan;
+    private int _lookupRefreshEpoch;
 
     public AddAssetViewModel(
         IAssetService assetService,
         ILocationService locationService,
-        IAuthService authService)
+        IAuthService authService,
+        IBarcodeScannerService barcodeScannerService)
     {
         _assetService = assetService;
         _locationService = locationService;
         _authService = authService;
+        _barcodeScannerService = barcodeScannerService;
         Title = "Add Asset";
 
         // Initialize status and condition options
@@ -160,6 +171,7 @@ public partial class AddAssetViewModel : BaseViewModel
             IsEditMode = false;
             PageTitle = "Add Asset";
             SaveButtonText = "Save";
+            IsFinancialSectionExpanded = false;
             SelectedCategory = null;
             SelectedLocation = null;
             SelectedDepartment = null;
@@ -180,11 +192,39 @@ public partial class AddAssetViewModel : BaseViewModel
     }
 
     /// <summary>
+    /// Reload category/location/department lists without clearing the form.
+    /// Used when returning from the scanner or Add Location.
+    /// </summary>
+    public async Task RefreshFormLookupsAsync()
+    {
+        // Skip while a scan is still applying a tag or loading an existing asset.
+        // Otherwise this can finish after LoadAssetAsync and restore add-form pickers.
+        if (_isHandlingScan || IsBusy)
+            return;
+
+        var epoch = _lookupRefreshEpoch;
+        var categoryId = SelectedCategory?.CategoryId;
+        var locationId = SelectedLocation?.LocationId;
+        var departmentId = SelectedDepartment?.DepartmentId;
+
+        await LoadFormDataAsync();
+
+        if (_isHandlingScan || IsBusy || epoch != _lookupRefreshEpoch)
+            return;
+
+        SelectedCategory = Categories.FirstOrDefault(c => c.CategoryId == categoryId);
+        SelectedLocation = Locations.FirstOrDefault(l => l.LocationId == locationId);
+        SelectedDepartment = Departments.FirstOrDefault(d => d.DepartmentId == departmentId);
+    }
+
+    /// <summary>
     /// Load an existing asset for editing
     /// </summary>
     public async Task LoadAssetAsync(string assetId)
     {
         if (IsBusy) return;
+
+        _lookupRefreshEpoch++;
 
         try
         {
@@ -198,6 +238,7 @@ public partial class AddAssetViewModel : BaseViewModel
             IsEditMode = true;
             PageTitle = "Update Asset";
             SaveButtonText = "Update";
+            IsFinancialSectionExpanded = true;
 
             // Load form data first
             await LoadFormDataAsync();
@@ -324,29 +365,10 @@ public partial class AddAssetViewModel : BaseViewModel
     [RelayCommand]
     private async Task ScanBarcodeAsync()
     {
+        _isHandlingScan = true;
         try
         {
-            // Check camera permission
-            var status = await Permissions.CheckStatusAsync<Permissions.Camera>();
-            if (status != PermissionStatus.Granted)
-            {
-                status = await Permissions.RequestAsync<Permissions.Camera>();
-                if (status != PermissionStatus.Granted)
-                {
-                    await Shell.Current.DisplayAlert(
-                        "Permission Denied",
-                        "Camera permission is required to scan barcodes. Please enable it in settings.",
-                        "OK");
-                    return;
-                }
-            }
-
-            // Create and navigate to scanner page
-            var scannerPage = new Views.BarcodeScannerPage();
-            await Shell.Current.Navigation.PushModalAsync(scannerPage);
-
-            // Wait for scan result
-            var scannedValue = await scannerPage.GetScanResultAsync();
+        var scannedValue = await _barcodeScannerService.ScanAsync();
 
             if (!string.IsNullOrWhiteSpace(scannedValue))
             {
@@ -393,6 +415,10 @@ public partial class AddAssetViewModel : BaseViewModel
         catch (Exception ex)
         {
             await Shell.Current.DisplayAlert("Error", $"Failed to scan barcode: {ex.Message}", "OK");
+        }
+        finally
+        {
+            _isHandlingScan = false;
         }
     }
 
@@ -517,6 +543,13 @@ public partial class AddAssetViewModel : BaseViewModel
         {
             IsBusy = false;
         }
+    }
+
+    [RelayCommand]
+    private void ToggleFinancialSection()
+    {
+        IsFinancialSectionExpanded = !IsFinancialSectionExpanded;
+        OnPropertyChanged(nameof(FinancialSectionToggleText));
     }
 
     /// <summary>

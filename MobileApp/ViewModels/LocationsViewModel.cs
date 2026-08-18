@@ -15,11 +15,8 @@ public partial class LocationsViewModel : BaseViewModel
     private readonly ILocationService _locationService;
     private readonly IAuthService _authService;
 
-    [ObservableProperty]
-    private ObservableCollection<LocationItemViewModel> locations = new();
-
-    [ObservableProperty]
-    private IReadOnlyList<LocationItemViewModel> filteredLocations = new List<LocationItemViewModel>();
+        [ObservableProperty]
+        private ObservableCollection<LocationItemViewModel> locations = new();
 
     [ObservableProperty]
     private string searchText = string.Empty;
@@ -36,11 +33,14 @@ public partial class LocationsViewModel : BaseViewModel
     [ObservableProperty]
     private string currentSortOption = "Name (A-Z)";
 
-    [ObservableProperty]
-    private bool isInitialLoad = true;
+        [ObservableProperty]
+        private bool isRefreshing;
 
-    [ObservableProperty]
-    private bool isLoadingMore = false;
+        [ObservableProperty]
+        private bool isInitialLoad = true;
+
+        [ObservableProperty]
+        private bool isLoadingMore = false;
 
     [ObservableProperty]
     private bool isCapturingLocation = false;
@@ -84,6 +84,7 @@ public partial class LocationsViewModel : BaseViewModel
             if (IsInitialLoad)
             {
                 IsBusy = true;
+                UpdateVisibilityState();
             }
 
             // Reset paging state
@@ -100,14 +101,7 @@ public partial class LocationsViewModel : BaseViewModel
                 {
                     await MainThread.InvokeOnMainThreadAsync(async () =>
                     {
-                        try
-                        {
-                            await Shell.Current.GoToAsync("/LoginPage");
-                        }
-                        catch (Exception ex)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"Navigation to login failed: {ex.Message}");
-                        }
+                        await NavigateToLoginAsync();
                     });
                 }
             });
@@ -122,6 +116,7 @@ public partial class LocationsViewModel : BaseViewModel
             _isLoading = false;
             IsBusy = false;
             IsInitialLoad = false;
+            UpdateVisibilityState();
 
             if (_reloadRequested)
             {
@@ -165,7 +160,6 @@ public partial class LocationsViewModel : BaseViewModel
                     await MainThread.InvokeOnMainThreadAsync(() =>
                     {
                         Locations = new ObservableCollection<LocationItemViewModel>();
-                        FilteredLocations = Array.Empty<LocationItemViewModel>();
                         UpdateVisibilityState();
                     });
                 }
@@ -198,14 +192,11 @@ public partial class LocationsViewModel : BaseViewModel
                 if (reset)
                 {
                     Locations = new ObservableCollection<LocationItemViewModel>(newItems);
-                    FilteredLocations = newItems;
                 }
                 else
                 {
                     foreach (var item in newItems)
                         Locations.Add(item);
-
-                    FilteredLocations = Locations.ToList();
                 }
 
                 UpdateVisibilityState();
@@ -226,16 +217,16 @@ public partial class LocationsViewModel : BaseViewModel
         }
     }
 
-    private void UpdateVisibilityState()
-    {
-        HasLocations = FilteredLocations.Count > 0;
-        ShowEmptyState = FilteredLocations.Count == 0;
-        EmptyStateMessage = !string.IsNullOrEmpty(SearchText)
-            ? "No locations match your search"
+        private void UpdateVisibilityState()
+        {
+            HasLocations = Locations.Count > 0;
+            ShowEmptyState = !IsBusy && Locations.Count == 0;
+            EmptyStateMessage = !string.IsNullOrEmpty(SearchText)
+                ? "No locations match your search"
             : "No locations found. Tap '+' to add one!";
-    }
+        }
 
-    private async Task ReloadFromDatabaseAsync(bool debounce)
+        private async Task ReloadFromDatabaseAsync(bool debounce)
     {
         if (debounce)
         {
@@ -299,20 +290,8 @@ public partial class LocationsViewModel : BaseViewModel
         _ = ReloadFromDatabaseAsync(debounce: false);
     }
 
-    /// <summary>
-    /// Go back
-    /// </summary>
-    [RelayCommand]
-    private async Task CancelAsync()
-    {
-        await Shell.Current.GoToAsync("..");
-    }
-
-    /// <summary>
-    /// Navigate to add location page
-    /// </summary>
-    [RelayCommand]
-    private async Task AddLocationAsync()
+        [RelayCommand]
+        private async Task AddLocationAsync()
     {
         try
         {
@@ -436,11 +415,20 @@ public partial class LocationsViewModel : BaseViewModel
     /// <summary>
     /// Refresh the locations list
     /// </summary>
-    [RelayCommand]
-    private async Task RefreshAsync()
-    {
-        await LoadLocationsAsync();
-    }
+        [RelayCommand]
+        private async Task RefreshAsync()
+        {
+            if (IsRefreshing) return;
+            IsRefreshing = true;
+            try
+            {
+                await LoadLocationsAsync();
+            }
+            finally
+            {
+                IsRefreshing = false;
+            }
+        }
 }
 
 /// <summary>

@@ -22,27 +22,6 @@ public class AssetService : IAssetService
         _logger = logger;
     }
 
-    public async Task<List<Asset>> GetAllAssetsAsync()
-    {
-        try
-        {
-            using var scope = _serviceProvider.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
-
-            return await dbContext.Assets
-                .Include(a => a.Category)
-                .Include(a => a.Location)
-                .Include(a => a.Department)
-                .OrderBy(a => a.Name)
-                .ToListAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting all assets");
-            return new List<Asset>();
-        }
-    }
-
     public async Task<List<Asset>> GetAssetsPageAsync(
         int pageIndex,
         int pageSize,
@@ -71,6 +50,7 @@ public class AssetService : IAssetService
                     a.Name.Contains(term) ||
                     a.AssetTag.Contains(term) ||
                     (a.DigitalAssetTag != null && a.DigitalAssetTag.Contains(term)) ||
+                    (a.SerialNumber != null && a.SerialNumber.Contains(term)) ||
                     (a.Location != null && a.Location.Name.Contains(term)));
             }
 
@@ -356,6 +336,26 @@ public class AssetService : IAssetService
         {
             _logger.LogError(ex, "Error deleting asset {AssetId}", assetId);
             return (false, $"Error deleting asset: {ex.Message}");
+        }
+    }
+
+    public async Task<List<string>> GetCategoryNamesAsync()
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<LocalDbContext>();
+
+            return await dbContext.Categories
+                .AsNoTracking()
+                .OrderBy(c => c.Name)
+                .Select(c => c.Name)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting category names");
+            return new List<string>();
         }
     }
 }

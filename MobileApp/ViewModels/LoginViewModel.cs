@@ -31,6 +31,8 @@ namespace MobileApp.ViewModels
         [ObservableProperty]
         private bool biometricEnabled = false;
 
+        public string AppVersion => $"AssetTag Mobile v{AppInfo.Current.VersionString}";
+
         public LoginViewModel(IAuthService authService, INavigationService navigationService)
         {
             _authService = authService;

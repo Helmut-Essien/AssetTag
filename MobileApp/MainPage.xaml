@@ -7,13 +7,13 @@
              xmlns:mi="http://www.aathifmahir.com/dotnet/2022/maui/icons"
              x:Class="MobileApp.MainPage"
              x:DataType="vm:MainPageViewModel"
-             BackgroundColor="#F8F9FA">
+             BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource PageBackgroundDark}}">
 
     <Grid RowDefinitions="Auto,*">
         
         <!-- Clean Header Section - Material Design 3 -->
         <Grid Grid.Row="0"
-              BackgroundColor="#005A9C"
+              BackgroundColor="{StaticResource AppBlue}"
               Padding="20,15,20,20">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -43,9 +43,12 @@
             <Border Grid.Row="0" Grid.Column="1"
                     BackgroundColor="Transparent"
                     Stroke="Transparent"
-                    Padding="8"
+                    Padding="10"
+                    MinimumWidthRequest="44"
+                    MinimumHeightRequest="44"
                     VerticalOptions="Center"
-                    HorizontalOptions="End">
+                    HorizontalOptions="End"
+                    SemanticProperties.Description="Open settings">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="20"/>
                 </Border.StrokeShape>
@@ -67,9 +70,9 @@
 
         <!-- Main Content Area with Pull-to-Refresh -->
         <RefreshView Grid.Row="1"
-                     IsRefreshing="{Binding IsBusy}"
+                     IsRefreshing="{Binding IsRefreshing}"
                      Command="{Binding RefreshCommand}"
-                     RefreshColor="#005A9C">
+                     RefreshColor="{StaticResource AppBlue}">
             <ScrollView>
                 <Grid>
                     <!-- Skeleton Loaders (visible while loading) -->
@@ -87,7 +90,7 @@
                         
                         <!-- Quick Actions Skeleton -->
                         <VerticalStackLayout Spacing="16">
-                            <BoxView BackgroundColor="#E0E0E0" HeightRequest="18" WidthRequest="120" CornerRadius="4"/>
+                            <BoxView BackgroundColor="{AppThemeBinding Light={StaticResource ChipInactive}, Dark={StaticResource ChipInactiveDark}}" HeightRequest="18" WidthRequest="120" CornerRadius="4"/>
                             <controls:SkeletonLoader Type="Card"/>
                             <controls:SkeletonLoader Type="Card"/>
                             <controls:SkeletonLoader Type="Card"/>
@@ -103,7 +106,7 @@
                         
                         <!-- Total Assets Card -->
                         <Border Grid.Column="0"
-                                BackgroundColor="White"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                                 Stroke="Transparent"
                                 Padding="12,16"
                                 Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
@@ -115,7 +118,7 @@
                                     <Image.Source>
                                         <FontImageSource FontFamily="MaterialIcons-Regular"
                                                        Glyph="{mi:Material Icon=Inventory}"
-                                                       Color="#005A9C"
+                                                       Color="{StaticResource AppBlue}"
                                                        Size="28"/>
                                     </Image.Source>
                                 </Image>
@@ -124,18 +127,18 @@
                                        FontSize="24"
                                        FontAttributes="Bold"
                                        HorizontalOptions="Center"
-                                       TextColor="#333333"/>
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                                 <Label Text="Total Assets"
                                        FontFamily="OpenSansRegular"
                                        FontSize="11"
                                        HorizontalOptions="Center"
-                                       TextColor="#666666"/>
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"/>
                             </VerticalStackLayout>
                         </Border>
                         
                         <!-- Scanned Today Card -->
                         <Border Grid.Column="1"
-                                BackgroundColor="White"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                                 Stroke="Transparent"
                                 Padding="12,16"
                                 Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
@@ -147,7 +150,7 @@
                                     <Image.Source>
                                         <FontImageSource FontFamily="MaterialIcons-Regular"
                                                        Glyph="{mi:Material Icon=QrCodeScanner}"
-                                                       Color="#4CAF50"
+                                                       Color="{StaticResource SyncGreen}"
                                                        Size="28"/>
                                     </Image.Source>
                                 </Image>
@@ -156,18 +159,18 @@
                                        FontSize="24"
                                        FontAttributes="Bold"
                                        HorizontalOptions="Center"
-                                       TextColor="#333333"/>
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                                 <Label Text="Scanned Today"
                                        FontFamily="OpenSansRegular"
                                        FontSize="11"
                                        HorizontalOptions="Center"
-                                       TextColor="#666666"/>
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"/>
                             </VerticalStackLayout>
                         </Border>
                         
                         <!-- Pending Sync Card -->
                         <Border Grid.Column="2"
-                                BackgroundColor="White"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                                 Stroke="Transparent"
                                 Padding="12,16"
                                 Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
@@ -179,7 +182,7 @@
                                     <Image.Source>
                                         <FontImageSource FontFamily="MaterialIcons-Regular"
                                                        Glyph="{mi:Material Icon=SyncProblem}"
-                                                       Color="#FFC107"
+                                                       Color="{StaticResource SyncOrange}"
                                                        Size="28"/>
                                     </Image.Source>
                                 </Image>
@@ -188,18 +191,18 @@
                                        FontSize="24"
                                        FontAttributes="Bold"
                                        HorizontalOptions="Center"
-                                       TextColor="#FFC107"/>
+                                       TextColor="{AppThemeBinding Light={StaticResource PendingText}, Dark={StaticResource PendingTextDark}}"/>
                                 <Label Text="Pending Sync"
                                        FontFamily="OpenSansRegular"
                                        FontSize="11"
                                        HorizontalOptions="Center"
-                                       TextColor="#666666"/>
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"/>
                             </VerticalStackLayout>
                         </Border>
                     </Grid>
                     
                     <!-- Sync Status Section -->
-                    <Border BackgroundColor="White"
+                    <Border BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                             Stroke="Transparent"
                             Padding="20,24"
                             Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
@@ -211,10 +214,10 @@
                                    FontFamily="OpenSansRegular"
                                    FontSize="14"
                                    HorizontalOptions="Center"
-                                   TextColor="#666666"/>
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"/>
                             
                             <!-- Sync Data Button -->
-                            <Border BackgroundColor="#00796B"
+                            <Border BackgroundColor="{StaticResource AppBlue}"
                                     Stroke="Transparent"
                                     Padding="32,14"
                                     HorizontalOptions="Center"
@@ -250,14 +253,14 @@
                                                HorizontalOptions="Center"
                                                MinimumWidthRequest="250">
                                 <ProgressBar Progress="{Binding SyncProgress}"
-                                           ProgressColor="#00796B"
+                                           ProgressColor="{StaticResource AppBlue}"
                                            HeightRequest="6"
                                            HorizontalOptions="FillAndExpand"/>
                                 <Label Text="{Binding SyncStatusText}"
                                        FontFamily="OpenSansRegular"
                                        FontSize="12"
                                        HorizontalOptions="Center"
-                                       TextColor="#666666"/>
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"/>
                             </VerticalStackLayout>
                         </VerticalStackLayout>
                     </Border>
@@ -268,11 +271,11 @@
                                FontFamily="OpenSansRegular"
                                FontSize="18"
                                FontAttributes="Bold"
-                               TextColor="#333333"
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"
                                Margin="0,0,0,4"/>
                         
                         <!-- Add Asset Button -->
-                        <Border BackgroundColor="White"
+                        <Border BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                                 Stroke="Transparent"
                                 Padding="20,18"
                                 Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
@@ -281,7 +284,7 @@
                             </Border.StrokeShape>
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
                                 <Border Grid.Column="0"
-                                        BackgroundColor="#E8F5E9"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource IconBackgroundGreen}, Dark={StaticResource IconBackgroundGreenDark}}"
                                         WidthRequest="48"
                                         HeightRequest="48"
                                         Stroke="Transparent">
@@ -294,7 +297,7 @@
                                         <Image.Source>
                                             <FontImageSource FontFamily="MaterialIcons-Regular"
                                                            Glyph="{mi:Material Icon=AddCircle}"
-                                                           Color="#4CAF50"
+                                                           Color="{StaticResource SyncGreen}"
                                                            Size="24"/>
                                         </Image.Source>
                                     </Image>
@@ -307,11 +310,11 @@
                                            FontFamily="OpenSansRegular"
                                            FontSize="16"
                                            FontAttributes="Bold"
-                                           TextColor="#333333"/>
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                                     <Label Text="Register a new item into the inventory"
                                            FontFamily="OpenSansRegular"
                                            FontSize="13"
-                                           TextColor="#666666"/>
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"/>
                                 </VerticalStackLayout>
                                 
                                 <Image Grid.Column="2"
@@ -321,7 +324,7 @@
                                     <Image.Source>
                                         <FontImageSource FontFamily="MaterialIcons-Regular"
                                                        Glyph="{mi:Material Icon=ChevronRight}"
-                                                       Color="#CCCCCC"
+                                                       Color="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource Gray500}}"
                                                        Size="28"/>
                                     </Image.Source>
                                 </Image>
@@ -332,7 +335,7 @@
                         </Border>
                         
                         <!-- View Assets Button -->
-                        <Border BackgroundColor="White"
+                        <Border BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                                 Stroke="Transparent"
                                 Padding="20,18"
                                 Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
@@ -341,7 +344,7 @@
                             </Border.StrokeShape>
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
                                 <Border Grid.Column="0"
-                                        BackgroundColor="#E3F2FD"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource IconBackgroundBlue}, Dark={StaticResource IconBackgroundBlueDark}}"
                                         WidthRequest="48"
                                         HeightRequest="48"
                                         Stroke="Transparent">
@@ -354,7 +357,7 @@
                                         <Image.Source>
                                             <FontImageSource FontFamily="MaterialIcons-Regular"
                                                            Glyph="{mi:Material Icon=ListAlt}"
-                                                           Color="#005A9C"
+                                                           Color="{StaticResource AppBlue}"
                                                            Size="24"/>
                                         </Image.Source>
                                     </Image>
@@ -367,11 +370,11 @@
                                            FontFamily="OpenSansRegular"
                                            FontSize="16"
                                            FontAttributes="Bold"
-                                           TextColor="#333333"/>
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                                     <Label Text="Browse and filter existing inventory"
                                            FontFamily="OpenSansRegular"
                                            FontSize="13"
-                                           TextColor="#666666"/>
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"/>
                                 </VerticalStackLayout>
                                 
                                 <Image Grid.Column="2"
@@ -381,7 +384,7 @@
                                     <Image.Source>
                                         <FontImageSource FontFamily="MaterialIcons-Regular"
                                                        Glyph="{mi:Material Icon=ChevronRight}"
-                                                       Color="#CCCCCC"
+                                                       Color="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource Gray500}}"
                                                        Size="28"/>
                                     </Image.Source>
                                 </Image>
@@ -392,7 +395,7 @@
                         </Border>
                         
                         <!-- Scan Asset Button -->
-                        <Border BackgroundColor="White"
+                        <Border BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                                 Stroke="Transparent"
                                 Padding="20,18"
                                 Shadow="{Shadow Brush=Black, Opacity=0.06, Radius=8, Offset='0,2'}">
@@ -401,7 +404,7 @@
                             </Border.StrokeShape>
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
                                 <Border Grid.Column="0"
-                                        BackgroundColor="#FFF3E0"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource IconBackgroundOrange}, Dark={StaticResource IconBackgroundOrangeDark}}"
                                         WidthRequest="48"
                                         HeightRequest="48"
                                         Stroke="Transparent">
@@ -414,7 +417,7 @@
                                         <Image.Source>
                                             <FontImageSource FontFamily="MaterialIcons-Regular"
                                                            Glyph="{mi:Material Icon=QrCodeScanner}"
-                                                           Color="#FF9800"
+                                                           Color="{StaticResource SyncOrange}"
                                                            Size="24"/>
                                         </Image.Source>
                                     </Image>
@@ -427,11 +430,11 @@
                                            FontFamily="OpenSansRegular"
                                            FontSize="16"
                                            FontAttributes="Bold"
-                                           TextColor="#333333"/>
+                                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                                     <Label Text="Quick lookup via barcode or QR"
                                            FontFamily="OpenSansRegular"
                                            FontSize="13"
-                                           TextColor="#666666"/>
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"/>
                                 </VerticalStackLayout>
                                 
                                 <Image Grid.Column="2"
@@ -441,7 +444,7 @@
                                     <Image.Source>
                                         <FontImageSource FontFamily="MaterialIcons-Regular"
                                                        Glyph="{mi:Material Icon=ChevronRight}"
-                                                       Color="#CCCCCC"
+                                                       Color="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource Gray500}}"
                                                        Size="28"/>
                                     </Image.Source>
                                 </Image>
@@ -466,7 +469,7 @@
                                HorizontalOptions="Center"
                                VerticalOptions="Center"
                                Padding="40">
-                <Border BackgroundColor="White"
+                <Border BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
                         Stroke="Transparent"
                         Padding="40,50"
                         HorizontalOptions="Center"
@@ -480,11 +483,11 @@
                             <Image.Source>
                                 <FontImageSource FontFamily="MaterialIcons-Regular"
                                                Glyph="{mi:Material Icon=Sync}"
-                                               Color="#00796B"
+                                               Color="{StaticResource AppBlue}"
                                                Size="64"/>
                             </Image.Source>
                             <Image.Behaviors>
-                                <toolkit:IconTintColorBehavior TintColor="#00796B"/>
+                                <toolkit:IconTintColorBehavior TintColor="{StaticResource AppBlue}"/>
                             </Image.Behaviors>
                         </Image>
                         
@@ -494,24 +497,24 @@
                                FontSize="22"
                                FontAttributes="Bold"
                                HorizontalOptions="Center"
-                               TextColor="#333333"/>
+                               TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}"/>
                         
                         <!-- Progress Bar -->
                         <VerticalStackLayout Spacing="12" MinimumWidthRequest="280">
                             <ProgressBar Progress="{Binding SyncProgress}"
-                                       ProgressColor="#00796B"
+                                       ProgressColor="{StaticResource AppBlue}"
                                        HeightRequest="8"
                                        HorizontalOptions="FillAndExpand"/>
                             <Label Text="{Binding SyncStatusText}"
                                    FontFamily="OpenSansRegular"
                                    FontSize="14"
                                    HorizontalOptions="Center"
-                                   TextColor="#666666"/>
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"/>
                         </VerticalStackLayout>
                         
                         <!-- Activity Indicator -->
                         <ActivityIndicator IsRunning="{Binding IsSyncing}"
-                                         Color="#00796B"
+                                         Color="{StaticResource AppBlue}"
                                          WidthRequest="32"
                                          HeightRequest="32"
                                          HorizontalOptions="Center"/>
@@ -521,7 +524,7 @@
                                FontFamily="OpenSansRegular"
                                FontSize="13"
                                HorizontalOptions="Center"
-                               TextColor="#999999"
+                               TextColor="{AppThemeBinding Light={StaticResource TextTertiary}, Dark={StaticResource TextTertiaryDark}}"
                                MaximumWidthRequest="280"
                                HorizontalTextAlignment="Center"/>
                     </VerticalStackLayout>

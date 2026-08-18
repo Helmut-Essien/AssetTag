@@ -47,5 +47,10 @@ namespace MobileApp.Services
         /// Display a prompt dialog for user input
         /// </summary>
         Task<string?> DisplayPromptAsync(string title, string message, string accept, string cancel, string? placeholder = null, Keyboard? keyboard = null);
+
+        /// <summary>
+        /// Display a modal prompt with a masked password field.
+        /// </summary>
+        Task<string?> DisplayPasswordPromptAsync(string title, string message);
     }
 }

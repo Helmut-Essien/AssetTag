@@ -97,6 +97,10 @@ namespace MobileApp
             // Register HttpClient and Services
             // ────────────────────────────────────────────────────────────────
             builder.Services.AddTransient<TokenRefreshHandler>();
+            builder.Services.AddSingleton<ApiEndpointSelector>();
+            builder.Services.AddTransient<ApiEndpointHandler>();
+            builder.Services.AddSingleton<ISecureStorageService, MauiSecureStorageService>();
+            builder.Services.AddSingleton<INetworkAccessService, MauiNetworkAccessService>();
             
             // Register AuthService as Singleton with HttpClient and Configuration
             builder.Services.AddSingleton<IAuthService, AuthService>();
@@ -109,7 +113,23 @@ namespace MobileApp
                 client.BaseAddress = new Uri(settings.PrimaryApiUrl);
                 client.Timeout = TimeSpan.FromSeconds(settings.RequestTimeout);
             })
-            .AddHttpMessageHandler<TokenRefreshHandler>();
+            .AddHttpMessageHandler<TokenRefreshHandler>()
+            .AddHttpMessageHandler<ApiEndpointHandler>();
+
+            builder.Services.AddHttpClient("AuthClient", (sp, client) =>
+            {
+                var settings = sp.GetRequiredService<IOptions<ApiSettings>>().Value;
+                client.BaseAddress = new Uri(settings.PrimaryApiUrl);
+                client.Timeout = TimeSpan.FromSeconds(settings.RequestTimeout);
+            })
+            .AddHttpMessageHandler<ApiEndpointHandler>();
+
+            // Health pings must not use ApiEndpointHandler — it rewrites primary
+            // URIs to the current fallback and then looks like primary is up.
+            builder.Services.AddHttpClient("HealthClient", client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(3);
+            });
 
             // ────────────────────────────────────────────────────────────────
             // Register Services for dependency injection
@@ -122,6 +142,7 @@ namespace MobileApp
             builder.Services.AddSingleton<ISyncService, SyncService>();
             builder.Services.AddSingleton<IAssetService, AssetService>();
             builder.Services.AddSingleton<ILocationService, LocationService>();
+            builder.Services.AddSingleton<IBarcodeScannerService, BarcodeScannerService>();
             
             // Register BackgroundSyncService as Singleton (runs for app lifetime)
             builder.Services.AddSingleton<BackgroundSyncService>();
@@ -165,6 +186,7 @@ namespace MobileApp
             builder.Services.AddTransient<EditLocationPage>();
             builder.Services.AddTransient<AddAssetPage>();
             builder.Services.AddTransient<BarcodeScannerPage>();
+            builder.Services.AddTransient<PasswordPromptPage>();
             
             // Login/Splash pages are transient as they're used once per session
             builder.Services.AddTransient<LoginPage>();
@@ -174,17 +196,7 @@ namespace MobileApp
             builder.Services.AddSingleton<AppShell>();
 
             // ────────────────────────────────────────────────────────────────
-            // Configure MAUI Handlers for Performance Optimization
-            // ────────────────────────────────────────────────────────────────
-            builder.ConfigureMauiHandlers(handlers =>
-            {
-                // Enable compiled bindings globally for all ContentPages
-                // This provides 2-3x faster binding performance across the entire app
-                handlers.AddHandler<ContentPage, Microsoft.Maui.Handlers.PageHandler>();
-            });
-
-            // ────────────────────────────────────────────────────────────────
-            // Logging – keep your debug logging and add file/app logging if desired
+            // Logging
             // ────────────────────────────────────────────────────────────────
 #if DEBUG
             builder.Logging.AddDebug();
@@ -204,6 +216,7 @@ namespace MobileApp
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<MigrationBackgroundService> _logger;
+        private readonly object _migrationLock = new();
         private Task? _migrationTask;
 
         public MigrationBackgroundService(
@@ -253,16 +266,23 @@ namespace MobileApp
         }
 
         /// <summary>
-        /// Await until migrations finish (success or fault). Callers should handle faults.
+        /// Await until migrations finish (success or fault). A faulted attempt is
+        /// replaced so splash Retry actually re-runs MigrateAsync.
         /// </summary>
         public async Task WaitForCompletionAsync()
         {
-            if (_migrationTask == null)
-                return;
+            Task task;
+            lock (_migrationLock)
+            {
+                if (_migrationTask == null || _migrationTask.IsFaulted || _migrationTask.IsCanceled)
+                    _migrationTask = Task.Run(RunMigrationsAsync);
+
+                task = _migrationTask;
+            }
 
             try
             {
-                await _migrationTask;
+                await task;
             }
             catch (Exception ex)
             {

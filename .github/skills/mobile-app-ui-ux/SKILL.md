@@ -25,6 +25,12 @@ When updating AssetTag mobile UI, apply a lightweight design-system approach:
 - prefer simple component patterns (cards, buttons, search bars, filters) over complex custom controls
 - validate changes against Shell navigation, tab caching behavior, and page lifecycle expectations
 
+## Loading and keyboard
+
+- Bind `RefreshView.IsRefreshing` to a dedicated `IsRefreshing` property, **not** `IsBusy`. `IsBusy` is for first-load skeletons only. Reusing `IsBusy` for pull-to-refresh flashes skeletons every time the user returns to a tab.
+- Android Login uses edge-to-edge (`SetDecorFitsSystemWindows(false)`), so `AdjustResize` will not shrink the page. Pad the login page by IME inset height and keep the form in a filling `ScrollView` so fields can scroll above the keyboard.
+- Do not put emoji in user-facing copy or as icons. Use Material Icons.
+
 ---
 
 ## Color System
@@ -693,12 +699,14 @@ Skeleton loaders automatically animate with a shimmer effect.
         <!-- Background decoration -->
     </AbsoluteLayout>
     
-    <!-- Content -->
-    <VerticalStackLayout Padding="30,20"
-                         Spacing="15"
-                         VerticalOptions="Center">
-        <!-- Login form -->
-    </VerticalStackLayout>
+    <!-- Content: ScrollView must Fill (not Center) so the IME can scroll the form -->
+    <ScrollView VerticalOptions="Fill">
+        <VerticalStackLayout Padding="30,20"
+                             Spacing="15"
+                             VerticalOptions="Center">
+            <!-- Login form -->
+        </VerticalStackLayout>
+    </ScrollView>
     
     <!-- Busy overlay -->
     <Grid IsVisible="{Binding IsBusy}">
@@ -710,7 +718,7 @@ Skeleton loaders automatically animate with a shimmer effect.
 ### 3. List Layout
 
 ```xml
-<RefreshView IsRefreshing="{Binding IsBusy}"
+<RefreshView IsRefreshing="{Binding IsRefreshing}"
              Command="{Binding RefreshCommand}">
     <CollectionView ItemsSource="{Binding Items}"
                     SelectionMode="None"
@@ -803,12 +811,14 @@ Support dynamic type by using relative font sizes:
 ### 1. Pull-to-Refresh
 
 ```xml
-<RefreshView IsRefreshing="{Binding IsBusy}"
+<RefreshView IsRefreshing="{Binding IsRefreshing}"
              Command="{Binding RefreshCommand}"
-             RefreshColor="#005A9C">
+             RefreshColor="{StaticResource AppBlue}">
     <CollectionView ItemsSource="{Binding Items}"/>
 </RefreshView>
 ```
+
+Use `IsRefreshing` for pull-to-refresh. Keep `IsBusy` for the initial skeleton only.
 
 ### 2. Infinite Scroll
 

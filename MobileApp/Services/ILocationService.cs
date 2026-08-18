@@ -45,4 +45,9 @@ public interface ILocationService
     /// Get current device location coordinates
     /// </summary>
     Task<(double? Latitude, double? Longitude, string? ErrorMessage)> GetCurrentLocationAsync();
+
+    /// <summary>
+    /// Distinct location names for filter UI, ordered alphabetically.
+    /// </summary>
+    Task<List<string>> GetLocationNamesAsync();
 }

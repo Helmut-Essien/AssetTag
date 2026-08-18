@@ -36,6 +36,7 @@ namespace MobileApp.ViewModels
         private string updateChannelLabel = "Production";
 
         private bool _isInitializing = false;
+        private bool _isTogglingBiometric = false;
 
         public SettingsViewModel(
             IAuthService authService,
@@ -156,48 +157,80 @@ namespace MobileApp.ViewModels
         }
 
         /// <summary>
+        /// Revert the switch without re-entering the property-changed handler.
+        /// </summary>
+        private void SetBiometricEnabledSilently(bool value)
+        {
+            _isInitializing = true;
+            try
+            {
+                BiometricEnabled = value;
+            }
+            finally
+            {
+                _isInitializing = false;
+            }
+        }
+
+        /// <summary>
         /// Toggle biometric authentication on/off
         /// </summary>
         private async Task ToggleBiometricAsync(bool enable)
         {
-            if (IsBusy) return;
+            if (_isTogglingBiometric) return;
+            _isTogglingBiometric = true;
 
             try
             {
-                IsBusy = true;
-
                 if (enable)
                 {
-                    // Enable biometric
                     var (storedEmail, storedPassword) = await _authService.GetStoredCredentialsAsync();
 
-                    // If no stored biometric credentials, try to use current session credentials
                     if (string.IsNullOrEmpty(storedEmail) || string.IsNullOrEmpty(storedPassword))
                     {
-                        var (sessionEmail, sessionPassword) = await _authService.GetCurrentSessionCredentialsAsync();
-                        
-                        if (!string.IsNullOrEmpty(sessionEmail) && !string.IsNullOrEmpty(sessionPassword))
+                        storedEmail = await _authService.GetCurrentSessionEmailAsync();
+                        if (string.IsNullOrEmpty(storedEmail))
                         {
-                            // Use session credentials and store them for biometric
-                            storedEmail = sessionEmail;
-                            storedPassword = sessionPassword;
-                            // Pre-store credentials so they're available for biometric login
-                            await _authService.EnableBiometricAuthenticationAsync(storedEmail, storedPassword);
+                            storedEmail = await _navigationService.DisplayPromptAsync(
+                                "Enable Biometric Login",
+                                "Enter your email address:",
+                                "Next",
+                                "Cancel",
+                                "Email address",
+                                Keyboard.Email);
+                            if (string.IsNullOrWhiteSpace(storedEmail))
+                            {
+                                SetBiometricEnabledSilently(false);
+                                return;
+                            }
                         }
-                        else
+
+                        storedPassword = await _navigationService.DisplayPasswordPromptAsync(
+                            "Enable Biometric Login",
+                            "Enter your password to store it securely for biometric sign-in.");
+
+                        if (string.IsNullOrWhiteSpace(storedPassword))
                         {
-                            // No credentials available - this shouldn't happen if user is logged in
-                            // Show error and revert toggle
-                            BiometricEnabled = false;
+                            SetBiometricEnabledSilently(false);
+                            return;
+                        }
+
+                        IsBusy = true;
+                        var (loginSuccess, _, loginMessage) = await _authService.LoginAsync(storedEmail, storedPassword);
+                        IsBusy = false;
+
+                        if (!loginSuccess)
+                        {
+                            SetBiometricEnabledSilently(false);
                             await _navigationService.DisplayAlertAsync(
                                 "Error",
-                                "Unable to enable biometric login. Please log out and log back in, then try again.",
+                                $"Invalid credentials: {loginMessage}",
                                 "OK");
                             return;
                         }
                     }
 
-                    // Authenticate with biometrics to confirm
+                    IsBusy = true;
                     var authRequest = new AuthenticationRequest
                     {
                         Title = "Enable Biometric Login",
@@ -209,9 +242,9 @@ namespace MobileApp.ViewModels
 
                     if (result.Authenticated)
                     {
-                        // Enable biometric (credentials already stored above if needed)
                         await _authService.EnableBiometricAuthenticationAsync(storedEmail, storedPassword);
                         BiometricStatusText = "Unlock with fingerprint or face";
+                        IsBusy = false;
                         await _navigationService.DisplayAlertAsync(
                             "Success",
                             "Biometric authentication has been enabled!",
@@ -219,7 +252,8 @@ namespace MobileApp.ViewModels
                     }
                     else
                     {
-                        BiometricEnabled = false;
+                        IsBusy = false;
+                        SetBiometricEnabledSilently(false);
                         await _navigationService.DisplayAlertAsync(
                             "Failed",
                             "Biometric authentication failed. Please try again.",
@@ -228,7 +262,6 @@ namespace MobileApp.ViewModels
                 }
                 else
                 {
-                    // Disable biometric
                     var confirm = await _navigationService.DisplayConfirmAsync(
                         "Disable Biometric Login",
                         "Are you sure you want to disable biometric authentication?",
@@ -237,8 +270,10 @@ namespace MobileApp.ViewModels
 
                     if (confirm)
                     {
+                        IsBusy = true;
                         await _authService.DisableBiometricAuthenticationAsync();
                         BiometricStatusText = "Sign in faster next time";
+                        IsBusy = false;
                         await _navigationService.DisplayAlertAsync(
                             "Success",
                             "Biometric authentication has been disabled.",
@@ -246,18 +281,19 @@ namespace MobileApp.ViewModels
                     }
                     else
                     {
-                        BiometricEnabled = true;
+                        SetBiometricEnabledSilently(true);
                     }
                 }
             }
             catch (Exception ex)
             {
-                BiometricEnabled = !enable;
+                SetBiometricEnabledSilently(!enable);
                 await _navigationService.DisplayAlertAsync("Error", $"An error occurred: {ex.Message}", "OK");
             }
             finally
             {
                 IsBusy = false;
+                _isTogglingBiometric = false;
             }
         }
 
@@ -273,7 +309,7 @@ namespace MobileApp.ViewModels
             {
                 var confirm = await _navigationService.DisplayConfirmAsync(
                     "Clear Local Data",
-                    "⚠️ WARNING: This will permanently delete ALL locally stored data including:\n\n" +
+                    "WARNING: This will permanently delete ALL locally stored data including:\n\n" +
                     "• All assets\n" +
                     "• Categories, locations, departments\n" +
                     "• Pending sync queue\n\n" +
@@ -380,6 +416,19 @@ namespace MobileApp.ViewModels
                     return;
 
                 IsBusy = true;
+
+                try
+                {
+                    await _syncService.ClearAllLocalDataAsync();
+                }
+                catch (Exception ex)
+                {
+                    await _navigationService.DisplayAlertAsync(
+                        "Logout Failed",
+                        $"Could not clear local data. You are still logged in.\n\n{ex.Message}",
+                        "OK");
+                    return;
+                }
 
                 var (success, message) = await _authService.LogoutAsync();
 

@@ -30,6 +30,7 @@ namespace MobileApp
             Routing.RegisterRoute(nameof(AddLocationPage), typeof(AddLocationPage));
             Routing.RegisterRoute(nameof(EditLocationPage), typeof(EditLocationPage));
             Routing.RegisterRoute(nameof(AddAssetPage), typeof(AddAssetPage));
+            Routing.RegisterRoute(nameof(BarcodeScannerPage), typeof(BarcodeScannerPage));
             
             // Set initial content to DI-resolved SplashScreen
             var splashScreen = _serviceProvider.GetRequiredService<SplashScreen>();
@@ -69,21 +70,54 @@ namespace MobileApp
         }
 
         /// <summary>
-        /// Show the login page (hide tabs)
+        /// Show the login page (hide tabs) after clearing pushed pages and modals
+        /// so the next login cannot resume Settings/Add Asset from the old stack.
         /// </summary>
-        public Task ShowLoginAsync()
+        public async Task ShowLoginAsync()
         {
-            // Hide the tab bar
+            await DismissOverlaysAndPopToRootAsync();
+
             MainTabBar.IsVisible = false;
-            
-            // Show the initial content
             InitialContent.IsVisible = true;
-            
-            // Set the login page as the current content
-            var loginPage = _serviceProvider.GetRequiredService<LoginPage>();
-            InitialContent.Content = loginPage;
-            
-            return Task.CompletedTask;
+            InitialContent.Content = _serviceProvider.GetRequiredService<LoginPage>();
+        }
+
+        private async Task DismissOverlaysAndPopToRootAsync()
+        {
+            var shell = Shell.Current;
+            if (shell == null)
+                return;
+
+            try
+            {
+                while (shell.Navigation.ModalStack.Count > 0)
+                    await shell.Navigation.PopModalAsync(animated: false);
+
+                // Each tab has its own navigation stack. Popping only the current
+                // tab leaves Add Asset / Settings on the others after logout.
+                if (!MainTabBar.IsVisible)
+                    return;
+
+                string[] tabRoutes =
+                [
+                    "///MainTabs/Home",
+                    "///MainTabs/Inventory",
+                    "///MainTabs/Locations"
+                ];
+
+                foreach (var route in tabRoutes)
+                {
+                    await shell.GoToAsync(route, animate: false);
+                    while (shell.Navigation.NavigationStack.Count > 1)
+                        await shell.Navigation.PopAsync(animated: false);
+                }
+
+                await shell.GoToAsync("///MainTabs/Home", animate: false);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"ShowLoginAsync stack clear failed: {ex.Message}");
+            }
         }
 
         private void OnNavigating(object? sender, ShellNavigatingEventArgs e)

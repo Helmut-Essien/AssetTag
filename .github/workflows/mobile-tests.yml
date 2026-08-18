@@ -1,0 +1,35 @@
+name: Mobile tests
+
+on:
+  push:
+    paths:
+      - 'MobileApp/**'
+      - 'MobileData/**'
+      - 'Shared/**'
+      - 'MobileApp.Tests/**'
+      - '.github/workflows/mobile-tests.yml'
+  pull_request:
+    paths:
+      - 'MobileApp/**'
+      - 'MobileData/**'
+      - 'Shared/**'
+      - 'MobileApp.Tests/**'
+      - '.github/workflows/mobile-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.x'
+
+      - name: Install MAUI workload
+        run: dotnet workload install maui-android
+
+      - name: Run mobile unit tests
+        run: dotnet test MobileApp.Tests/MobileApp.Tests.csproj --configuration Release --verbosity normal

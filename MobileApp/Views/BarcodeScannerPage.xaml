@@ -12,7 +12,7 @@
         
         <!-- Header -->
         <Border Grid.Row="0"
-                BackgroundColor="#005A9C"
+                BackgroundColor="{StaticResource AppBlue}"
                 StrokeThickness="0">
             <Border.Shadow>
                 <Shadow Brush="Black" Opacity="0.3" Radius="4" Offset="0,2"/>
@@ -22,7 +22,7 @@
                         BackgroundColor="Transparent"
                         Clicked="OnCloseClicked"
                         Padding="16"
-                        ImageSource="{mi:Material Icon=Close, IconColor=White}"/>
+                        SemanticProperties.Description="Close scanner"/>
                 
                 <Label Grid.Column="1"
                        Text="Scan Barcode/QR Code"
@@ -38,6 +38,7 @@
                         Opacity="0.5"
                         Clicked="OnTorchToggled"
                         Padding="16"
+                        SemanticProperties.Description="Toggle flashlight"
                         ImageSource="{mi:Material Icon=FlashlightOn, IconColor=White}"/>
             </Grid>
         </Border>
@@ -107,7 +108,7 @@
                 <Label Text="Scanning will happen automatically"
                        FontFamily="OpenSansRegular"
                        FontSize="14"
-                       TextColor="#CCCCCC"
+                       TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource Gray500}}"
                        HorizontalOptions="Center"/>
             </VerticalStackLayout>
         </Border>

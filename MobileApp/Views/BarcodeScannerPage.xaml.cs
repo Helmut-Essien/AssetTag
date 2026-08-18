@@ -92,12 +92,11 @@ public partial class BarcodeScannerPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
-        
-        // Reset state for new scan session
-        _isProcessing = false;
-        _scanResultTcs = new TaskCompletionSource<string?>();
-        
-        CameraView.IsDetecting = true;
+
+        // Do not replace _scanResultTcs here. ScanAsync awaits the instance created
+        // in the constructor; a second appear (pause/resume) would orphan that await.
+        if (!_isProcessing)
+            CameraView.IsDetecting = true;
     }
 
     protected override void OnDisappearing()

@@ -50,36 +50,7 @@ public class SyncService : ISyncService, IDisposable
 
     private enum SyncRequestType { Push, Full }
 
-    // FIX #6: Sync progress event system for real-time UI updates
     public event EventHandler<SyncProgressEventArgs>? SyncProgressChanged;
-
-    /// <summary>
-    /// Represents the current state and progress of a sync operation
-    /// </summary>
-    public class SyncProgressEventArgs : EventArgs
-    {
-        public SyncPhase Phase { get; set; }
-        public int CurrentItem { get; set; }
-        public int TotalItems { get; set; }
-        public string Message { get; set; } = string.Empty;
-        public double ProgressPercentage => TotalItems > 0 ? (double)CurrentItem / TotalItems * 100 : 0;
-    }
-
-    /// <summary>
-    /// Phases of the sync operation for progress tracking
-    /// </summary>
-    public enum SyncPhase
-    {
-        Starting,
-        PushingChanges,
-        PullingCategories,
-        PullingLocations,
-        PullingDepartments,
-        PullingAssets,
-        Finalizing,
-        Completed,
-        Failed
-    }
 
     /// <summary>
     /// Raises sync progress event on main thread for UI updates
@@ -94,11 +65,18 @@ public class SyncService : ISyncService, IDisposable
             Message = message
         };
 
-        // FIX #6: Invoke on main thread for UI safety
-        MainThread.BeginInvokeOnMainThread(() =>
+        void Raise() => SyncProgressChanged?.Invoke(this, args);
+        try
         {
-            SyncProgressChanged?.Invoke(this, args);
-        });
+            if (MainThread.IsMainThread)
+                Raise();
+            else
+                MainThread.BeginInvokeOnMainThread(Raise);
+        }
+        catch
+        {
+            Raise();
+        }
 
         _logger.LogDebug("Sync progress: {Phase} - {Current}/{Total} - {Message}",
             phase, current, total, message);
@@ -1226,6 +1204,7 @@ public class SyncService : ISyncService, IDisposable
     public async Task<(bool Success, string Message)> FullSyncAsync()
     {
         _logger.LogInformation("Starting full sync (push + pull)");
+        ReportProgress(SyncPhase.Starting, 0, 0, "Preparing sync...");
 
         // CRITICAL FIX #2: Acquire all semaphores upfront to prevent deadlock
         var fullSyncAcquired = await _fullSyncSemaphore.WaitAsync(0).ConfigureAwait(false);
@@ -1246,6 +1225,7 @@ public class SyncService : ISyncService, IDisposable
                 {
                     // Now we have exclusive access to both operations
                     _logger.LogInformation("Acquired all sync locks, starting push operation");
+                    ReportProgress(SyncPhase.PushingChanges, 0, 0, "Pushing local changes...");
                     
                     var (pushSuccess, pushMessage) = await PushChangesInternalAsync();
                     if (!pushSuccess)
@@ -1255,6 +1235,7 @@ public class SyncService : ISyncService, IDisposable
                     }
 
                     _logger.LogInformation("Push completed, starting pull operation");
+                    ReportProgress(SyncPhase.PullingCategories, 0, 0, "Pulling server updates...");
                     
                     var (pullSuccess, pullMessage) = await PullChangesInternalAsync();
                     if (!pullSuccess)
@@ -1659,6 +1640,7 @@ public class SyncService : ISyncService, IDisposable
                 dbContext.Categories.RemoveRange(dbContext.Categories);
                 dbContext.Locations.RemoveRange(dbContext.Locations);
                 dbContext.Departments.RemoveRange(dbContext.Departments);
+                dbContext.SkippedAssets.RemoveRange(dbContext.SkippedAssets);
 
                 await dbContext.SaveChangesAsync();
 
