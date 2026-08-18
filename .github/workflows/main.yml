@@ -185,7 +185,8 @@ jobs:
             },
             "FrontendBaseUrl": "$FRONTEND_BASE_URL",
             "Groq": {
-            "ApiKey": "$APIKey"
+            "ApiKey": "$APIKey",
+            "Model": "openai/gpt-oss-120b"
             },
             "GitHub": {
               "Owner": "$GITHUB_OWNER",

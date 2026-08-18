@@ -18,6 +18,8 @@ public interface IAIQueryService
 
 public class AIQueryService : IAIQueryService
 {
+    private const string DefaultGroqModel = "openai/gpt-oss-120b";
+
     private readonly ApplicationDbContext _context;
     private readonly ILogger<AIQueryService> _logger;
     private readonly HttpClient _httpClient;
@@ -67,7 +69,8 @@ public class AIQueryService : IAIQueryService
             var schema = await GetDatabaseSchema();
             var schemaJson = JsonConvert.SerializeObject(schema, Newtonsoft.Json.Formatting.Indented);
 
-            var model = _configuration["Groq:Model"] ?? "llama-3.3-70b-versatile";
+            var model = _configuration["Groq:Model"] ?? DefaultGroqModel;
+            var maxCompletionTokens = _configuration.GetValue("Groq:MaxTokens", 2048);
             var maxAttempts = 3;
             var attempt = 0;
             string? lastError = null;
@@ -94,8 +97,10 @@ public class AIQueryService : IAIQueryService
                         new { role = "user", content = prompt }
                     },
                     temperature = 0.1,
-                    max_tokens = 1000,
-                    top_p = 0.9
+                    max_completion_tokens = maxCompletionTokens,
+                    top_p = 0.9,
+                    reasoning_effort = "low",
+                    reasoning_format = "hidden"
                 };
 
                 var jsonContent = JsonConvert.SerializeObject(requestData);
@@ -369,12 +374,14 @@ Generate the corrected T-SQL SELECT query:";
         {
             var requestData = new
             {
-                model = _configuration["Groq:Model"] ?? "mixtral-8x7b-32768",
+                model = _configuration["Groq:Model"] ?? DefaultGroqModel,
                 messages = new[]
                 {
                     new { role = "user", content = "Say 'Hello' if you are working." }
                 },
-                max_tokens = 10
+                max_completion_tokens = 32,
+                reasoning_effort = "low",
+                reasoning_format = "hidden"
             };
 
             var jsonContent = JsonConvert.SerializeObject(requestData);
@@ -499,6 +506,9 @@ Generate the corrected T-SQL SELECT query:";
         {
             return trimmed;
         }
+
+        // gpt-oss may still leak chain-of-thought even with reasoning_format=hidden
+        sql = Regex.Replace(sql, @"<think>[\s\S]*?</think>", "", RegexOptions.IgnoreCase);
 
         // Remove common markdown code fences
         sql = Regex.Replace(sql, @"^```(?:sql)?\s*\n?", "", RegexOptions.IgnoreCase | RegexOptions.Multiline);

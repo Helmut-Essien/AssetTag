@@ -471,7 +471,7 @@ builder.Services.AddHttpClient("GroqClient", client =>
 {
     client.BaseAddress = new Uri("https://api.groq.com/openai/v1/");
     client.DefaultRequestHeaders.Add("Accept", "application/json");
-    client.Timeout = TimeSpan.FromSeconds(30);
+    client.Timeout = TimeSpan.FromSeconds(60);
 });
 
 // Register AI Service

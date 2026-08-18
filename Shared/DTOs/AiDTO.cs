@@ -74,7 +74,7 @@ namespace Shared.DTOs
         public string ApiKey { get; set; } = string.Empty;
 
         [JsonPropertyName("model")]
-        public string Model { get; set; } = "mixtral-8x7b-32768";
+        public string Model { get; set; } = "openai/gpt-oss-120b";
 
         [JsonPropertyName("baseUrl")]
         public string BaseUrl { get; set; } = "https://api.groq.com/openai/v1/chat/completions";
@@ -83,7 +83,7 @@ namespace Shared.DTOs
         public double Temperature { get; set; } = 0.1;
 
         [JsonPropertyName("maxTokens")]
-        public int MaxTokens { get; set; } = 1000;
+        public int MaxTokens { get; set; } = 2048;
     }
 
     public class ChatMessageDTO
