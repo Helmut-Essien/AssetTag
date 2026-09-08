@@ -1,5 +1,5 @@
-﻿
-using NUlid;
+﻿using NUlid;
+using Shared.Constants;
 using Shared.Models;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -27,5 +27,5 @@ public class Invitation
     public ApplicationUser? InvitedByUser { get; set; }
 
     // Role to assign to the user upon registration
-    public string? Role { get; set; } = "User";
+    public string? Role { get; set; } = RoleNames.User;
 }

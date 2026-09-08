@@ -33,6 +33,8 @@ namespace Shared.Constants
         /// </summary>
         public static class Condition
         {
+            /// <summary>Portal / import canonical value for brand-new assets.</summary>
+            public const string New = "New";
             public const string Excellent = "Excellent";
             public const string Good = "Good";
             public const string Fair = "Fair";
@@ -41,6 +43,7 @@ namespace Shared.Constants
             
             public static readonly string[] All = 
             {
+                New,
                 Excellent,
                 Good,
                 Fair,

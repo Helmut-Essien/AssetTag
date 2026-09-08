@@ -1,12 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Shared.Constants;
 using Shared.DTOs;
 using System.Net.Http.Json;
 
 namespace Portal.Pages.Assets
 {
-    [Authorize]
+    [Authorize(Roles = RoleNames.Admin)]
     public class AssetHistoriesModel : PageModel
     {
         private readonly HttpClient _httpClient;

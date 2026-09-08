@@ -1,5 +1,6 @@
 ﻿@using Microsoft.AspNetCore.Http
 @using Portal.Services
+@using RoleNames = global::Shared.Constants.RoleNames
 @inject IUserRoleService UserRoleService
 
 <!DOCTYPE html>
@@ -30,20 +31,20 @@
             <hr />
             <!-- Navigation sidebar -->
             <ul class="nav flex-column" id="dashboardSidebar">
-                <li class="nav-item">
-                    <a class="nav-link" asp-area="" asp-page="/Index">
-                        <i class="bi bi-house-fill me-2"></i>
-                        <span>Dashboard</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" asp-area="" asp-page="/Assets/Index">
-                        <i class="bi bi-briefcase-fill me-2"></i>
-                        <span>Assets</span>
-                    </a>
-                </li>
-                @if (UserRoleService.IsInRole("Admin"))
+                @if (UserRoleService.IsInRole(RoleNames.Admin))
                 {
+                    <li class="nav-item">
+                        <a class="nav-link" asp-area="" asp-page="/Index">
+                            <i class="bi bi-house-fill me-2"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" asp-area="" asp-page="/Assets/Index">
+                            <i class="bi bi-briefcase-fill me-2"></i>
+                            <span>Assets</span>
+                        </a>
+                    </li>
                     <li class="nav-item">
                         <a class="nav-link" asp-area="" asp-page="/Categories/Index">
                             <i class="bi bi-tags-fill me-2"></i>
@@ -62,22 +63,19 @@
                             <span>Locations</span>
                         </a>
                     </li>
-                }
-                @if (UserRoleService.IsInRole("Admin"))
-                {
                     <li class="nav-item">
                         <a class="nav-link" asp-area="" asp-page="/Users/Index">
                             <i class="bi bi-people-fill me-2"></i>
                             <span>Users</span>
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" asp-area="" asp-page="/Reports/Index">
+                            <i class="bi bi-file-earmark-bar-graph me-2"></i>
+                            <span>Reports</span>
+                        </a>
+                    </li>
                 }
-                <li class="nav-item">
-                    <a class="nav-link" asp-area="" asp-page="/Reports/Index">
-                        <i class="bi bi-file-earmark-bar-graph me-2"></i>
-                        <span>Reports</span>
-                    </a>
-                </li>
 
                 <li class="nav-item">
                     <form method="post" asp-page="/Account/Logout" class="m-0 p-0">

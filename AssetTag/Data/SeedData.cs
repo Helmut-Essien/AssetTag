@@ -1,5 +1,6 @@
 ﻿// Data/SeedData.cs
 using Shared.Models;
+using Shared.Constants;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,25 +17,43 @@ namespace AssetTag.Data
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("SeedData");
 
-            // Only seed if no users exist (safe for production)
-            if (await userManager.Users.AnyAsync())
-                return;
-
-            // Create Roles
-            string[] roles = { "Admin", "Manager", "User" };
-            foreach (var role in roles)
+            // Always ensure built-in roles exist (safe to re-run)
+            foreach (var role in RoleNames.BuiltIn)
             {
                 if (!await roleManager.RoleExistsAsync(role))
                 {
                     await roleManager.CreateAsync(new IdentityRole(role));
+                    logger.LogInformation("Created role {Role}", role);
                 }
             }
 
-            // Create Default Admin from config or fallback
-            var adminEmail = config["InitialAdmin:Email"] ?? "admin@assettag.com";
-            var adminPassword = config["InitialAdmin:Password"] ?? "Admin@12345";
+            // Only create the initial admin if no users exist
+            if (await userManager.Users.AnyAsync())
+                return;
+
+            var adminEmail = config["InitialAdmin:Email"];
+            var adminPassword = config["InitialAdmin:Password"];
             var adminUsername = config["InitialAdmin:Username"] ?? "admin";
+
+            if (string.IsNullOrWhiteSpace(adminEmail) || string.IsNullOrWhiteSpace(adminPassword))
+            {
+                if (!env.IsDevelopment())
+                {
+                    throw new InvalidOperationException(
+                        "InitialAdmin:Email and InitialAdmin:Password must be configured to seed the first admin user.");
+                }
+
+                // Development-only bootstrap so an empty local DB remains usable.
+                // Password is never logged.
+                adminEmail = string.IsNullOrWhiteSpace(adminEmail) ? "admin@assettag.local" : adminEmail;
+                adminPassword = string.IsNullOrWhiteSpace(adminPassword) ? "ChangeMe_DevOnly_123!" : adminPassword;
+                logger.LogWarning(
+                    "InitialAdmin credentials missing; seeding Development-only admin for {Email}. " +
+                    "Set InitialAdmin:Email and InitialAdmin:Password (user secrets or env) before non-dev deploys.",
+                    adminEmail);
+            }
 
             var adminUser = new ApplicationUser
             {
@@ -50,10 +69,8 @@ namespace AssetTag.Data
             var result = await userManager.CreateAsync(adminUser, adminPassword);
             if (result.Succeeded)
             {
-                await userManager.AddToRoleAsync(adminUser, "Admin");
-                Console.WriteLine("Default Admin created successfully!");
-                Console.WriteLine($"Email: {adminEmail}");
-                Console.WriteLine($"Password: {adminPassword}");
+                await userManager.AddToRoleAsync(adminUser, RoleNames.Admin);
+                logger.LogInformation("Default Admin created successfully for {Email}", adminEmail);
             }
             else
             {

@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Shared.Constants;
 using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
@@ -10,7 +11,7 @@ using System.Text.Json;
 
 namespace Portal.Pages.Diagnostics;
 
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = RoleNames.Admin)]
 public class TokenDiagnosticsModel : PageModel
 {
     private readonly HttpClient _httpClient;

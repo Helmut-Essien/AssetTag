@@ -418,8 +418,8 @@ builder.Services.AddAuthentication(options =>
             return Task.CompletedTask;
         },
 
-        // Log successful token validation
-        OnTokenValidated = context =>
+        // Validate security stamp so role/password changes invalidate outstanding access tokens
+        OnTokenValidated = async context =>
         {
             var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
 
@@ -428,8 +428,51 @@ builder.Services.AddAuthentication(options =>
                         ?? "unknown";
 
             var userId = context.Principal?.FindFirst("sub")?.Value
-                        ?? context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                        ?? "unknown";
+                        ?? context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                logger.LogWarning("Token validated but missing user id claim; rejecting");
+                context.Fail("Missing user identifier.");
+                return;
+            }
+
+            var userManager = context.HttpContext.RequestServices.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await userManager.FindByIdAsync(userId);
+            if (user is null || !user.IsActive)
+            {
+                logger.LogWarning("Token rejected for {UserId}: user missing or inactive", userId);
+                context.Fail("User is inactive or no longer exists.");
+                return;
+            }
+
+            var tokenStamp = context.Principal?.FindFirst("security_stamp")?.Value;
+            if (string.IsNullOrEmpty(tokenStamp) ||
+                !string.Equals(tokenStamp, user.SecurityStamp, StringComparison.Ordinal))
+            {
+                logger.LogWarning("Token rejected for {UserId}: security stamp mismatch (roles/credentials changed)", userId);
+                context.Fail("Security stamp mismatch.");
+                return;
+            }
+
+            // Keep authorization roles aligned with the database (defense in depth vs stale JWT role claims)
+            var dbRoles = await userManager.GetRolesAsync(user);
+            var identity = context.Principal?.Identity as ClaimsIdentity;
+            if (identity != null)
+            {
+                foreach (var existing in identity.FindAll(ClaimTypes.Role).ToList())
+                {
+                    identity.RemoveClaim(existing);
+                }
+                foreach (var existing in identity.FindAll("role").ToList())
+                {
+                    identity.RemoveClaim(existing);
+                }
+                foreach (var role in dbRoles)
+                {
+                    identity.AddClaim(new Claim(ClaimTypes.Role, role));
+                }
+            }
 
             logger.LogInformation("=== JWT TOKEN VALIDATED SUCCESSFULLY ===");
             logger.LogInformation("User: {Email} (ID: {UserId})", email, userId);
@@ -440,8 +483,6 @@ builder.Services.AddAuthentication(options =>
             {
                 logger.LogDebug("Claim: {Type} = {Value}", claim.Type, claim.Value);
             }
-
-            return Task.CompletedTask;
         },
 
         // Log when authorization fails
@@ -488,6 +529,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 
 // ARCHITECTURAL FIX A1: Register distributed lock service for multi-device sync coordination
 builder.Services.AddScoped<IDistributedLockService, DatabaseDistributedLockService>();
+builder.Services.AddScoped<IAssetImportService, AssetImportService>();
 
 builder.Configuration.AddEnvironmentVariables();
 
@@ -510,7 +552,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-// Seed initial admin user (only runs once)
+// Seed built-in roles and initial admin (only creates admin when DB has no users)
 try
 {
     using var scope = app.Services.CreateScope();
@@ -520,6 +562,13 @@ catch (Exception ex)
 {
     var logger = app.Services.GetRequiredService<ILogger<Program>>();
     logger.LogError(ex, "An error occurred while seeding the database.");
+
+    // Fail fast outside Development so empty production DBs without InitialAdmin
+    // do not start as an unmanageable API with no admin users.
+    if (!app.Environment.IsDevelopment())
+    {
+        throw;
+    }
 }
 
 app.UseHttpsRedirection();

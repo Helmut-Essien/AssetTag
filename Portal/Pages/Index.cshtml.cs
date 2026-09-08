@@ -475,10 +475,11 @@ using System.Net.Http.Json;
 using AssetStatusChartData = Shared.DTOs.AssetStatusChartData;
 using AssetConditionChartData = Shared.DTOs.AssetConditionChartData;
 using MonthlyValueData = Shared.DTOs.MonthlyValueData;
+using Shared.Constants;
 
 namespace Portal.Pages
 {
-    [Authorize]
+    [Authorize(Roles = RoleNames.Admin)]
     public class IndexModel : PageModel
     {
         private readonly HttpClient _httpClient;

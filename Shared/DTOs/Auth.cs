@@ -6,7 +6,12 @@ namespace Shared.DTOs
     public record LoginDTO (string Email, string Password);
     public record TokenRequestDTO(string AccessToken, string RefreshToken);
     public record TokenResponseDTO(string AccessToken, string RefreshToken);
-    public record AssignRoleDTO(string Email, string RoleName);
+    /// <summary>Assign/remove a role for a user identified by route id (UsersController).</summary>
+    public record AssignRoleDTO(string RoleName);
+
+    /// <summary>Assign a role to a user identified by email (RoleController).</summary>
+    public record AssignRoleByEmailDTO(string Email, string RoleName);
+
     public record CreateRoleDTO(string RoleName);
     public class ForgotPasswordDTO
     {

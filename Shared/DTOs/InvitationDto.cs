@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Shared.Constants;
 
 namespace Shared.DTOs
 {
@@ -8,7 +9,7 @@ namespace Shared.DTOs
         [EmailAddress(ErrorMessage = "Invalid email address")]
         public string Email { get; set; } = string.Empty;
 
-        public string? Role { get; set; } = "User";
+        public string? Role { get; set; } = RoleNames.User;
     }
 
     public class InvitationResponseDTO
@@ -63,7 +64,7 @@ namespace Shared.DTOs
         [Required(ErrorMessage = "At least one email is required")]
         public List<string> Emails { get; set; } = new List<string>();
 
-        public string? Role { get; set; } = "User";
+        public string? Role { get; set; } = RoleNames.User;
     }
 
     public class BulkInvitationResponseDTO

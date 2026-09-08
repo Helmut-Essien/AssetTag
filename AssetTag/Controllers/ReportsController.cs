@@ -11,7 +11,7 @@ namespace AssetTag.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-[Authorize]
+[Authorize(Roles = RoleNames.Admin)]
 public class ReportsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -611,7 +611,7 @@ public class ReportsController : ControllerBase
     }
 
     [HttpPost("ai/generate-query")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     public async Task<IActionResult> GenerateAiQuery([FromBody] AiQueryRequest request)
     {
         try
@@ -640,7 +640,7 @@ public class ReportsController : ControllerBase
     }
 
     [HttpPost("ai/execute-query")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     public async Task<IActionResult> ExecuteAiQuery([FromBody] AiQueryRequest request)
     {
         try
@@ -664,7 +664,7 @@ public class ReportsController : ControllerBase
     }
 
     [HttpPost("ai/execute-sql")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     public async Task<IActionResult> ExecuteSql([FromBody] ExecuteSqlRequest request)
     {
         try
@@ -699,7 +699,7 @@ public class ReportsController : ControllerBase
     }
 
     [HttpGet("ai/test-connection")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     public async Task<IActionResult> TestAiConnection()
     {
         try
