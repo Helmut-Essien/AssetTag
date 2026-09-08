@@ -488,6 +488,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 
 // ARCHITECTURAL FIX A1: Register distributed lock service for multi-device sync coordination
 builder.Services.AddScoped<IDistributedLockService, DatabaseDistributedLockService>();
+builder.Services.AddScoped<IAssetImportService, AssetImportService>();
 
 builder.Configuration.AddEnvironmentVariables();
 

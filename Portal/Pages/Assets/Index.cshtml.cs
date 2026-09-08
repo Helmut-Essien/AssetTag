@@ -22,7 +22,7 @@ namespace Portal.Pages.Assets
 
         private static readonly string[] ImportTemplateHeaders =
         {
-            "AssetTag", "Name", "Description", "Category", "Location", "Department",
+            "AssetTag", "Name", "Description", "Category", "Location", "Campus", "Department",
             "Status", "Condition", "PurchaseDate", "PurchasePrice", "CurrentValue",
             "SerialNumber", "DigitalAssetTag", "VendorName", "InvoiceNumber",
             "Quantity", "CostPerUnit", "UsefulLifeYears", "WarrantyExpiry",
@@ -30,11 +30,13 @@ namespace Portal.Pages.Assets
         };
 
         private readonly HttpClient _httpClient;
+        private readonly HttpClient _importHttpClient;
         private readonly IUserRoleService _userRoleService;
 
         public IndexModel(IHttpClientFactory httpClientFactory, IUserRoleService userRoleService)
         {
             _httpClient = httpClientFactory.CreateClient("AssetTagApi");
+            _importHttpClient = httpClientFactory.CreateClient("AssetTagApiImport");
             _userRoleService = userRoleService;
         }
 
@@ -579,9 +581,11 @@ namespace Portal.Pages.Assets
             ws.Cell(2, 2).Value = "Example Asset";
             ws.Cell(2, 4).Value = "Existing Category Name";
             ws.Cell(2, 5).Value = "Existing Location Name";
-            ws.Cell(2, 6).Value = "Existing Department Name";
-            ws.Cell(2, 7).Value = "Available";
-            ws.Cell(2, 8).Value = "Good";
+            ws.Cell(2, 6).Value = "Existing Campus Name";
+            ws.Cell(2, 7).Value = "Existing Department Name";
+            ws.Cell(2, 8).Value = "Available";
+            ws.Cell(2, 9).Value = "Good";
+            ws.Cell(2, 10).Value = "2024-01-15";
 
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
@@ -626,7 +630,15 @@ namespace Portal.Pages.Assets
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
                 content.Add(streamContent, "file", file.FileName);
 
-                var response = await _httpClient.PostAsync("api/assets/batch-import", content);
+                var validateOnly = string.Equals(
+                    Request.Form["validateOnly"],
+                    "true",
+                    StringComparison.OrdinalIgnoreCase);
+                var url = validateOnly
+                    ? "api/assets/batch-import?validateOnly=true"
+                    : "api/assets/batch-import";
+
+                var response = await _importHttpClient.PostAsync(url, content);
                 var responseBody = await response.Content.ReadAsStringAsync();
                 var statusCode = (int)response.StatusCode;
 

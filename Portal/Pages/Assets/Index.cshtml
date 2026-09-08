@@ -940,10 +940,18 @@
                     <small class="text-muted d-block mt-2">
                         <strong>Upsert:</strong> rows matching an existing AssetTag update that asset; new tags create assets.
                         Required for <em>new</em> assets: AssetTag, Name, Category, Location, Department, Status, Condition
-                        (use display names, not IDs). Optional: Description, PurchaseDate, PurchasePrice, CurrentValue,
+                        (use display names, not IDs). When a location name exists on multiple campuses, set <em>Campus</em>.
+                        Optional: Campus, Description, PurchaseDate (yyyy-MM-dd or dd/MM/yyyy), PurchasePrice, CurrentValue,
                         SerialNumber, DigitalAssetTag, VendorName, InvoiceNumber, Quantity, CostPerUnit,
                         UsefulLifeYears, WarrantyExpiry, DisposalDate, DisposalValue, Remarks.
+                        Max 5,000 data rows / 10 MB.
                     </small>
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" id="importValidateOnly" />
+                        <label class="form-check-label" for="importValidateOnly">
+                            Validate only (do not save)
+                        </label>
+                    </div>
                     <a class="btn btn-link btn-sm px-0 mt-1" asp-page-handler="ImportTemplate">
                         <i class="bi bi-download me-1"></i>Download import template
                     </a>
@@ -1488,6 +1496,11 @@ if (editModal) {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('__RequestVerificationToken', token);
+            const validateOnly = document.getElementById('importValidateOnly')?.checked === true;
+            if (validateOnly) {
+                formData.append('validateOnly', 'true');
+                if (progressText) progressText.textContent = 'Validating…';
+            }
 
             try {
                 const response = await fetch('/Assets?handler=Import', {
@@ -1515,20 +1528,25 @@ if (editModal) {
                 }
 
                 const importModalEl = document.getElementById('importModal');
-                if (result.successCount > 0 && importModalEl) {
+                if (!validateOnly && result.successCount > 0 && importModalEl) {
                     importModalEl.dataset.refreshOnClose = 'true';
                 }
 
+                const actionVerb = validateOnly ? 'validated' : 'imported';
                 if (result.failureCount === 0) {
                     alertDiv.className = 'alert alert-success';
-                    alertDiv.textContent = `All ${result.successCount} assets imported successfully! Close this dialog to refresh the asset list.`;
+                    alertDiv.textContent = validateOnly
+                        ? `All ${result.successCount} rows are valid. Uncheck “Validate only” to import.`
+                        : `All ${result.successCount} assets imported successfully! Close this dialog to refresh the asset list.`;
                     errorTable.classList.add('d-none');
                 } else if (result.successCount === 0) {
                     alertDiv.className = 'alert alert-danger';
-                    alertDiv.textContent = `Import failed: all ${result.failureCount} rows had errors.`;
+                    alertDiv.textContent = `${actionVerb.charAt(0).toUpperCase() + actionVerb.slice(1)} failed: all ${result.failureCount} rows had errors.`;
                 } else {
                     alertDiv.className = 'alert alert-warning';
-                    alertDiv.textContent = `${result.successCount} succeeded, ${result.failureCount} failed out of ${result.totalRows} total rows. Close this dialog to refresh the asset list.`;
+                    alertDiv.textContent = validateOnly
+                        ? `${result.successCount} valid, ${result.failureCount} invalid out of ${result.totalRows} total rows.`
+                        : `${result.successCount} succeeded, ${result.failureCount} failed out of ${result.totalRows} total rows. Close this dialog to refresh the asset list.`;
                 }
 
                 if (result.errors && result.errors.length > 0) {

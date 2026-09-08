@@ -70,6 +70,17 @@ builder.Services.AddHttpClient("AssetTagApi", client =>
 })
     .AddHttpMessageHandler<TokenRefreshHandler>();        // First: Handle token refresh
 
+// Longer timeout for Excel batch import (large workbooks / many rows).
+builder.Services.AddHttpClient("AssetTagApiImport", client =>
+{
+    client.BaseAddress = apiBaseUri;
+    client.DefaultRequestHeaders.Accept.Clear();
+    client.DefaultRequestHeaders.Accept.Add(
+        new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+    client.Timeout = TimeSpan.FromMinutes(10);
+})
+    .AddHttpMessageHandler<TokenRefreshHandler>();
+
 // ADD THIS: Create Reports Service
 builder.Services.AddScoped<IReportsService, ReportsService>();                                                       //.AddHttpMessageHandler<UnauthorizedRedirectHandler>(); // Then: Handle redirect if still unauthorized
 
