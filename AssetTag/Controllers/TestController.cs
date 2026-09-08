@@ -1,6 +1,6 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Shared.Constants;
 
 namespace AssetTag.Controllers
 {
@@ -8,7 +8,9 @@ namespace AssetTag.Controllers
     [ApiController]
     public class TestController : ControllerBase
     {
+        /// <summary>Anonymous health/connectivity probe used by the mobile app.</summary>
         [HttpGet("ping")]
+        [AllowAnonymous]
         public IActionResult Ping()
         {
             return Ok(new
@@ -19,12 +21,6 @@ namespace AssetTag.Controllers
             });
         }
 
-        [HttpGet("public")]
-        public IActionResult Public()
-        {
-            return Ok("This is a public endpoint");
-        }
-
         [Authorize]
         [HttpGet("protected")]
         public IActionResult Protected()
@@ -32,7 +28,7 @@ namespace AssetTag.Controllers
             return Ok("This is a protected endpoint. You are authorized");
         }
 
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = RoleNames.Admin)]
         [HttpGet("admin")]
         public IActionResult Admin()
         {

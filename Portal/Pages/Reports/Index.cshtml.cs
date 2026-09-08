@@ -1,11 +1,14 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Portal.Services;
+using Shared.Constants;
 using System.Text.Json;
 using ClosedXML.Excel;
 
 namespace Portal.Pages.Reports
 {
+    [Authorize(Roles = RoleNames.Admin)]
     public class IndexModel : PageModel
     {
         private readonly IReportsService _reportsService;
@@ -48,7 +51,7 @@ namespace Portal.Pages.Reports
             EndDate = endDate;
             
             // Set IsAdmin
-            IsAdmin = _userRoleService.IsInRole("Admin");
+            IsAdmin = _userRoleService.IsInRole(RoleNames.Admin);
             
             // Test AI connection (only if Admin)
             if (IsAdmin)
@@ -77,7 +80,7 @@ namespace Portal.Pages.Reports
         {
             LoadChatHistory();
 
-            IsAdmin = _userRoleService.IsInRole("Admin");
+            IsAdmin = _userRoleService.IsInRole(RoleNames.Admin);
             if (!IsAdmin)
             {
                 return RedirectToPage("/Forbidden");
@@ -138,7 +141,7 @@ namespace Portal.Pages.Reports
         {
             LoadChatHistory();
 
-            IsAdmin = _userRoleService.IsInRole("Admin");
+            IsAdmin = _userRoleService.IsInRole(RoleNames.Admin);
             if (!IsAdmin)
             {
                 return RedirectToPage("/Forbidden");

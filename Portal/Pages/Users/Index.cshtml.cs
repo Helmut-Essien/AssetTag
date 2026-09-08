@@ -2,13 +2,14 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Shared.Constants;
 using Shared.DTOs;
 using System.Net.Http.Json;
 using System.Web;
 
 namespace Portal.Pages.Users
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     public class IndexModel : PageModel
     {
         private readonly HttpClient _httpClient;
@@ -45,7 +46,7 @@ namespace Portal.Pages.Users
         public string? InviteEmails { get; set; }
 
         [BindProperty]
-        public string? InviteRole { get; set; } = "User";
+        public string? InviteRole { get; set; } = RoleNames.User;
 
         public List<InvitationResponseDTO> Invitations { get; set; } = new();
 
@@ -85,7 +86,7 @@ namespace Portal.Pages.Users
             else
             {
                 _logger.LogWarning("Failed to load roles: {StatusCode}", rolesResponse.StatusCode);
-                AvailableRoles = new List<string> { "User", "Admin" }; // Fallback to defaults if API fails
+                AvailableRoles = new List<string>(RoleNames.BuiltIn); // Fallback to built-in roles if API fails
             }
             return Page();
         }
@@ -228,9 +229,7 @@ namespace Portal.Pages.Users
                     return BadRequest("User ID and role name are required.");
                 }
 
-                //var dto = new AssignRoleDTO("", roleName);
-                // FIX: Use the id parameter
-                var dto = new AssignRoleDTO(id, roleName);
+                var dto = new AssignRoleDTO(roleName);
                 var response = await _httpClient.PostAsJsonAsync($"api/users/{id}/roles", dto);
 
                 if (response.IsSuccessStatusCode)
@@ -260,7 +259,7 @@ namespace Portal.Pages.Users
                     return BadRequest("User ID and role name are required.");
                 }
 
-                var dto = new AssignRoleDTO("", roleName);
+                var dto = new AssignRoleDTO(roleName);
                 var request = new HttpRequestMessage
                 {
                     Method = HttpMethod.Delete,
@@ -413,7 +412,7 @@ namespace Portal.Pages.Users
                 var dto = new CreateMultipleInvitationsDTO
                 {
                     Emails = emails,
-                    Role = InviteRole ?? "User"
+                    Role = InviteRole ?? RoleNames.User
                 };
 
                 var response = await _httpClient.PostAsJsonAsync("api/Invitations/multiple", dto);

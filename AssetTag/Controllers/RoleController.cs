@@ -1,5 +1,6 @@
-﻿using Shared.Models;
-using Microsoft.AspNetCore.Http;
+using Shared.Models;
+using Shared.Constants;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,7 @@ namespace AssetTag.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = RoleNames.Admin)]
     public class RoleController : ControllerBase
     {
         private readonly RoleManager<IdentityRole> _roleManager;
@@ -30,9 +32,14 @@ namespace AssetTag.Controllers
         [HttpPost("Create")]
         public async Task<IActionResult> CreateRole([FromBody] CreateRoleDTO dto)
         {
+            if (string.IsNullOrWhiteSpace(dto.RoleName))
+            {
+                return BadRequest("Role name is required.");
+            }
+
             if (await _roleManager.RoleExistsAsync(dto.RoleName))
             {
-                return BadRequest($"Role '{dto.RoleName}'already exists.");
+                return BadRequest($"Role '{dto.RoleName}' already exists.");
             }
 
             var result = await _roleManager.CreateAsync(new IdentityRole(dto.RoleName));
@@ -46,13 +53,17 @@ namespace AssetTag.Controllers
         [HttpDelete("{roleName}")]
         public async Task<IActionResult> DeleteRole(string roleName)
         {
+            if (RoleNames.IsBuiltIn(roleName))
+            {
+                return BadRequest($"Cannot delete built-in role '{roleName}'.");
+            }
+
             var role = await _roleManager.FindByNameAsync(roleName);
             if (role == null)
             {
                 return NotFound($"Role '{roleName}' not found.");
             }
 
-            // Optional: Check if any users are in this role before deleting
             var usersInRole = await _userManager.GetUsersInRoleAsync(roleName);
             if (usersInRole.Any())
             {
@@ -68,12 +79,17 @@ namespace AssetTag.Controllers
         }
 
         [HttpPost("Assign")]
-        public async Task<IActionResult> AssignRole([FromBody] AssignRoleDTO dto)
+        public async Task<IActionResult> AssignRole([FromBody] AssignRoleByEmailDTO dto)
         {
             var user = await _userManager.FindByEmailAsync(dto.Email);
             if (user == null)
             {
                 return NotFound($"User with email '{dto.Email}' not found.");
+            }
+
+            if (!await _roleManager.RoleExistsAsync(dto.RoleName))
+            {
+                return BadRequest($"Role '{dto.RoleName}' does not exist.");
             }
 
             var result = await _userManager.AddToRoleAsync(user, dto.RoleName);
@@ -82,8 +98,13 @@ namespace AssetTag.Controllers
                 return BadRequest(result.Errors);
             }
 
-            return Ok($"Role '{dto.RoleName}' assigned to user '{dto.Email}' successfully.");
+            var stampResult = await _userManager.UpdateSecurityStampAsync(user);
+            if (!stampResult.Succeeded)
+            {
+                return StatusCode(500, "Role was assigned but session invalidation failed. Ask the user to sign in again.");
+            }
 
+            return Ok($"Role '{dto.RoleName}' assigned to user '{dto.Email}' successfully.");
         }
     }
 }

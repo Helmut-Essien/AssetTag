@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Portal.Services;
+using Shared.Constants;
 using Shared.DTOs;
 using System.Collections.Generic;
 using System.Net;
@@ -13,6 +15,7 @@ using ClosedXML.Excel;
 namespace Portal.Pages.Assets
 {
     // Request/multipart limits include framing overhead above the advertised 10 MB file cap.
+    [Authorize(Roles = RoleNames.Admin)]
     [RequestSizeLimit(IndexModel.ImportRequestMaxBytes)]
     [RequestFormLimits(MultipartBodyLengthLimit = IndexModel.ImportRequestMaxBytes)]
     public class IndexModel : PageModel
@@ -83,7 +86,7 @@ namespace Portal.Pages.Assets
 
         public async Task<IActionResult> OnGetAsync()
         {
-            IsAdmin = _userRoleService.IsInRole("Admin");
+            IsAdmin = _userRoleService.IsInRole(RoleNames.Admin);
 
             try
             {
@@ -565,7 +568,7 @@ namespace Portal.Pages.Assets
 
         public IActionResult OnGetImportTemplate()
         {
-            if (!_userRoleService.IsInRole("Admin"))
+            if (!_userRoleService.IsInRole(RoleNames.Admin))
                 return Forbid();
 
             using var workbook = new XLWorkbook();
@@ -597,7 +600,7 @@ namespace Portal.Pages.Assets
 
         public async Task<IActionResult> OnPostImportAsync()
         {
-            if (!_userRoleService.IsInRole("Admin"))
+            if (!_userRoleService.IsInRole(RoleNames.Admin))
             {
                 return new JsonResult(new { error = "Only administrators can import assets." })
                 {

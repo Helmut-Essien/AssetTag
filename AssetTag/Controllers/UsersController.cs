@@ -1,5 +1,6 @@
-﻿using AssetTag.Data;
+using AssetTag.Data;
 using Shared.Models;
+using Shared.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -10,6 +11,8 @@ using Shared.DTOs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 using System.Threading.Tasks;
 
 namespace AssetTag.Controllers
@@ -36,8 +39,30 @@ namespace AssetTag.Controllers
             _logger = logger;
         }
 
+        private bool IsAdminOrSelf(string userId)
+        {
+            if (User.IsInRole(RoleNames.Admin))
+                return true;
+
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            return !string.IsNullOrEmpty(currentUserId) &&
+                   string.Equals(currentUserId, userId, StringComparison.Ordinal);
+        }
+
+        private bool IsAdminOrSelfEmail(string email)
+        {
+            if (User.IsInRole(RoleNames.Admin))
+                return true;
+
+            var currentEmail = User.FindFirstValue(ClaimTypes.Email)
+                ?? User.FindFirstValue(JwtRegisteredClaimNames.Email);
+            return !string.IsNullOrEmpty(currentEmail) &&
+                   string.Equals(currentEmail, email, StringComparison.OrdinalIgnoreCase);
+        }
+
         [HttpGet]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = RoleNames.Admin)]
         public async Task<ActionResult<IEnumerable<UserReadDTO>>> GetAllUsers(
             [FromQuery] string? search = null,
             [FromQuery] string? departmentId = null,
@@ -120,6 +145,11 @@ namespace AssetTag.Controllers
         {
             try
             {
+                if (!IsAdminOrSelf(id))
+                {
+                    return Forbid();
+                }
+
                 var user = await _userManager.FindByIdAsync(id);
                 if (user == null)
                 {
@@ -140,6 +170,11 @@ namespace AssetTag.Controllers
         {
             try
             {
+                if (!IsAdminOrSelfEmail(email))
+                {
+                    return Forbid();
+                }
+
                 var user = await _userManager.FindByEmailAsync(email);
                 if (user == null)
                 {
@@ -178,7 +213,7 @@ namespace AssetTag.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin")]  // Admin-only
+        [Authorize(Roles = RoleNames.Admin)]  // Admin-only
         public async Task<IActionResult> UpdateUser(string id, [FromBody] UserUpdateDTO dto)
         {
             if (id != dto.Id)
@@ -222,7 +257,7 @@ namespace AssetTag.Controllers
         }
 
         [HttpPatch("{id}/activation")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = RoleNames.Admin)]
         public async Task<IActionResult> ToggleActivation(string id, [FromBody] bool isActive)
         {
             try
@@ -267,7 +302,7 @@ namespace AssetTag.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = RoleNames.Admin)]
         public async Task<IActionResult> SoftDeleteUser(string id)
         {
             try
@@ -295,7 +330,7 @@ namespace AssetTag.Controllers
         }
 
         [HttpGet("{id}/roles")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = RoleNames.Admin)]
         public async Task<ActionResult<IEnumerable<string>>> GetUserRoles(string id)
         {
             try
@@ -317,7 +352,7 @@ namespace AssetTag.Controllers
         }
 
         [HttpPost("{id}/roles")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = RoleNames.Admin)]
         public async Task<IActionResult> AddUserToRole(string id, [FromBody] AssignRoleDTO dto)
         {
             try
@@ -339,6 +374,15 @@ namespace AssetTag.Controllers
                     return BadRequest(result.Errors);
                 }
 
+                var stampResult = await _userManager.UpdateSecurityStampAsync(user);
+                if (!stampResult.Succeeded)
+                {
+                    _logger.LogError("Role '{Role}' added to {User} but security stamp update failed",
+                        dto.RoleName, user.UserName);
+                    return StatusCode(500, "Role was assigned but session invalidation failed. Ask the user to sign in again.");
+                }
+
+                await RevokeUserRefreshTokensAsync(user.Id);
                 return Ok($"Role '{dto.RoleName}' added to user '{user.UserName}'.");
             }
             catch (Exception ex)
@@ -349,7 +393,7 @@ namespace AssetTag.Controllers
         }
 
         [HttpDelete("{id}/roles")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = RoleNames.Admin)]
         public async Task<IActionResult> RemoveUserFromRole(string id, [FromBody] AssignRoleDTO dto)  // Reuse DTO for roleName
         {
             try
@@ -365,11 +409,33 @@ namespace AssetTag.Controllers
                     return BadRequest($"User '{user.UserName}' is not in role '{dto.RoleName}'.");
                 }
 
+                // Invalidate outstanding JWTs before removing the role so demotion cannot leave
+                // an elevated access token valid if stamp update later fails.
+                var stampBefore = await _userManager.UpdateSecurityStampAsync(user);
+                if (!stampBefore.Succeeded)
+                {
+                    _logger.LogError("Security stamp update failed before removing role '{Role}' from {User}",
+                        dto.RoleName, user.UserName);
+                    return StatusCode(500, "Could not invalidate existing sessions before role removal.");
+                }
+
                 var result = await _userManager.RemoveFromRoleAsync(user, dto.RoleName);
                 if (!result.Succeeded)
                 {
                     return BadRequest(result.Errors);
                 }
+
+                // Stamp again after removal so any token minted in the race window (refresh while
+                // Admin was still in DB) is invalidated once demotion is committed.
+                var stampAfter = await _userManager.UpdateSecurityStampAsync(user);
+                if (!stampAfter.Succeeded)
+                {
+                    _logger.LogError("Role '{Role}' removed from {User} but post-removal stamp update failed",
+                        dto.RoleName, user.UserName);
+                    return StatusCode(500, "Role was removed but session invalidation failed. Ask the user to sign in again.");
+                }
+
+                await RevokeUserRefreshTokensAsync(user.Id);
 
                 return Ok($"Role '{dto.RoleName}' removed from user '{user.UserName}'.");
             }
@@ -380,8 +446,27 @@ namespace AssetTag.Controllers
             }
         }
 
+        private async Task RevokeUserRefreshTokensAsync(string userId)
+        {
+            try
+            {
+                var revokedRows = await _context.Database.ExecuteSqlRawAsync(
+                    @"UPDATE RefreshTokens 
+                      SET Revoked = {0}, RevokedByIp = {1} 
+                      WHERE ApplicationUserId = {2} AND Revoked IS NULL",
+                    DateTime.UtcNow, "role-change", userId);
+
+                _logger.LogInformation("Revoked {Count} refresh tokens for user {UserId} after role change",
+                    revokedRows, userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to revoke refresh tokens for user {UserId} after role change", userId);
+            }
+        }
+
         [HttpPost("{id}/password-reset")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = RoleNames.Admin)]
         public async Task<ActionResult<string>> ResetUserPassword(string id)
         {
             try

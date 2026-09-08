@@ -1,6 +1,7 @@
-﻿using AssetTag.Data;
+using AssetTag.Data;
 using AssetTag.Services;
 using Shared.Models;
+using Shared.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,7 +12,7 @@ namespace AssetTag.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = RoleNames.Admin)]
 public class AssetsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

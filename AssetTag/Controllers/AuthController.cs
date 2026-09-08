@@ -1,4 +1,4 @@
-﻿//using AssetTag.Data;
+//using AssetTag.Data;
 //using AssetTag.Models;
 //using AssetTag.Services;
 //using Microsoft.AspNetCore.Authorization;
@@ -569,6 +569,7 @@
 
 using AssetTag.Data;
 using Shared.Models;
+using Shared.Constants;
 using AssetTag.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -584,6 +585,7 @@ namespace AssetTag.Controllers
     [ApiController]
     public class AuthController(
         UserManager<ApplicationUser> userManager,
+        RoleManager<IdentityRole> roleManager,
         ApplicationDbContext context,
         ITokenService tokenService,
         IEmailService emailService,
@@ -591,6 +593,7 @@ namespace AssetTag.Controllers
         ILogger<AuthController> logger) : ControllerBase
     {
         private readonly UserManager<ApplicationUser> _userManager = userManager;
+        private readonly RoleManager<IdentityRole> _roleManager = roleManager;
         private readonly ApplicationDbContext _context = context;
         private readonly ITokenService _tokenService = tokenService;
         private readonly IEmailService _emailService = emailService;
@@ -600,31 +603,18 @@ namespace AssetTag.Controllers
         // Static password verifier for performance
         private static readonly PasswordHasher<ApplicationUser> _passwordHasher = new();
 
+        /// <summary>
+        /// Open registration is disabled. New accounts must use an invitation
+        /// via POST api/auth/register-with-invitation.
+        /// </summary>
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterDTO dto)
+        public IActionResult Register([FromBody] RegisterDTO? dto)
         {
-            _logger.LogInformation("Registration attempt for username: {Username}, email: {Email}",
-                dto.Username, dto.Email);
-
-            var user = new ApplicationUser
+            _logger.LogWarning("Rejected open registration attempt for {Email}", dto?.Email);
+            return StatusCode(StatusCodes.Status403Forbidden, new
             {
-                UserName = dto.Username,
-                Email = dto.Email,
-                FirstName = dto.FirstName,
-                Surname = dto.Surname
-            };
-
-            var result = await _userManager.CreateAsync(user, dto.Password);
-
-            if (!result.Succeeded)
-            {
-                _logger.LogWarning("Registration failed for email {Email}. Errors: {Errors}",
-                    dto.Email, string.Join(", ", result.Errors.Select(e => e.Description)));
-                return BadRequest(result.Errors);
-            }
-
-            _logger.LogInformation("User registered successfully: {UserId} - {Email}", user.Id, dto.Email);
-            return Ok("User registered successfully.");
+                Message = "Open registration is disabled. Use a valid invitation link to create an account."
+            });
         }
 
         [HttpPost("login")]
@@ -1150,14 +1140,24 @@ namespace AssetTag.Controllers
                     return BadRequest(new { Message = "This invitation has expired." });
                 }
 
+                var roleToAssign = string.IsNullOrWhiteSpace(invitation.Role)
+                    ? RoleNames.User
+                    : invitation.Role;
+
+                if (!RoleNames.IsBuiltIn(roleToAssign) || !await _roleManager.RoleExistsAsync(roleToAssign))
+                {
+                    _logger.LogWarning("Invitation token has invalid role {Role}", roleToAssign);
+                    return BadRequest(new { Message = "This invitation has an invalid role and cannot be used. Contact an administrator." });
+                }
+
                 _logger.LogInformation("Invitation token valid for email: {Email}, role: {Role}",
-                    invitation.Email, invitation.Role);
+                    invitation.Email, roleToAssign);
 
                 return Ok(new
                 {
                     Message = "Invitation is valid.",
                     Email = invitation.Email,
-                    Role = invitation.Role
+                    Role = roleToAssign
                 });
             }
             catch (Exception ex)
@@ -1214,6 +1214,17 @@ namespace AssetTag.Controllers
                     return BadRequest(new { Message = "Username is already taken. Please choose a different username." });
                 }
 
+                // Validate invitation role before creating the user (avoids orphan accounts)
+                var roleToAssign = string.IsNullOrWhiteSpace(invitation.Role)
+                    ? RoleNames.User
+                    : invitation.Role;
+
+                if (!RoleNames.IsBuiltIn(roleToAssign) || !await _roleManager.RoleExistsAsync(roleToAssign))
+                {
+                    _logger.LogError("Invitation role {Role} is invalid for {Email}", roleToAssign, dto.Email);
+                    return BadRequest(new { Message = $"Invitation role '{roleToAssign}' is invalid. Contact an administrator." });
+                }
+
                 // Create user
                 var user = new ApplicationUser
                 {
@@ -1245,18 +1256,32 @@ namespace AssetTag.Controllers
                     });
                 }
 
-                // Assign role from invitation
-                if (!string.IsNullOrEmpty(invitation.Role))
+                _logger.LogInformation("Assigning role {Role} to user {Email}", roleToAssign, dto.Email);
+                var roleResult = await _userManager.AddToRoleAsync(user, roleToAssign);
+                if (!roleResult.Succeeded)
                 {
-                    _logger.LogInformation("Assigning role {Role} to user {Email}", invitation.Role, dto.Email);
-                    var roleResult = await _userManager.AddToRoleAsync(user, invitation.Role);
-                    if (!roleResult.Succeeded)
+                    var roleErrors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
+                    _logger.LogError("Failed to assign role {Role} to user {Email}. Errors: {Errors}. Rolling back user.",
+                        roleToAssign, dto.Email, roleErrors);
+                    var deleteResult = await _userManager.DeleteAsync(user);
+                    if (!deleteResult.Succeeded)
                     {
-                        var roleErrors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
-                        _logger.LogWarning("Failed to assign role {Role} to user {Email}. Errors: {Errors}",
-                            invitation.Role, dto.Email, roleErrors);
-                        // Continue anyway - user is created but role assignment failed
+                        user.IsActive = false;
+                        await _userManager.UpdateAsync(user);
+                        await _userManager.UpdateSecurityStampAsync(user);
+                        _logger.LogCritical(
+                            "Failed to roll back user {Email} after role assignment failure; account deactivated. Manual cleanup required. Errors: {Errors}",
+                            dto.Email, string.Join(", ", deleteResult.Errors.Select(e => e.Description)));
+                        return StatusCode(500, new
+                        {
+                            Message = "Registration could not be completed. Contact an administrator."
+                        });
                     }
+                    return BadRequest(new
+                    {
+                        Message = "Failed to assign role to the new account. Registration was cancelled.",
+                        Errors = roleResult.Errors.Select(e => e.Description)
+                    });
                 }
 
                 // Mark invitation as used

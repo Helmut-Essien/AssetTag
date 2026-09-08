@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Shared.Constants;
 using Shared.DTOs;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,6 +10,7 @@ using System.Threading.Tasks;
 
 namespace Portal.Pages.Assets
 {
+    [Authorize(Roles = RoleNames.Admin)]
     public class DetailsModel : PageModel
     {
         private readonly HttpClient _httpClient;

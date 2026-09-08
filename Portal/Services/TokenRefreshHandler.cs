@@ -7,6 +7,7 @@ using Shared.DTOs;
 using System;
 using System.Collections.Concurrent;
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -380,6 +381,9 @@ public sealed class TokenRefreshHandler : DelegatingHandler
         identity.AddClaim(new Claim("AccessToken", tokens.AccessToken));
         identity.AddClaim(new Claim("RefreshToken", tokens.RefreshToken));
 
+        // Refresh role claims from the new access token so Portal UI stays aligned with API
+        RefreshRoleClaimsFromAccessToken(identity, tokens.AccessToken);
+
         // Preserve authentication properties
         var properties = authenticateResult.Properties ?? new AuthenticationProperties();
 
@@ -390,7 +394,58 @@ public sealed class TokenRefreshHandler : DelegatingHandler
             properties);
         ctx.User = new ClaimsPrincipal(identity);
 
-        _logger.LogInformation("Authentication cookie updated with new tokens");
+        _logger.LogInformation("Authentication cookie updated with new tokens and roles");
+    }
+
+        private void RefreshRoleClaimsFromAccessToken(ClaimsIdentity identity, string accessToken)
+    {
+        try
+        {
+            var token = accessToken;
+            if (token.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            {
+                token = token.Substring(7);
+            }
+
+            var handler = new JwtSecurityTokenHandler();
+            if (!handler.CanReadToken(token))
+            {
+                _logger.LogWarning("Cannot read refreshed access token to update role claims; clearing stale roles");
+                ClearRoleClaims(identity);
+                return;
+            }
+
+            var jwt = handler.ReadJwtToken(token);
+            var roles = jwt.Claims
+                .Where(c => c.Type == ClaimTypes.Role || c.Type == "role")
+                .Select(c => c.Value)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            ClearRoleClaims(identity);
+
+            foreach (var role in roles)
+            {
+                identity.AddClaim(new Claim(ClaimTypes.Role, role));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to refresh role claims from access token; clearing stale roles");
+            ClearRoleClaims(identity);
+        }
+    }
+
+    private static void ClearRoleClaims(ClaimsIdentity identity)
+    {
+        foreach (var existing in identity.FindAll(ClaimTypes.Role).ToList())
+        {
+            identity.RemoveClaim(existing);
+        }
+        foreach (var existing in identity.FindAll("role").ToList())
+        {
+            identity.RemoveClaim(existing);
+        }
     }
 
     /// <summary>

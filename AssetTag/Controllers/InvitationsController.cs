@@ -1,5 +1,6 @@
-﻿using AssetTag.Data;
+using AssetTag.Data;
 using Shared.Models;
+using Shared.Constants;
 using AssetTag.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -16,11 +17,12 @@ namespace AssetTag.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     public class InvitationsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IEmailService _emailService;
         private readonly IConfiguration _configuration;
         private readonly ILogger<InvitationsController> _logger;
@@ -28,15 +30,35 @@ namespace AssetTag.Controllers
         public InvitationsController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
+            RoleManager<IdentityRole> roleManager,
             IEmailService emailService,
             IConfiguration configuration,
             ILogger<InvitationsController> logger)
         {
             _context = context;
             _userManager = userManager;
+            _roleManager = roleManager;
             _emailService = emailService;
             _configuration = configuration;
             _logger = logger;
+        }
+
+        private async Task<(bool Ok, string Role, string? Error)> ResolveInvitationRoleAsync(string? requestedRole)
+        {
+            var role = string.IsNullOrWhiteSpace(requestedRole) ? RoleNames.User : requestedRole.Trim();
+
+            // Invitations may only assign built-in roles. Promoting to Admin remains possible
+            // only via an Admin-created invitation (not arbitrary custom role names).
+            if (!RoleNames.IsBuiltIn(role))
+            {
+                return (false, role, $"Invitation role must be one of: {string.Join(", ", RoleNames.BuiltIn)}.");
+            }
+
+            if (!await _roleManager.RoleExistsAsync(role))
+            {
+                return (false, role, $"Role '{role}' does not exist.");
+            }
+            return (true, role, null);
         }
 
         [HttpPost]
@@ -44,6 +66,12 @@ namespace AssetTag.Controllers
         {
             try
             {
+                var roleResolution = await ResolveInvitationRoleAsync(dto.Role);
+                if (!roleResolution.Ok)
+                {
+                    return BadRequest(roleResolution.Error);
+                }
+
                 // Check if user already exists
                 var existingUser = await _userManager.FindByEmailAsync(dto.Email);
                 if (existingUser != null)
@@ -71,7 +99,7 @@ namespace AssetTag.Controllers
                 var invitation = new Invitation
                 {
                     Email = dto.Email,
-                    Role = dto.Role,
+                    Role = roleResolution.Role,
                     InvitedByUserId = currentUser.Id,
                     CreatedAt = DateTime.UtcNow,
                     ExpiresAt = DateTime.UtcNow.AddDays(2)
@@ -228,6 +256,12 @@ namespace AssetTag.Controllers
         {
             try
             {
+                var roleResolution = await ResolveInvitationRoleAsync(dto.Role);
+                if (!roleResolution.Ok)
+                {
+                    return BadRequest(roleResolution.Error);
+                }
+
                 // Get current user
                 var currentUser = await _userManager.GetUserAsync(User);
                 if (currentUser == null)
@@ -286,7 +320,7 @@ namespace AssetTag.Controllers
                         var invitation = new Invitation
                         {
                             Email = email,
-                            Role = dto.Role,
+                            Role = roleResolution.Role,
                             InvitedByUserId = currentUser.Id,
                             CreatedAt = DateTime.UtcNow,
                             ExpiresAt = DateTime.UtcNow.AddDays(2)
@@ -402,6 +436,16 @@ namespace AssetTag.Controllers
                     });
                 }
 
+                var roleResolution = await ResolveInvitationRoleAsync(invitation.Role);
+                if (!roleResolution.Ok)
+                {
+                    return BadRequest(new InvitationValidationResult
+                    {
+                        Success = false,
+                        Message = "This invitation has an invalid role and cannot be used. Contact an administrator."
+                    });
+                }
+
                 // Safely get the invited by user name
                 string invitedByUserName = "Unknown";
                 if (invitation.InvitedByUser != null)
@@ -422,7 +466,7 @@ namespace AssetTag.Controllers
                         CreatedAt = invitation.CreatedAt,
                         ExpiresAt = invitation.ExpiresAt,
                         IsUsed = invitation.IsUsed,
-                        Role = invitation.Role,
+                        Role = roleResolution.Role,
                         InvitedByUserName = invitedByUserName
                     }
                 };
