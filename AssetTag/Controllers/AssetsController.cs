@@ -447,11 +447,17 @@ public class AssetsController : ControllerBase
 
         // POST: /api/assets/batch-import
         [HttpPost("batch-import")]
-        [RequestSizeLimit(10 * 1024 * 1024)] // 10 MB
+        [RequestSizeLimit(11 * 1024 * 1024)] // 10 MB file + ~1 MB multipart overhead
+        [RequestFormLimits(MultipartBodyLengthLimit = 11 * 1024 * 1024)]
         public async Task<ActionResult<AssetImportResultDTO>> BatchImport(IFormFile file)
         {
+            const long maxFileBytes = 10 * 1024 * 1024;
+
             if (file is null || file.Length == 0)
                 return BadRequest(new { error = "No file uploaded." });
+
+            if (file.Length > maxFileBytes)
+                return BadRequest(new { error = "File exceeds the 10 MB upload limit." });
 
             var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
             if (ext is not ".xlsx")
@@ -459,6 +465,7 @@ public class AssetsController : ControllerBase
 
             var errors = new List<ImportErrorDTO>();
             var pendingRows = new List<(Asset asset, bool isNew, bool isUpdated)>();
+            var totalDataRows = 0;
 
             // Preload reference data into dictionaries (case-insensitive by trimmed name)
             var categories    = (await _context.Categories.ToListAsync())
@@ -484,6 +491,7 @@ public class AssetsController : ControllerBase
                 if (rows.Count < 2)
                     return BadRequest(new { error = "The file has no data rows (only header found)." });
 
+                totalDataRows = rows.Count - 1;
                 var headerRow = rows[0];
                 var headerMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                 for (int ci = 0; ci < headerRow.CellCount(); ci++)
@@ -752,13 +760,13 @@ public class AssetsController : ControllerBase
                         await using var transaction = await _context.Database.BeginTransactionAsync();
                         try
                         {
+                            // AssetId is assigned in the entity ctor (ULID), so histories can be
+                            // staged with assets and persisted in a single SaveChanges.
                             foreach (var (asset, isNew, isUpdated) in pendingRows)
                             {
                                 if (isNew)
                                 {
                                     _context.Assets.Add(asset);
-                                    await _context.SaveChangesAsync();
-
                                     await CreateAssetHistory(
                                         asset.AssetId,
                                         "CREATE",
@@ -770,8 +778,6 @@ public class AssetsController : ControllerBase
                                 }
                                 else if (isUpdated)
                                 {
-                                    await _context.SaveChangesAsync();
-
                                     await CreateAssetHistory(
                                         asset.AssetId,
                                         "UPDATE",
@@ -779,6 +785,11 @@ public class AssetsController : ControllerBase
                                         newLocationId: asset.LocationId,
                                         newStatus: asset.Status
                                     );
+                                    upsertedCount++;
+                                }
+                                else
+                                {
+                                    // Existing AssetTag with no field changes — still a successful row.
                                     upsertedCount++;
                                 }
                             }
@@ -801,11 +812,13 @@ public class AssetsController : ControllerBase
                 }
             }
 
+            var failureCount = errors.Select(e => e.Row).Distinct().Count();
+
             return Ok(new AssetImportResultDTO
             {
-                TotalRows = errors.Count + successCount,
+                TotalRows = totalDataRows,
                 SuccessCount = successCount,
-                FailureCount = errors.Count,
+                FailureCount = failureCount,
                 Errors = errors
             });
         }

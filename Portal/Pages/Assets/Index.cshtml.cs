@@ -1,28 +1,48 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Portal.Services;
 using Shared.DTOs;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using ClosedXML.Excel;
-using System.Text;
 
 namespace Portal.Pages.Assets
 {
+    // Request/multipart limits include framing overhead above the advertised 10 MB file cap.
+    [RequestSizeLimit(IndexModel.ImportRequestMaxBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = IndexModel.ImportRequestMaxBytes)]
     public class IndexModel : PageModel
     {
-        private readonly HttpClient _httpClient;
+        public const long ImportMaxBytes = 10 * 1024 * 1024; // advertised file payload limit
+        public const long ImportRequestMaxBytes = ImportMaxBytes + (1024 * 1024); // +1 MB multipart overhead
 
-        public IndexModel(IHttpClientFactory httpClientFactory)
+        private static readonly string[] ImportTemplateHeaders =
+        {
+            "AssetTag", "Name", "Description", "Category", "Location", "Department",
+            "Status", "Condition", "PurchaseDate", "PurchasePrice", "CurrentValue",
+            "SerialNumber", "DigitalAssetTag", "VendorName", "InvoiceNumber",
+            "Quantity", "CostPerUnit", "UsefulLifeYears", "WarrantyExpiry",
+            "DisposalDate", "DisposalValue", "Remarks"
+        };
+
+        private readonly HttpClient _httpClient;
+        private readonly IUserRoleService _userRoleService;
+
+        public IndexModel(IHttpClientFactory httpClientFactory, IUserRoleService userRoleService)
         {
             _httpClient = httpClientFactory.CreateClient("AssetTagApi");
+            _userRoleService = userRoleService;
         }
 
         public List<AssetReadDTO> Assets { get; set; } = new();
         public List<CategoryReadDTO> Categories { get; set; } = new();
         public List<LocationReadDTO> Locations { get; set; } = new();
         public List<DepartmentReadDTO> Departments { get; set; } = new();
+        public bool IsAdmin { get; private set; }
 
         // Filter properties
         [BindProperty(SupportsGet = true)]
@@ -61,6 +81,8 @@ namespace Portal.Pages.Assets
 
         public async Task<IActionResult> OnGetAsync()
         {
+            IsAdmin = _userRoleService.IsInRole("Admin");
+
             try
             {
                 // Check for modal trigger in query parameters
@@ -539,11 +561,58 @@ namespace Portal.Pages.Assets
             return value;
         }
 
+        public IActionResult OnGetImportTemplate()
+        {
+            if (!_userRoleService.IsInRole("Admin"))
+                return Forbid();
+
+            using var workbook = new XLWorkbook();
+            var ws = workbook.Worksheets.Add("Assets");
+            for (var i = 0; i < ImportTemplateHeaders.Length; i++)
+                ws.Cell(1, i + 1).Value = ImportTemplateHeaders[i];
+
+            ws.Row(1).Style.Font.Bold = true;
+            ws.Columns().AdjustToContents();
+
+            // Example row (optional guidance; safe to delete before import)
+            ws.Cell(2, 1).Value = "AST-001";
+            ws.Cell(2, 2).Value = "Example Asset";
+            ws.Cell(2, 4).Value = "Existing Category Name";
+            ws.Cell(2, 5).Value = "Existing Location Name";
+            ws.Cell(2, 6).Value = "Existing Department Name";
+            ws.Cell(2, 7).Value = "Available";
+            ws.Cell(2, 8).Value = "Good";
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            return File(
+                stream.ToArray(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "AssetImportTemplate.xlsx");
+        }
+
         public async Task<IActionResult> OnPostImportAsync()
         {
+            if (!_userRoleService.IsInRole("Admin"))
+            {
+                return new JsonResult(new { error = "Only administrators can import assets." })
+                {
+                    StatusCode = StatusCodes.Status403Forbidden
+                };
+            }
+
+            // Oversized bodies may be rejected by the host before this runs; also guard when Length is known.
             var file = Request.Form.Files.GetFile("file");
             if (file is null || file.Length == 0)
                 return new JsonResult(new { error = "No file uploaded." });
+
+            if (file.Length > ImportMaxBytes)
+            {
+                return new JsonResult(new { error = "File exceeds the 10 MB upload limit." })
+                {
+                    StatusCode = StatusCodes.Status413PayloadTooLarge
+                };
+            }
 
             var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
             if (ext is not ".xlsx")
@@ -553,32 +622,53 @@ namespace Portal.Pages.Assets
             {
                 using var content = new MultipartFormDataContent();
                 var streamContent = new StreamContent(file.OpenReadStream());
-                streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+                streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
                 content.Add(streamContent, "file", file.FileName);
 
                 var response = await _httpClient.PostAsync("api/assets/batch-import", content);
                 var responseBody = await response.Content.ReadAsStringAsync();
+                var statusCode = (int)response.StatusCode;
 
                 if (string.IsNullOrWhiteSpace(responseBody))
                 {
-                    return new JsonResult(new { error = $"API returned {(int)response.StatusCode} with no body." })
+                    return new JsonResult(new { error = $"API returned {statusCode} with no body." })
                     {
-                        StatusCode = (int)response.StatusCode
+                        StatusCode = statusCode
                     };
                 }
 
-                return new ContentResult
+                // Pass through valid JSON; normalize HTML/plain errors into { error }.
+                try
                 {
-                    Content = responseBody,
-                    ContentType = "application/json",
-                    StatusCode = (int)response.StatusCode
-                };
+                    using var _ = JsonDocument.Parse(responseBody);
+                    return new ContentResult
+                    {
+                        Content = responseBody,
+                        ContentType = "application/json",
+                        StatusCode = statusCode
+                    };
+                }
+                catch (JsonException)
+                {
+                    var preview = responseBody.Trim();
+                    if (preview.Length > 200)
+                        preview = preview[..200] + "…";
+
+                    return new JsonResult(new
+                    {
+                        error = $"Import failed (HTTP {statusCode}): unexpected response — {preview}"
+                    })
+                    {
+                        StatusCode = statusCode >= 400 ? statusCode : StatusCodes.Status502BadGateway
+                    };
+                }
             }
             catch (Exception ex)
             {
                 return new JsonResult(new { error = $"Failed to process file: {ex.Message}" })
                 {
-                    StatusCode = 500
+                    StatusCode = StatusCodes.Status500InternalServerError
                 };
             }
         }

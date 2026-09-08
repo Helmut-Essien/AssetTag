@@ -13,13 +13,19 @@
             (@(Model.Assets?.Count ?? 0) Total)
         </span>
     </h1>
-    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createModal">
-        <i class="bi bi-plus-lg me-2"></i>Add Asset
-    </button>
-    <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#importModal">
-        <i class="bi bi-file-earmark-excel me-2"></i>Import Excel
-    </button>
+    <div class="d-flex gap-2">
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createModal">
+            <i class="bi bi-plus-lg me-2"></i>Add Asset
+        </button>
+        @if (Model.IsAdmin)
+        {
+            <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#importModal">
+                <i class="bi bi-file-earmark-excel me-2"></i>Import Excel
+            </button>
+        }
+    </div>
 </div>
+@Html.AntiForgeryToken()
 
     <!-- Search and Filters Section -->
     <div class="card mb-4">
@@ -917,6 +923,8 @@
     </div>
 </div>
 
+@if (Model.IsAdmin)
+{
 <!-- Import Excel Modal -->
 <div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -927,19 +935,29 @@
             </div>
             <div class="modal-body">
                 <div class="mb-3">
-                    <label class="form-label">Select Excel File (.xlsx)</label>
+                    <label class="form-label">Select Excel File (.xlsx, max 10 MB)</label>
                     <input type="file" id="importFileInput" class="form-control" accept=".xlsx" />
-                    <small class="text-muted">
-                        Required columns: AssetTag, Name, Category, Location, Department, Status, Condition.
-                        Use names (not IDs) for Category, Location, and Department.
+                    <small class="text-muted d-block mt-2">
+                        <strong>Upsert:</strong> rows matching an existing AssetTag update that asset; new tags create assets.
+                        Required for <em>new</em> assets: AssetTag, Name, Category, Location, Department, Status, Condition
+                        (use display names, not IDs). Optional: Description, PurchaseDate, PurchasePrice, CurrentValue,
+                        SerialNumber, DigitalAssetTag, VendorName, InvoiceNumber, Quantity, CostPerUnit,
+                        UsefulLifeYears, WarrantyExpiry, DisposalDate, DisposalValue, Remarks.
                     </small>
+                    <a class="btn btn-link btn-sm px-0 mt-1" asp-page-handler="ImportTemplate">
+                        <i class="bi bi-download me-1"></i>Download import template
+                    </a>
                 </div>
 
                 <!-- Import Progress -->
                 <div id="importProgress" class="d-none">
                     <div class="d-flex align-items-center mb-2">
                         <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-                        <span>Importing...</span>
+                        <span id="importProgressText">Uploading and importing…</span>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                        <div id="importProgressBar" class="progress-bar progress-bar-striped progress-bar-animated"
+                             role="progressbar" style="width: 100%" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
                     </div>
                 </div>
 
@@ -972,6 +990,7 @@
         </div>
     </div>
 </div>
+}
 
 @section Scripts {
     <script>
@@ -1378,6 +1397,8 @@ if (editModal) {
                     document.getElementById('importResults').classList.add('d-none');
                     document.getElementById('importErrorTable').classList.add('d-none');
                     document.getElementById('importBtn').disabled = false;
+                    const progressText = document.getElementById('importProgressText');
+                    if (progressText) progressText.textContent = 'Uploading and importing…';
                     if (importModalEl.dataset.refreshOnClose === 'true') {
                         importModalEl.dataset.refreshOnClose = 'false';
                         window.location.reload();
@@ -1385,6 +1406,8 @@ if (editModal) {
                 });
             }
         });
+
+        const IMPORT_MAX_BYTES = 10 * 1024 * 1024;
 
         function getAntiforgeryToken() {
             return document.querySelector('input[name="__RequestVerificationToken"]')?.value;
@@ -1409,15 +1432,27 @@ if (editModal) {
             alertDiv.textContent = message;
         }
 
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         // Import Excel file
         async function doImport() {
             const fileInput = document.getElementById('importFileInput');
             const importBtn = document.getElementById('importBtn');
             const progressDiv = document.getElementById('importProgress');
+            const progressText = document.getElementById('importProgressText');
             const resultsDiv = document.getElementById('importResults');
             const alertDiv = document.getElementById('importAlert');
             const errorTable = document.getElementById('importErrorTable');
             const errorBody = document.getElementById('importErrorBody');
+
+            if (!fileInput || !importBtn) return;
 
             if (!fileInput.files || fileInput.files.length === 0) {
                 alert('Please select an Excel file first.');
@@ -1430,6 +1465,11 @@ if (editModal) {
                 return;
             }
 
+            if (file.size > IMPORT_MAX_BYTES) {
+                alert('File exceeds the 10 MB upload limit.');
+                return;
+            }
+
             const token = getAntiforgeryToken();
             if (!token) {
                 showImportError(alertDiv, progressDiv, resultsDiv,
@@ -1437,9 +1477,13 @@ if (editModal) {
                 return;
             }
 
+            if (importBtn.disabled) return;
+
             importBtn.disabled = true;
             progressDiv.classList.remove('d-none');
+            if (progressText) progressText.textContent = 'Uploading and importing…';
             resultsDiv.classList.add('d-none');
+            errorTable.classList.add('d-none');
 
             const formData = new FormData();
             formData.append('file', file);
@@ -1455,6 +1499,8 @@ if (editModal) {
                     },
                     body: formData
                 });
+
+                if (progressText) progressText.textContent = 'Processing server response…';
 
                 const text = await response.text();
                 const result = parseImportResponse(response, text);
@@ -1488,7 +1534,7 @@ if (editModal) {
                 if (result.errors && result.errors.length > 0) {
                     errorTable.classList.remove('d-none');
                     errorBody.innerHTML = result.errors.map(e =>
-                        `<tr><td>${e.row}</td><td>${e.field}</td><td>${e.message}</td></tr>`
+                        `<tr><td>${escapeHtml(e.row)}</td><td>${escapeHtml(e.field)}</td><td>${escapeHtml(e.message)}</td></tr>`
                     ).join('');
                 } else {
                     errorTable.classList.add('d-none');
