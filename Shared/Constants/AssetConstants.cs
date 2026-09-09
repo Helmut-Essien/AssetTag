@@ -76,6 +76,15 @@ namespace Shared.Constants
         }
 
         /// <summary>
+        /// Shared list pagination defaults (Portal / API list endpoints).
+        /// </summary>
+        public static class Pagination
+        {
+            public const int DefaultPageSize = 20;
+            public const int MaxPageSize = 100;
+        }
+
+        /// <summary>
         /// Report configuration constants
         /// </summary>
         public static class Reports

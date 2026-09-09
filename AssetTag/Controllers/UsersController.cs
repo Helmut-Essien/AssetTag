@@ -77,6 +77,9 @@ namespace AssetTag.Controllers
                     return BadRequest("Invalid pagination parameters.");
                 }
 
+                if (pageSize > AssetConstants.Pagination.MaxPageSize)
+                    pageSize = AssetConstants.Pagination.MaxPageSize;
+
                 var query = _context.Users.AsNoTracking().AsQueryable();
 
                 // Search by name or email

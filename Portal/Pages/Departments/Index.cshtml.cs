@@ -21,15 +21,51 @@ namespace Portal.Pages.Departments
         }
 
         public List<DepartmentReadDTO> Departments { get; set; } = new();
+        public PaginatedResponse<DepartmentReadDTO> PagedDepartments { get; set; } = new();
         public DepartmentCreateDTO CreateDto { get; set; } = new DepartmentCreateDTO();
         public DepartmentUpdateDTO UpdateDto { get; set; } = new DepartmentUpdateDTO();
         public string? ActiveModal { get; set; }
 
+        [BindProperty(SupportsGet = true)]
+        public int CurrentPage { get; set; } = 1;
+
+        [BindProperty(SupportsGet = true)]
+        public int PageSize { get; set; } = AssetConstants.Pagination.DefaultPageSize;
+
         public async Task<IActionResult> OnGetAsync()
         {
-            Departments = await _httpClient.GetFromJsonAsync<List<DepartmentReadDTO>>("api/departments") ?? new List<DepartmentReadDTO>();
+            if (CurrentPage < 1) CurrentPage = 1;
+            if (PageSize < 1) PageSize = AssetConstants.Pagination.DefaultPageSize;
+
+            var response = await _httpClient.GetAsync($"api/departments?page={CurrentPage}&pageSize={PageSize}");
+            if (response.IsSuccessStatusCode)
+            {
+                PagedDepartments = await response.Content.ReadFromJsonAsync<PaginatedResponse<DepartmentReadDTO>>()
+                    ?? new PaginatedResponse<DepartmentReadDTO>();
+                Departments = PagedDepartments.Data;
+
+                if (PagedDepartments.TotalPages > 0 && CurrentPage > PagedDepartments.TotalPages)
+                {
+                    return RedirectToPage("./Index", new
+                    {
+                        currentPage = PagedDepartments.TotalPages,
+                        pageSize = PageSize
+                    });
+                }
+            }
+
             return Page();
         }
+
+        public string GetPageUrl(int page) =>
+            Url.Page("./Index", new { currentPage = page, pageSize = PageSize }) ?? "#";
+
+        public Portal.ViewModels.PaginationViewModel Pagination =>
+            Portal.ViewModels.PaginationViewModel.FromPaginated(
+                PagedDepartments,
+                GetPageUrl,
+                "Departments pagination",
+                cssClass: "mt-3");
 
         public async Task<IActionResult> OnPostCreateAsync([Bind(Prefix = "CreateDto")] DepartmentCreateDTO dto)
         {
@@ -44,7 +80,7 @@ namespace Portal.Pages.Departments
             var response = await _httpClient.PostAsJsonAsync("api/departments", dto);
             if (response.IsSuccessStatusCode)
             {
-                return RedirectToPage();
+                return RedirectToPage(new { currentPage = 1, pageSize = PageSize });
             }
 
             var errorContent = await response.Content.ReadAsStringAsync();
@@ -82,7 +118,7 @@ namespace Portal.Pages.Departments
             var response = await _httpClient.PutAsJsonAsync($"api/departments/{dto.DepartmentId}", dto);
             if (response.IsSuccessStatusCode)
             {
-                return RedirectToPage();
+                return RedirectToPage(new { currentPage = CurrentPage, pageSize = PageSize });
             }
 
             if (response.StatusCode == HttpStatusCode.Conflict)
@@ -104,7 +140,7 @@ namespace Portal.Pages.Departments
             if (string.IsNullOrEmpty(id))
             {
                 TempData["ErrorMessage"] = "Invalid department ID.";
-                return RedirectToPage();
+                return RedirectToPage(new { currentPage = CurrentPage, pageSize = PageSize });
             }
 
             var response = await _httpClient.DeleteAsync($"api/departments/{id}");
@@ -112,10 +148,9 @@ namespace Portal.Pages.Departments
             if (response.IsSuccessStatusCode)
             {
                 TempData["SuccessMessage"] = "Department deleted successfully.";
-                return RedirectToPage();
+                return RedirectToPage(new { currentPage = CurrentPage, pageSize = PageSize });
             }
 
-            // Handle specific errors
             string errorMsg = "Failed to delete department.";
 
             if (response.StatusCode == HttpStatusCode.BadRequest ||

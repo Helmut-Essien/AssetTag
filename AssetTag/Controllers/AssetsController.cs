@@ -49,14 +49,19 @@ public class AssetsController : ControllerBase
 
     // GET: /api/assets
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<AssetReadDTO>>> Get(
-    [FromQuery] string? searchTerm,
-    [FromQuery] string? status,
-    [FromQuery] string? condition,
-    [FromQuery] string? categoryId,
-    [FromQuery] string? locationId,
-    [FromQuery] string? departmentId)
+    public async Task<ActionResult<PaginatedResponse<AssetReadDTO>>> Get(
+        [FromQuery] string? searchTerm,
+        [FromQuery] string? status,
+        [FromQuery] string? condition,
+        [FromQuery] string? categoryId,
+        [FromQuery] string? locationId,
+        [FromQuery] string? departmentId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = AssetConstants.Pagination.DefaultPageSize)
     {
+        (page, pageSize) = PaginatedResponse<AssetReadDTO>.Normalize(
+            page, pageSize, AssetConstants.Pagination.DefaultPageSize, AssetConstants.Pagination.MaxPageSize);
+
         var query = _context.Assets.AsNoTracking().AsQueryable();
 
         // Apply filters
@@ -87,10 +92,16 @@ public class AssetsController : ControllerBase
         if (!string.IsNullOrEmpty(departmentId))
             query = query.Where(a => a.DepartmentId == departmentId);
 
+        var totalCount = await query.CountAsync();
+
         var assets = await query
                 .Include(a => a.Category)  // Include Category to access DepreciationRate
+                .OrderByDescending(a => a.CreatedAt)
+                .ThenBy(a => a.AssetTag)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
-        
+
         // Map to DTOs with computed properties
         var assetDtos = assets.Select(a => new AssetReadDTO
         {
@@ -128,8 +139,8 @@ public class AssetsController : ControllerBase
             NetBookValue = a.NetBookValue,
             GainLossOnDisposal = a.GainLossOnDisposal
         }).ToList();
-        
-        return Ok(assetDtos);
+
+        return Ok(PaginatedResponse<AssetReadDTO>.Create(assetDtos, totalCount, page, pageSize));
     }
 
 

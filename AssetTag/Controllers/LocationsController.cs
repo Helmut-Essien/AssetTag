@@ -18,11 +18,17 @@ public class LocationsController : ControllerBase
     public LocationsController(ApplicationDbContext context) => _context = context;
 
     // GET: /api/locations
+    // Omit page/pageSize to return the full list (dropdowns, mobile sync).
+    // Pass page (and optional pageSize) for PaginatedResponse.
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<LocationReadDTO>>> GetAll()
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null)
     {
-        var list = await _context.Locations
+        var query = _context.Locations
             .AsNoTracking()
+            .OrderBy(l => l.Campus)
+            .ThenBy(l => l.Name)
             .Select(l => new LocationReadDTO(
                 l.LocationId,
                 l.Name,
@@ -31,10 +37,24 @@ public class LocationsController : ControllerBase
                 l.Building,
                 l.Room,
                 l.Latitude,
-                l.Longitude))
+                l.Longitude));
+
+        if (!page.HasValue)
+            return Ok(await query.ToListAsync());
+
+        var (normalizedPage, normalizedSize) = PaginatedResponse<LocationReadDTO>.Normalize(
+            page.Value,
+            pageSize ?? AssetConstants.Pagination.DefaultPageSize,
+            AssetConstants.Pagination.DefaultPageSize,
+            AssetConstants.Pagination.MaxPageSize);
+
+        var totalCount = await query.CountAsync();
+        var list = await query
+            .Skip((normalizedPage - 1) * normalizedSize)
+            .Take(normalizedSize)
             .ToListAsync();
 
-        return Ok(list);
+        return Ok(PaginatedResponse<LocationReadDTO>.Create(list, totalCount, normalizedPage, normalizedSize));
     }
 
     // GET: /api/locations/{id}

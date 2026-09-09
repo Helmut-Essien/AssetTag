@@ -21,15 +21,51 @@ namespace Portal.Pages.Locations
         }
 
         public List<LocationReadDTO> Locations { get; set; } = new();
+        public PaginatedResponse<LocationReadDTO> PagedLocations { get; set; } = new();
         public LocationCreateDTO CreateDto { get; set; } = new LocationCreateDTO();
         public LocationUpdateDTO UpdateDto { get; set; } = new LocationUpdateDTO();
         public string? ActiveModal { get; set; }
 
+        [BindProperty(SupportsGet = true)]
+        public int CurrentPage { get; set; } = 1;
+
+        [BindProperty(SupportsGet = true)]
+        public int PageSize { get; set; } = AssetConstants.Pagination.DefaultPageSize;
+
         public async Task<IActionResult> OnGetAsync()
         {
-            Locations = await _httpClient.GetFromJsonAsync<List<LocationReadDTO>>("api/locations") ?? new List<LocationReadDTO>();
+            if (CurrentPage < 1) CurrentPage = 1;
+            if (PageSize < 1) PageSize = AssetConstants.Pagination.DefaultPageSize;
+
+            var response = await _httpClient.GetAsync($"api/locations?page={CurrentPage}&pageSize={PageSize}");
+            if (response.IsSuccessStatusCode)
+            {
+                PagedLocations = await response.Content.ReadFromJsonAsync<PaginatedResponse<LocationReadDTO>>()
+                    ?? new PaginatedResponse<LocationReadDTO>();
+                Locations = PagedLocations.Data;
+
+                if (PagedLocations.TotalPages > 0 && CurrentPage > PagedLocations.TotalPages)
+                {
+                    return RedirectToPage("./Index", new
+                    {
+                        currentPage = PagedLocations.TotalPages,
+                        pageSize = PageSize
+                    });
+                }
+            }
+
             return Page();
         }
+
+        public string GetPageUrl(int page) =>
+            Url.Page("./Index", new { currentPage = page, pageSize = PageSize }) ?? "#";
+
+        public Portal.ViewModels.PaginationViewModel Pagination =>
+            Portal.ViewModels.PaginationViewModel.FromPaginated(
+                PagedLocations,
+                GetPageUrl,
+                "Locations pagination",
+                cssClass: "mt-3");
 
         public async Task<IActionResult> OnPostCreateAsync([Bind(Prefix = "CreateDto")] LocationCreateDTO dto)
         {
@@ -44,7 +80,7 @@ namespace Portal.Pages.Locations
             var response = await _httpClient.PostAsJsonAsync("api/locations", dto);
             if (response.IsSuccessStatusCode)
             {
-                return RedirectToPage();
+                return RedirectToPage(new { currentPage = 1, pageSize = PageSize });
             }
 
             var errorContent = await response.Content.ReadAsStringAsync();
@@ -85,7 +121,7 @@ namespace Portal.Pages.Locations
             var response = await _httpClient.PutAsJsonAsync($"api/locations/{dto.LocationId}", dto);
             if (response.IsSuccessStatusCode)
             {
-                return RedirectToPage();
+                return RedirectToPage(new { currentPage = CurrentPage, pageSize = PageSize });
             }
 
             if (response.StatusCode == HttpStatusCode.Conflict)
@@ -109,7 +145,7 @@ namespace Portal.Pages.Locations
             if (string.IsNullOrEmpty(id))
             {
                 TempData["ErrorMessage"] = "Invalid location ID.";
-                return RedirectToPage();
+                return RedirectToPage(new { currentPage = CurrentPage, pageSize = PageSize });
             }
 
             var response = await _httpClient.DeleteAsync($"api/locations/{id}");
@@ -117,7 +153,7 @@ namespace Portal.Pages.Locations
             if (response.IsSuccessStatusCode)
             {
                 TempData["SuccessMessage"] = "Location deleted successfully.";
-                return RedirectToPage();
+                return RedirectToPage(new { currentPage = CurrentPage, pageSize = PageSize });
             }
 
             // Handle specific errors

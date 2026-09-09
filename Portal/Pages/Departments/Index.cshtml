@@ -21,10 +21,21 @@
         </div>
     }
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="mb-0">Departments (@Model.Departments.Count Total)</h1>
-        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createModal">
-            <i class="bi bi-plus-lg me-2"></i>Add Department
-        </button>
+        <h1 class="mb-0">Departments (@Model.PagedDepartments.TotalCount.ToString("N0") Total)</h1>
+        <div class="d-flex align-items-center gap-2">
+            <form method="get" class="d-flex align-items-center gap-1 mb-0">
+                <label class="small text-muted mb-0" for="PageSize">Per page</label>
+                <select class="form-select form-select-sm" style="width: auto;" asp-for="PageSize" onchange="this.form.submit()">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </form>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createModal">
+                <i class="bi bi-plus-lg me-2"></i>Add Department
+            </button>
+        </div>
     </div>
 
     <div>
@@ -67,6 +78,8 @@
             </tbody>
         </table>
     </div>
+
+    <partial name="_Pagination" model="Model.Pagination" />
 </div>
 
 <!-- Create Modal -->
@@ -79,6 +92,7 @@
             </div>
             <div class="modal-body">
                 <form method="post" asp-page-handler="Create">
+                    <partial name="_PaginationState" />
                     <div asp-validation-summary="All" class="text-danger mb-3"></div>
 
                     <div class="mb-3">
@@ -108,6 +122,7 @@
             </div>
             <div class="modal-body">
                 <form method="post" asp-page-handler="Update">
+                    <partial name="_PaginationState" />
                     <div asp-validation-summary="All" class="text-danger mb-3"></div>
 
                     <input type="hidden" asp-for="UpdateDto.DepartmentId" />
@@ -139,6 +154,7 @@
             <div class="modal-body">
                 <p>Are you sure you want to delete this department?</p>
                 <form method="post" asp-page-handler="Delete">
+                    <partial name="_PaginationState" />
                     <input type="hidden" name="id" id="deleteId" />
                     <button type="submit" class="btn btn-danger">Delete</button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>

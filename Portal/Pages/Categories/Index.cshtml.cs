@@ -17,22 +17,55 @@ namespace Portal.Pages.Categories
 
         public IndexModel(IHttpClientFactory httpClientFactory)
         {
-            _httpClient = httpClientFactory.CreateClient("AssetTagApi"); // Assume named client configured with base address and auth
+            _httpClient = httpClientFactory.CreateClient("AssetTagApi");
         }
 
         public List<CategoryReadDTO> Categories { get; set; } = new();
-
+        public PaginatedResponse<CategoryReadDTO> PagedCategories { get; set; } = new();
         public CategoryCreateDTO CreateDto { get; set; } = new CategoryCreateDTO();
-
         public CategoryUpdateDTO UpdateDto { get; set; } = new CategoryUpdateDTO();
-
         public string? ActiveModal { get; set; }
+
+        [BindProperty(SupportsGet = true)]
+        public int CurrentPage { get; set; } = 1;
+
+        [BindProperty(SupportsGet = true)]
+        public int PageSize { get; set; } = AssetConstants.Pagination.DefaultPageSize;
 
         public async Task<IActionResult> OnGetAsync()
         {
-            Categories = await _httpClient.GetFromJsonAsync<List<CategoryReadDTO>>("api/categories") ?? new List<CategoryReadDTO>();
+            if (CurrentPage < 1) CurrentPage = 1;
+            if (PageSize < 1) PageSize = AssetConstants.Pagination.DefaultPageSize;
+
+            var response = await _httpClient.GetAsync($"api/categories?page={CurrentPage}&pageSize={PageSize}");
+            if (response.IsSuccessStatusCode)
+            {
+                PagedCategories = await response.Content.ReadFromJsonAsync<PaginatedResponse<CategoryReadDTO>>()
+                    ?? new PaginatedResponse<CategoryReadDTO>();
+                Categories = PagedCategories.Data;
+
+                if (PagedCategories.TotalPages > 0 && CurrentPage > PagedCategories.TotalPages)
+                {
+                    return RedirectToPage("./Index", new
+                    {
+                        currentPage = PagedCategories.TotalPages,
+                        pageSize = PageSize
+                    });
+                }
+            }
+
             return Page();
         }
+
+        public string GetPageUrl(int page) =>
+            Url.Page("./Index", new { currentPage = page, pageSize = PageSize }) ?? "#";
+
+        public Portal.ViewModels.PaginationViewModel Pagination =>
+            Portal.ViewModels.PaginationViewModel.FromPaginated(
+                PagedCategories,
+                GetPageUrl,
+                "Categories pagination",
+                cssClass: "mt-3");
 
         public async Task<IActionResult> OnPostCreateAsync([Bind(Prefix = "CreateDto")] CategoryCreateDTO dto)
         {
@@ -47,19 +80,16 @@ namespace Portal.Pages.Categories
             var response = await _httpClient.PostAsJsonAsync("api/categories", dto);
             if (response.IsSuccessStatusCode)
             {
-                return RedirectToPage();
+                return RedirectToPage(new { currentPage = 1, pageSize = PageSize });
             }
 
-            // Always read error content for logging/debugging
             var errorContent = await response.Content.ReadAsStringAsync();
             ModelState.AddModelError("", $"Failed to create category: {response.StatusCode} - {errorContent}");
-
 
             if (response.StatusCode == HttpStatusCode.Conflict)
             {
                 ModelState.AddModelError("CreateDto.Name", "Category name already exists.");
             }
-            // Handle other errors if needed
 
             ActiveModal = "create";
             CreateDto = dto;
@@ -88,10 +118,9 @@ namespace Portal.Pages.Categories
             var response = await _httpClient.PutAsJsonAsync($"api/categories/{dto.CategoryId}", dto);
             if (response.IsSuccessStatusCode)
             {
-                return RedirectToPage();
+                return RedirectToPage(new { currentPage = CurrentPage, pageSize = PageSize });
             }
 
-            // map any API errors into ModelState (prefix with UpdateDto.)
             if (response.StatusCode == HttpStatusCode.Conflict)
                 ModelState.AddModelError("UpdateDto.Name", "Category name already exists.");
             else
@@ -106,49 +135,29 @@ namespace Portal.Pages.Categories
             return Page();
         }
 
-        //public async Task<IActionResult> OnPostDeleteAsync(string id)
-        //{
-        //    if (string.IsNullOrEmpty(id))
-        //    {
-        //        return RedirectToPage();
-        //    }
-
-        //    var response = await _httpClient.DeleteAsync($"api/categories/{id}");
-        //    if (response.IsSuccessStatusCode)
-        //    {
-        //        return RedirectToPage();
-        //    }
-
-        //    // Handle error, e.g., not found or conflict if dependencies exist (API doesn't check dependencies)
-        //    await OnGetAsync();
-        //    return Page();
-        //}
-
         public async Task<IActionResult> OnPostDeleteAsync(string id)
         {
             if (string.IsNullOrEmpty(id))
             {
                 TempData["ErrorMessage"] = "Invalid category ID.";
-                return RedirectToPage();
+                return RedirectToPage(new { currentPage = CurrentPage, pageSize = PageSize });
             }
 
             var response = await _httpClient.DeleteAsync($"api/categories/{id}");
 
             if (response.IsSuccessStatusCode)
             {
-                TempData["SuccessMessage"] = "Category deleted successfully.";  // optional
-                return RedirectToPage();
+                TempData["SuccessMessage"] = "Category deleted successfully.";
+                return RedirectToPage(new { currentPage = CurrentPage, pageSize = PageSize });
             }
 
-            // Handle specific errors
             string errorMsg = "Failed to delete category.";
 
             if (response.StatusCode == HttpStatusCode.BadRequest ||
-                response.StatusCode == HttpStatusCode.Conflict)  // or whatever your API returns on constraint violation
+                response.StatusCode == HttpStatusCode.Conflict)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
 
-                // Customize based on what your API returns in the body
                 if (errorContent.Contains("REFERENCE constraint") ||
                     errorContent.Contains("FK_Assets_Categories") ||
                     errorContent.Contains("in use") ||
@@ -172,9 +181,8 @@ namespace Portal.Pages.Categories
 
             TempData["ErrorMessage"] = errorMsg;
 
-            // Reload data and return to page (no ActiveModal needed for delete)
             await OnGetAsync();
-            return Page();  // or RedirectToPage() if you prefer full redirect
+            return Page();
         }
     }
 }

@@ -18,12 +18,35 @@ public class DepartmentsController : ControllerBase
     public DepartmentsController(ApplicationDbContext context) => _context = context;
 
     // GET: /api/departments
+    // Omit page/pageSize to return the full list (dropdowns).
+    // Pass page (and optional pageSize) for PaginatedResponse.
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<DepartmentReadDTO>>> Get() =>
-        Ok(await _context.Departments
+    public async Task<IActionResult> Get(
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null)
+    {
+        var query = _context.Departments
             .AsNoTracking()
-            .Select(d => new DepartmentReadDTO(d.DepartmentId, d.Name, d.Description))
-            .ToListAsync());
+            .OrderBy(d => d.Name)
+            .Select(d => new DepartmentReadDTO(d.DepartmentId, d.Name, d.Description));
+
+        if (!page.HasValue)
+            return Ok(await query.ToListAsync());
+
+        var (normalizedPage, normalizedSize) = PaginatedResponse<DepartmentReadDTO>.Normalize(
+            page.Value,
+            pageSize ?? AssetConstants.Pagination.DefaultPageSize,
+            AssetConstants.Pagination.DefaultPageSize,
+            AssetConstants.Pagination.MaxPageSize);
+
+        var totalCount = await query.CountAsync();
+        var list = await query
+            .Skip((normalizedPage - 1) * normalizedSize)
+            .Take(normalizedSize)
+            .ToListAsync();
+
+        return Ok(PaginatedResponse<DepartmentReadDTO>.Create(list, totalCount, normalizedPage, normalizedSize));
+    }
 
     // GET: /api/departments/{id}
     [HttpGet("{id}")]

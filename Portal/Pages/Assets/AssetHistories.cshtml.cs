@@ -70,6 +70,21 @@ namespace Portal.Pages.Assets
                 Histories = await response.Content.ReadFromJsonAsync<PaginatedResponse<AssetHistoryReadDTO>>()
                     ?? new PaginatedResponse<AssetHistoryReadDTO>();
 
+                if (Histories.TotalPages > 0 && CurrentPage > Histories.TotalPages)
+                {
+                    return RedirectToPage("./AssetHistories", new
+                    {
+                        currentPage = Histories.TotalPages,
+                        pageSize = PageSize,
+                        actionFilter = ActionFilter,
+                        assetNameFilter = AssetNameFilter,
+                        userNameFilter = UserNameFilter,
+                        dateFrom = DateFrom,
+                        dateTo = DateTo,
+                        searchQuery = SearchQuery
+                    });
+                }
+
                 return Page();
             }
             catch (Exception ex)
@@ -106,6 +121,29 @@ namespace Portal.Pages.Assets
             var exportUrl = BuildExportUrl(format);
             return Redirect(exportUrl);
         }
+
+        public string GetPageUrl(int page)
+        {
+            return Url.Page("./AssetHistories", new
+            {
+                currentPage = page,
+                pageSize = PageSize,
+                actionFilter = ActionFilter,
+                assetNameFilter = AssetNameFilter,
+                userNameFilter = UserNameFilter,
+                dateFrom = DateFrom,
+                dateTo = DateTo,
+                searchQuery = SearchQuery
+            }) ?? "#";
+        }
+
+        public Portal.ViewModels.PaginationViewModel Pagination =>
+            Portal.ViewModels.PaginationViewModel.FromPaginated(
+                Histories,
+                GetPageUrl,
+                "History pagination",
+                showSummary: false,
+                cssClass: "card-footer");
 
         private string BuildApiUrl()
         {

@@ -17,12 +17,35 @@ public class CategoriesController : ControllerBase
 
     public CategoriesController(ApplicationDbContext context) => _context = context;
 
+    // Omit page/pageSize to return the full list (dropdowns).
+    // Pass page (and optional pageSize) for PaginatedResponse.
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<CategoryReadDTO>>> Get() =>
-        Ok(await _context.Categories
+    public async Task<IActionResult> Get(
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null)
+    {
+        var query = _context.Categories
             .AsNoTracking()
-            .Select(c => new CategoryReadDTO(c.CategoryId, c.Name, c.Description, c.DepreciationRate))
-            .ToListAsync());
+            .OrderBy(c => c.Name)
+            .Select(c => new CategoryReadDTO(c.CategoryId, c.Name, c.Description, c.DepreciationRate));
+
+        if (!page.HasValue)
+            return Ok(await query.ToListAsync());
+
+        var (normalizedPage, normalizedSize) = PaginatedResponse<CategoryReadDTO>.Normalize(
+            page.Value,
+            pageSize ?? AssetConstants.Pagination.DefaultPageSize,
+            AssetConstants.Pagination.DefaultPageSize,
+            AssetConstants.Pagination.MaxPageSize);
+
+        var totalCount = await query.CountAsync();
+        var list = await query
+            .Skip((normalizedPage - 1) * normalizedSize)
+            .Take(normalizedSize)
+            .ToListAsync();
+
+        return Ok(PaginatedResponse<CategoryReadDTO>.Create(list, totalCount, normalizedPage, normalizedSize));
+    }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<CategoryReadDTO>> Get(string id)
