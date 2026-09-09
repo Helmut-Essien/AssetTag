@@ -49,6 +49,11 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+{
+    options.TokenLifespan = TimeSpan.FromHours(Shared.Constants.EmailConstants.PasswordResetExpiryHours);
+});
+
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var key = Encoding.UTF8.GetBytes(jwtSettings["SecurityKey"]!);
 
@@ -526,6 +531,9 @@ builder.Services.AddScoped<ActiveUserAttribute>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.Configure<EmailService.EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddSingleton<EmailBackgroundQueue>();
+builder.Services.AddSingleton<IEmailBackgroundQueue>(sp => sp.GetRequiredService<EmailBackgroundQueue>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<EmailBackgroundQueue>());
 
 // ARCHITECTURAL FIX A1: Register distributed lock service for multi-device sync coordination
 builder.Services.AddScoped<IDistributedLockService, DatabaseDistributedLockService>();

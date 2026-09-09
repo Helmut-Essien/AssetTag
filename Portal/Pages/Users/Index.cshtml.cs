@@ -406,9 +406,7 @@ namespace Portal.Pages.Users
                 var response = await _httpClient.PostAsync($"api/users/{id}/password-reset", null);
                 if (response.IsSuccessStatusCode)
                 {
-                    // Never surface the raw reset token in HTML/logs — delivery is handled by the API/email.
-                    _ = await response.Content.ReadAsStringAsync();
-                    Message = "Password reset was initiated. If the account exists, the user will receive reset instructions via email.";
+                    Message = "Password reset email was sent to the user.";
                 }
                 else
                 {

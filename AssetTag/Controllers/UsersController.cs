@@ -1,6 +1,7 @@
 using AssetTag.Data;
 using Shared.Models;
 using Shared.Constants;
+using AssetTag.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -25,17 +26,23 @@ namespace AssetTag.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly ApplicationDbContext _context;
+        private readonly IEmailService _emailService;
+        private readonly IConfiguration _configuration;
         private readonly ILogger<UsersController> _logger;
 
         public UsersController(
             UserManager<ApplicationUser> userManager,
             RoleManager<IdentityRole> roleManager,
             ApplicationDbContext context,
+            IEmailService emailService,
+            IConfiguration configuration,
             ILogger<UsersController> logger)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _context = context;
+            _emailService = emailService;
+            _configuration = configuration;
             _logger = logger;
         }
 
@@ -470,7 +477,7 @@ namespace AssetTag.Controllers
 
         [HttpPost("{id}/password-reset")]
         [Authorize(Roles = RoleNames.Admin)]
-        public async Task<ActionResult<string>> ResetUserPassword(string id)
+        public async Task<IActionResult> ResetUserPassword(string id)
         {
             try
             {
@@ -480,14 +487,39 @@ namespace AssetTag.Controllers
                     return NotFound($"User with ID '{id}' not found.");
                 }
 
-                var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
-                // Note: Client should email this token to the user
+                if (string.IsNullOrWhiteSpace(user.Email))
+                {
+                    return BadRequest("User does not have an email address.");
+                }
 
-                return Ok(resetToken);
+                var frontendBaseUrl = _configuration["FrontendBaseUrl"];
+                if (string.IsNullOrWhiteSpace(frontendBaseUrl))
+                {
+                    _logger.LogError("FrontendBaseUrl is not configured; cannot build password reset link");
+                    return StatusCode(StatusCodes.Status500InternalServerError,
+                        new { Message = "Server configuration error." });
+                }
+
+                var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
+                var resetUrl = $"{frontendBaseUrl.TrimEnd('/')}/Account/ResetPassword";
+
+                var emailSent = await _emailService.SendPasswordResetEmailAsync(
+                    user.Email,
+                    resetToken,
+                    resetUrl);
+
+                if (!emailSent)
+                {
+                    _logger.LogWarning("Failed to send admin-initiated password reset email to {Email}", user.Email);
+                    return StatusCode(StatusCodes.Status502BadGateway,
+                        new { Message = "Password reset email could not be sent. Please try again." });
+                }
+
+                return Ok(new { Message = "Password reset email sent successfully." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error generating password reset for user {id}");
+                _logger.LogError(ex, "Error generating password reset for user {UserId}", id);
                 return StatusCode(500, "An internal error occurred.");
             }
         }

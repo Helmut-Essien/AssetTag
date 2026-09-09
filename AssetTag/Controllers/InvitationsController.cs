@@ -102,7 +102,7 @@ namespace AssetTag.Controllers
                     Role = roleResolution.Role,
                     InvitedByUserId = currentUser.Id,
                     CreatedAt = DateTime.UtcNow,
-                    ExpiresAt = DateTime.UtcNow.AddDays(2)
+                    ExpiresAt = DateTime.UtcNow.AddDays(EmailConstants.InvitationExpiryDays)
                 };
 
                 _context.Invitations.Add(invitation);
@@ -110,17 +110,22 @@ namespace AssetTag.Controllers
 
                 // Send invitation email
                 var invitationUrl = $"{GetFrontendBaseUrl()}/Account/Register";
+                var invitedBy = currentUser.UserName ?? currentUser.Email ?? "Administrator";
 
                 var emailSent = await _emailService.SendInvitationEmailAsync(
                     dto.Email,
                     invitation.Token,
                     invitationUrl,
-                    currentUser.UserName ?? currentUser.Email ?? "Administrator");
+                    invitedBy,
+                    invitation.Role);
 
                 if (!emailSent)
                 {
-                    _logger.LogWarning("Failed to send invitation email to {Email}", dto.Email);
-                    // Continue anyway, admin can resend later
+                    _logger.LogWarning("Failed to send invitation email to {Email}; rolling back invitation", dto.Email);
+                    _context.Invitations.Remove(invitation);
+                    await _context.SaveChangesAsync();
+                    return StatusCode(StatusCodes.Status502BadGateway,
+                        "Invitation could not be emailed. Please try again.");
                 }
 
                 var response = new InvitationResponseDTO
@@ -132,7 +137,7 @@ namespace AssetTag.Controllers
                     ExpiresAt = invitation.ExpiresAt,
                     IsUsed = invitation.IsUsed,
                     Role = invitation.Role,
-                    InvitedByUserName = currentUser.UserName ?? currentUser.Email ?? "Administrator"
+                    InvitedByUserName = invitedBy
                 };
 
                 return Ok(response);
@@ -210,7 +215,8 @@ namespace AssetTag.Controllers
                     invitation.Email,
                     invitation.Token,
                     invitationUrl,
-                    currentUser?.UserName ?? currentUser?.Email ?? "Administrator");
+                    currentUser?.UserName ?? currentUser?.Email ?? "Administrator",
+                    invitation.Role);
 
                 if (!emailSent)
                 {
@@ -323,23 +329,33 @@ namespace AssetTag.Controllers
                             Role = roleResolution.Role,
                             InvitedByUserId = currentUser.Id,
                             CreatedAt = DateTime.UtcNow,
-                            ExpiresAt = DateTime.UtcNow.AddDays(2)
+                            ExpiresAt = DateTime.UtcNow.AddDays(EmailConstants.InvitationExpiryDays)
                         };
 
                         _context.Invitations.Add(invitation);
                         await _context.SaveChangesAsync();
+
+                        var invitedBy = currentUser.UserName ?? currentUser.Email ?? "Administrator";
 
                         // Send invitation email
                         var emailSent = await _emailService.SendInvitationEmailAsync(
                             email,
                             invitation.Token,
                             invitationUrl,
-                            currentUser.UserName ?? currentUser.Email ?? "Administrator");
+                            invitedBy,
+                            invitation.Role);
 
                         if (!emailSent)
                         {
-                            _logger.LogWarning("Failed to send invitation email to {Email}", email);
-                            // Still count as successful but log the email failure
+                            _logger.LogWarning("Failed to send invitation email to {Email}; rolling back invitation", email);
+                            _context.Invitations.Remove(invitation);
+                            await _context.SaveChangesAsync();
+                            failedInvitations.Add(new FailedInvitationDTO
+                            {
+                                Email = email,
+                                Error = "Invitation could not be emailed. Please try again."
+                            });
+                            continue;
                         }
 
                         var invitationResponse = new InvitationResponseDTO
@@ -351,7 +367,7 @@ namespace AssetTag.Controllers
                             ExpiresAt = invitation.ExpiresAt,
                             IsUsed = invitation.IsUsed,
                             Role = invitation.Role,
-                            InvitedByUserName = currentUser.UserName ?? currentUser.Email ?? "Administrator"
+                            InvitedByUserName = invitedBy
                         };
 
                         successfulInvitations.Add(invitationResponse);
