@@ -589,6 +589,7 @@ namespace AssetTag.Controllers
         ApplicationDbContext context,
         ITokenService tokenService,
         IEmailService emailService,
+        IEmailBackgroundQueue emailBackgroundQueue,
         IConfiguration configuration,
         ILogger<AuthController> logger) : ControllerBase
     {
@@ -597,6 +598,7 @@ namespace AssetTag.Controllers
         private readonly ApplicationDbContext _context = context;
         private readonly ITokenService _tokenService = tokenService;
         private readonly IEmailService _emailService = emailService;
+        private readonly IEmailBackgroundQueue _emailBackgroundQueue = emailBackgroundQueue;
         private readonly IConfiguration _configuration = configuration;
         private readonly ILogger<AuthController> _logger = logger;
 
@@ -1029,13 +1031,17 @@ namespace AssetTag.Controllers
                 var resetUrl = $"{frontendBaseUrl.TrimEnd('/')}/Account/ResetPassword";
 
                 var userEmail = user.Email ?? "";
-                // Fire and forget email for performance
-                _ = Task.Run(async () =>
+                // Queue send so SMTP latency cannot be used for user enumeration timing,
+                // and so scoped IEmailService is resolved in a fresh DI scope.
+                await _emailBackgroundQueue.EnqueueAsync(async (emailService, ct) =>
                 {
                     try
                     {
-                        await _emailService.SendPasswordResetEmailAsync(userEmail, token, resetUrl);
-                        _logger.LogInformation("Password reset email sent to {Email}", userEmail);
+                        var sent = await emailService.SendPasswordResetEmailAsync(userEmail, token, resetUrl);
+                        if (sent)
+                            _logger.LogInformation("Password reset email sent to {Email}", userEmail);
+                        else
+                            _logger.LogWarning("Password reset email was not sent to {Email}", userEmail);
                     }
                     catch (Exception ex)
                     {

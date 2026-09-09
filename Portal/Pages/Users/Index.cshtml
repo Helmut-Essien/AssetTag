@@ -19,6 +19,7 @@
     </div>
 
     <form method="get" class="mb-3">
+        <input type="hidden" asp-for="PageSize" />
         <div class="row">
             <div class="col-md-4">
                 <input asp-for="Search" class="form-control" placeholder="Search by name or email" />
@@ -120,23 +121,7 @@
     </div>
 
     <!-- Pagination -->
-    <nav aria-label="Pagination">
-        <ul class="pagination justify-content-center">
-            @if (Model.CurrentPage > 1)
-            {
-                <li class="page-item">
-                    <a class="page-link" asp-page="./Index" asp-route-page="@(Model.CurrentPage - 1)" asp-route-search="@Model.Search" asp-route-departmentId="@Model.DepartmentId" asp-route-isActive="@Model.IsActive">Previous</a>
-                </li>
-            }
-            <li class="page-item disabled"><a class="page-link">Page @Model.CurrentPage of @Math.Ceiling((double)Model.TotalCount / Model.PageSize)</a></li>
-            @if (Model.CurrentPage < Math.Ceiling((double)Model.TotalCount / Model.PageSize))
-            {
-                <li class="page-item">
-                    <a class="page-link" asp-page="./Index" asp-route-page="@(Model.CurrentPage + 1)" asp-route-search="@Model.Search" asp-route-departmentId="@Model.DepartmentId" asp-route-isActive="@Model.IsActive">Next</a>
-                </li>
-            }
-        </ul>
-    </nav>
+    <partial name="_Pagination" model="Model.Pagination" />
 </div>
 
 <!-- Edit Modal -->
@@ -149,6 +134,10 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="post" asp-page-handler="Update" id="editUserForm">
+                <partial name="_PaginationState" />
+                <input type="hidden" asp-for="Search" />
+                <input type="hidden" asp-for="DepartmentId" />
+                <input type="hidden" asp-for="IsActive" />
                 @Html.AntiForgeryToken()
                 <div class="modal-body">
                     <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
@@ -259,6 +248,10 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <form method="post" asp-page-handler="ToggleActivation" style="display: inline;">
+                <partial name="_PaginationState" />
+                <input type="hidden" asp-for="Search" />
+                <input type="hidden" asp-for="DepartmentId" />
+                <input type="hidden" asp-for="IsActive" />
                     <input type="hidden" name="id" id="deactivateId" />
                     <input type="hidden" name="isActive" value="false" />
                     <button type="submit" class="btn btn-danger">Deactivate</button>
@@ -282,6 +275,10 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <form method="post" asp-page-handler="ToggleActivation" style="display: inline;">
+                <partial name="_PaginationState" />
+                <input type="hidden" asp-for="Search" />
+                <input type="hidden" asp-for="DepartmentId" />
+                <input type="hidden" asp-for="IsActive" />
                     <input type="hidden" name="id" id="activateId" />
                     <input type="hidden" name="isActive" value="true" />
                     <button type="submit" class="btn btn-success">Activate</button>
@@ -369,6 +366,10 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="post" asp-page-handler="SendInvitations">
+                <partial name="_PaginationState" />
+                <input type="hidden" asp-for="Search" />
+                <input type="hidden" asp-for="DepartmentId" />
+                <input type="hidden" asp-for="IsActive" />
                 <div class="modal-body">
                     <div class="mb-3">
                         <label asp-for="InviteEmails" class="form-label">Email Addresses</label>
@@ -434,11 +435,19 @@
                                 @if (!invitation.IsUsed && invitation.ExpiresAt > DateTime.UtcNow)
                                 {
                                     <form method="post" asp-page-handler="ResendInvitation" style="display: inline;">
+                <partial name="_PaginationState" />
+                <input type="hidden" asp-for="Search" />
+                <input type="hidden" asp-for="DepartmentId" />
+                <input type="hidden" asp-for="IsActive" />
                                         <input type="hidden" name="id" value="@invitation.Id" />
                                         <button type="submit" class="btn btn-warning btn-sm me-1">Resend</button>
                                     </form>
                                 }
                                 <form method="post" asp-page-handler="DeleteInvitation" style="display: inline;">
+                <partial name="_PaginationState" />
+                <input type="hidden" asp-for="Search" />
+                <input type="hidden" asp-for="DepartmentId" />
+                <input type="hidden" asp-for="IsActive" />
                                     <input type="hidden" name="id" value="@invitation.Id" />
                                     <button type="submit" class="btn btn-danger btn-sm" 
                                             onclick="return confirm('Are you sure you want to delete this invitation?')">Delete</button>
@@ -466,6 +475,10 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <form method="post" asp-page-handler="ResetPassword" style="display: inline;">
+                <partial name="_PaginationState" />
+                <input type="hidden" asp-for="Search" />
+                <input type="hidden" asp-for="DepartmentId" />
+                <input type="hidden" asp-for="IsActive" />
                     <input type="hidden" name="id" id="resetId" />
                     <button type="submit" class="btn btn-warning">Reset Password</button>
                 </form>

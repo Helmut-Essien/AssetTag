@@ -5,12 +5,20 @@
 }
 
 <div class="container my-4">
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
     <!-- Page Header with Asset Count and Add Button -->
     <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="mb-0">
         Assets 
         <span class="text-muted fs-5">
-            (@(Model.Assets?.Count ?? 0) Total)
+            (@Model.PagedAssets.TotalCount.ToString("N0") Total)
         </span>
     </h1>
     <div class="d-flex gap-2">
@@ -31,6 +39,7 @@
     <div class="card mb-4">
     <div class="card-body">
         <form method="get" class="row g-3" id="filterForm">
+            <input type="hidden" asp-for="PageSize" />
             <!-- Search Box -->
             <div class="col-12 col-md-4 mb-2 mb-md-0">
                 <div class="input-group">
@@ -218,21 +227,50 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <span class="text-muted">
-                Showing (@(Model.Assets?.Count ?? 0) assets
-                @if (!string.IsNullOrEmpty(Model.SearchTerm) || !string.IsNullOrEmpty(Model.StatusFilter))
+                @if (Model.PagedAssets.TotalCount > 0)
+                {
+                    var effectivePage = Model.PagedAssets.TotalPages > 0
+                        ? Math.Min(Math.Max(1, Model.CurrentPage), Model.PagedAssets.TotalPages)
+                        : 1;
+                    var from = (effectivePage - 1) * Model.PageSize + 1;
+                    var to = Math.Min(effectivePage * Model.PageSize, Model.PagedAssets.TotalCount);
+                    <text>Showing @from–@to of @Model.PagedAssets.TotalCount.ToString("N0")</text>
+                }
+                else
+                {
+                    <text>Showing 0 assets</text>
+                }
+                @if (Model.HasActiveFilters)
                 {
                     <span>(filtered)</span>
                 }
             </span>
         </div>
-        <div class="btn-group">
-            <button type="button" class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
-                <i class="bi bi-download me-1"></i>Export
-            </button>
-            <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="#" onclick="exportToCsv()">Export to CSV</a></li>
-                <li><a class="dropdown-item" href="#" onclick="exportToExcel()">Export to Excel</a></li>
-            </ul>
+        <div class="d-flex align-items-center gap-2">
+            <form method="get" class="d-flex align-items-center gap-1 mb-0">
+                <input type="hidden" asp-for="SearchTerm" />
+                <input type="hidden" asp-for="StatusFilter" />
+                <input type="hidden" asp-for="ConditionFilter" />
+                <input type="hidden" asp-for="CategoryFilter" />
+                <input type="hidden" asp-for="LocationFilter" />
+                <input type="hidden" asp-for="DepartmentFilter" />
+                <label class="small text-muted mb-0" for="PageSize">Per page</label>
+                <select class="form-select form-select-sm" style="width: auto;" asp-for="PageSize" onchange="this.form.submit()">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </form>
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                    <i class="bi bi-download me-1"></i>Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="exportToCsv()">Export to CSV</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportToExcel()">Export to Excel</a></li>
+                </ul>
+            </div>
         </div>
     </div>
 
@@ -340,6 +378,16 @@
                 }
             </tbody>
         </table>
+
+        <partial name="_Pagination" model="Model.Pagination" />
+    }
+    else if (Model.PagedAssets.TotalCount > 0)
+    {
+        <div class="alert alert-info mb-3">
+            <i class="bi bi-info-circle me-2"></i>
+            No assets on this page. Use pagination to view results.
+        </div>
+        <partial name="_Pagination" model="Model.Pagination" />
     }
     else
     {
@@ -393,6 +441,13 @@
             </div>
             <div class="modal-body">
                 <form method="post" asp-page-handler="Create">
+                    <partial name="_PaginationState" />
+                    <input type="hidden" asp-for="SearchTerm" />
+                    <input type="hidden" asp-for="StatusFilter" />
+                    <input type="hidden" asp-for="ConditionFilter" />
+                    <input type="hidden" asp-for="CategoryFilter" />
+                    <input type="hidden" asp-for="LocationFilter" />
+                    <input type="hidden" asp-for="DepartmentFilter" />
                     <div asp-validation-summary="All" class="text-danger mb-3"></div>
 
                     <!-- Basic Information Section -->
@@ -653,6 +708,13 @@
             </div>
             <div class="modal-body">
                 <form method="post" asp-page-handler="Update" onsubmit="return validateDisposalFields()">
+                    <partial name="_PaginationState" />
+                    <input type="hidden" asp-for="SearchTerm" />
+                    <input type="hidden" asp-for="StatusFilter" />
+                    <input type="hidden" asp-for="ConditionFilter" />
+                    <input type="hidden" asp-for="CategoryFilter" />
+                    <input type="hidden" asp-for="LocationFilter" />
+                    <input type="hidden" asp-for="DepartmentFilter" />
                     <div asp-validation-summary="All" class="text-danger mb-3"></div>
                     <input type="hidden" asp-for="UpdateDto.AssetId" />
 
@@ -912,6 +974,13 @@
             <div class="modal-body">
                 <p>Are you sure you want to delete this asset? This action cannot be undone.</p>
                 <form method="post" asp-page-handler="Delete">
+                    <partial name="_PaginationState" />
+                    <input type="hidden" asp-for="SearchTerm" />
+                    <input type="hidden" asp-for="StatusFilter" />
+                    <input type="hidden" asp-for="ConditionFilter" />
+                    <input type="hidden" asp-for="CategoryFilter" />
+                    <input type="hidden" asp-for="LocationFilter" />
+                    <input type="hidden" asp-for="DepartmentFilter" />
                     <input type="hidden" name="id" id="deleteId" />
                     <div class="d-flex justify-content-end gap-2">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>

@@ -17,7 +17,7 @@ public class Invitation
     public string Token { get; set; } = Guid.NewGuid().ToString();
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime ExpiresAt { get; set; } = DateTime.UtcNow.AddDays(7); // 7 days expiry
+    public DateTime ExpiresAt { get; set; } = DateTime.UtcNow.AddDays(EmailConstants.InvitationExpiryDays);
     public bool IsUsed { get; set; } = false;
     public DateTime? UsedAt { get; set; }
 

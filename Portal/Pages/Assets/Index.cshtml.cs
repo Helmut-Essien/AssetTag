@@ -44,6 +44,7 @@ namespace Portal.Pages.Assets
         }
 
         public List<AssetReadDTO> Assets { get; set; } = new();
+        public PaginatedResponse<AssetReadDTO> PagedAssets { get; set; } = new();
         public List<CategoryReadDTO> Categories { get; set; } = new();
         public List<LocationReadDTO> Locations { get; set; } = new();
         public List<DepartmentReadDTO> Departments { get; set; } = new();
@@ -67,6 +68,12 @@ namespace Portal.Pages.Assets
 
         [BindProperty(SupportsGet = true)]
         public string? DepartmentFilter { get; set; } = string.Empty;
+
+        [BindProperty(SupportsGet = true)]
+        public int CurrentPage { get; set; } = 1;
+
+        [BindProperty(SupportsGet = true)]
+        public int PageSize { get; set; } = AssetConstants.Pagination.DefaultPageSize;
 
         // Add to IndexModel class
         [BindProperty(SupportsGet = true)]
@@ -147,30 +154,30 @@ namespace Portal.Pages.Assets
                     }
                 }
 
-                // Build query parameters for API call
-                var queryParams = new List<string>();
+                if (CurrentPage < 1) CurrentPage = 1;
+                if (PageSize < 1) PageSize = AssetConstants.Pagination.DefaultPageSize;
 
-                if (!string.IsNullOrEmpty(SearchTerm))
-                    queryParams.Add($"searchTerm={WebUtility.UrlEncode(SearchTerm)}");
-                if (!string.IsNullOrEmpty(StatusFilter))
-                    queryParams.Add($"status={WebUtility.UrlEncode(StatusFilter)}");
-                if (!string.IsNullOrEmpty(ConditionFilter))
-                    queryParams.Add($"condition={WebUtility.UrlEncode(ConditionFilter)}");
-                if (!string.IsNullOrEmpty(CategoryFilter))
-                    queryParams.Add($"categoryId={WebUtility.UrlEncode(CategoryFilter)}");
-                if (!string.IsNullOrEmpty(LocationFilter))
-                    queryParams.Add($"locationId={WebUtility.UrlEncode(LocationFilter)}");
-                if (!string.IsNullOrEmpty(DepartmentFilter))
-                    queryParams.Add($"departmentId={WebUtility.UrlEncode(DepartmentFilter)}");
-
-                var queryString = queryParams.Any() ? "?" + string.Join("&", queryParams) : "";
-
-                // Single API call with filters
-                var assetsResponse = await _httpClient.GetAsync($"api/assets{queryString}");
+                var assetsResponse = await _httpClient.GetAsync(BuildAssetsApiUrl(CurrentPage, PageSize));
                 if (assetsResponse.IsSuccessStatusCode)
                 {
-                    Assets = await assetsResponse.Content.ReadFromJsonAsync<List<AssetReadDTO>>()
-                        ?? new List<AssetReadDTO>();
+                    PagedAssets = await assetsResponse.Content.ReadFromJsonAsync<PaginatedResponse<AssetReadDTO>>()
+                        ?? new PaginatedResponse<AssetReadDTO>();
+                    Assets = PagedAssets.Data;
+
+                    if (PagedAssets.TotalPages > 0 && CurrentPage > PagedAssets.TotalPages)
+                    {
+                        return RedirectToPage("./Index", new
+                        {
+                            currentPage = PagedAssets.TotalPages,
+                            pageSize = PageSize,
+                            searchTerm = SearchTerm,
+                            statusFilter = StatusFilter,
+                            conditionFilter = ConditionFilter,
+                            categoryFilter = CategoryFilter,
+                            locationFilter = LocationFilter,
+                            departmentFilter = DepartmentFilter
+                        });
+                    }
                 }
 
                 // Load reference data only if needed for dropdowns
@@ -306,7 +313,7 @@ namespace Portal.Pages.Assets
             var response = await _httpClient.PostAsJsonAsync("api/assets", dto);
             if (response.IsSuccessStatusCode)
             {
-                return RedirectToPage();
+                return RedirectToPage(CurrentListRoute(currentPage: 1));
             }
 
             var errorContent = await response.Content.ReadAsStringAsync();
@@ -355,7 +362,7 @@ namespace Portal.Pages.Assets
             var response = await _httpClient.PutAsJsonAsync($"api/assets/{dto.AssetId}", dto);
             if (response.IsSuccessStatusCode)
             {
-                return RedirectToPage();
+                return RedirectToPage(CurrentListRoute());
             }
 
             if (response.StatusCode == HttpStatusCode.Conflict)
@@ -386,13 +393,13 @@ namespace Portal.Pages.Assets
         {
             if (string.IsNullOrEmpty(id))
             {
-                return RedirectToPage();
+                return RedirectToPage(CurrentListRoute());
             }
 
             var response = await _httpClient.DeleteAsync($"api/assets/{id}");
             if (response.IsSuccessStatusCode)
             {
-                return RedirectToPage();
+                return RedirectToPage(CurrentListRoute());
             }
             else if (response.StatusCode == HttpStatusCode.Unauthorized)
             {
@@ -410,14 +417,11 @@ namespace Portal.Pages.Assets
         // Quick filter actions
         public IActionResult OnGetClearFilters()
         {
-            SearchTerm = string.Empty;
-            StatusFilter = string.Empty;
-            ConditionFilter = string.Empty;
-            CategoryFilter = string.Empty;
-            LocationFilter = string.Empty;
-            DepartmentFilter = string.Empty;
-
-            return RedirectToPage();
+            return RedirectToPage("./Index", new
+            {
+                currentPage = 1,
+                pageSize = PageSize
+            });
         }
 
         public bool HasActiveFilters =>
@@ -428,6 +432,112 @@ namespace Portal.Pages.Assets
     !string.IsNullOrEmpty(LocationFilter) ||
     !string.IsNullOrEmpty(DepartmentFilter);
 
+        private string BuildAssetsApiUrl(int page, int pageSize)
+        {
+            var queryParams = new List<string>
+            {
+                $"page={page}",
+                $"pageSize={pageSize}"
+            };
+
+            if (!string.IsNullOrEmpty(SearchTerm))
+                queryParams.Add($"searchTerm={WebUtility.UrlEncode(SearchTerm)}");
+            if (!string.IsNullOrEmpty(StatusFilter))
+                queryParams.Add($"status={WebUtility.UrlEncode(StatusFilter)}");
+            if (!string.IsNullOrEmpty(ConditionFilter))
+                queryParams.Add($"condition={WebUtility.UrlEncode(ConditionFilter)}");
+            if (!string.IsNullOrEmpty(CategoryFilter))
+                queryParams.Add($"categoryId={WebUtility.UrlEncode(CategoryFilter)}");
+            if (!string.IsNullOrEmpty(LocationFilter))
+                queryParams.Add($"locationId={WebUtility.UrlEncode(LocationFilter)}");
+            if (!string.IsNullOrEmpty(DepartmentFilter))
+                queryParams.Add($"departmentId={WebUtility.UrlEncode(DepartmentFilter)}");
+
+            return $"api/assets?{string.Join("&", queryParams)}";
+        }
+
+        public string GetPageUrl(int page)
+        {
+            return Url.Page("./Index", new
+            {
+                currentPage = page,
+                pageSize = PageSize,
+                searchTerm = SearchTerm,
+                statusFilter = StatusFilter,
+                conditionFilter = ConditionFilter,
+                categoryFilter = CategoryFilter,
+                locationFilter = LocationFilter,
+                departmentFilter = DepartmentFilter
+            }) ?? "#";
+        }
+
+        public Portal.ViewModels.PaginationViewModel Pagination =>
+            Portal.ViewModels.PaginationViewModel.FromPaginated(
+                PagedAssets,
+                GetPageUrl,
+                "Assets pagination",
+                cssClass: "mt-3");
+
+        private object CurrentListRoute(int? currentPage = null) => new
+        {
+            currentPage = currentPage ?? CurrentPage,
+            pageSize = PageSize,
+            searchTerm = SearchTerm,
+            statusFilter = StatusFilter,
+            conditionFilter = ConditionFilter,
+            categoryFilter = CategoryFilter,
+            locationFilter = LocationFilter,
+            departmentFilter = DepartmentFilter
+        };
+
+        private async Task<List<AssetReadDTO>> LoadAllFilteredAssetsAsync()
+        {
+            var all = new List<AssetReadDTO>();
+            var page = 1;
+            int? expectedTotal = null;
+
+            while (true)
+            {
+                var response = await _httpClient.GetAsync(
+                    BuildAssetsApiUrl(page, AssetConstants.Pagination.MaxPageSize));
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new InvalidOperationException(
+                        $"Failed to load assets for export (page {page}): {response.StatusCode}.");
+                }
+
+                var result = await response.Content.ReadFromJsonAsync<PaginatedResponse<AssetReadDTO>>()
+                    ?? throw new InvalidOperationException(
+                        $"Invalid pagination response while exporting (page {page}).");
+
+                expectedTotal ??= result.TotalCount;
+
+                if (result.TotalCount == 0)
+                    return all;
+
+                if (result.Data.Count == 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Empty page {page} during export while {result.TotalCount} asset(s) were expected.");
+                }
+
+                all.AddRange(result.Data);
+
+                if (!result.HasNext || page >= result.TotalPages)
+                    break;
+
+                page++;
+            }
+
+            if (expectedTotal.HasValue && all.Count != expectedTotal.Value)
+            {
+                throw new InvalidOperationException(
+                    $"Export incomplete: collected {all.Count} of {expectedTotal.Value} asset(s).");
+            }
+
+            return all;
+        }
+
         private IActionResult HandleAuthRedirect(HttpStatusCode statusCode)
         {
             return statusCode == HttpStatusCode.Unauthorized
@@ -437,10 +547,24 @@ namespace Portal.Pages.Assets
 
         public async Task<IActionResult> OnGetExportAsync(string format)
         {
-            await OnGetAsync();
+            IsAdmin = _userRoleService.IsInRole(RoleNames.Admin);
+            await LoadReferenceDataAsync();
+
+            try
+            {
+                Assets = await LoadAllFilteredAssetsAsync();
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = ex.Message;
+                return RedirectToPage("./Index", CurrentListRoute());
+            }
 
             if (Assets.Count == 0)
-                return Page();
+            {
+                TempData["ErrorMessage"] = "No assets to export for the current filters.";
+                return RedirectToPage("./Index", CurrentListRoute());
+            }
 
             // Build human-readable column mappings (respect current filter context)
             var columnNames = new (string Header, string Selector)[]

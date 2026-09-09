@@ -51,6 +51,32 @@ public class PaginatedResponse<T>
     public int TotalPages { get; set; }
     public bool HasPrevious { get; set; }
     public bool HasNext { get; set; }
+
+    public static PaginatedResponse<T> Create(List<T> data, int totalCount, int page, int pageSize)
+    {
+        var totalPages = pageSize > 0
+            ? (int)Math.Ceiling(totalCount / (double)pageSize)
+            : 0;
+
+        return new PaginatedResponse<T>
+        {
+            Data = data,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize,
+            TotalPages = totalPages,
+            HasPrevious = page > 1,
+            HasNext = page < totalPages
+        };
+    }
+
+    public static (int Page, int PageSize) Normalize(int page, int pageSize, int defaultPageSize = 20, int maxPageSize = 100)
+    {
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = defaultPageSize;
+        if (pageSize > maxPageSize) pageSize = maxPageSize;
+        return (page, pageSize);
+    }
 }
 
 public class AssetHistoryFilters

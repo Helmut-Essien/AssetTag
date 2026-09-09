@@ -93,6 +93,19 @@ namespace Portal.Pages.Assets
             if (historyResponse.IsSuccessStatusCode)
             {
                 AssetHistories = await historyResponse.Content.ReadFromJsonAsync<PaginatedResponse<AssetHistoryReadDTO>>() ?? new PaginatedResponse<AssetHistoryReadDTO>();
+
+                if (AssetHistories.TotalPages > 0 && CurrentPage > AssetHistories.TotalPages)
+                {
+                    return RedirectToPage("./Details", new
+                    {
+                        id,
+                        CurrentPage = AssetHistories.TotalPages,
+                        PageSize,
+                        ActionFilter,
+                        DateFrom,
+                        DateTo
+                    });
+                }
             }
 
             return Page();
@@ -167,6 +180,14 @@ namespace Portal.Pages.Assets
 
             return $"./Details?{string.Join("&", queryParams)}";
         }
+
+        public Portal.ViewModels.PaginationViewModel Pagination =>
+            Portal.ViewModels.PaginationViewModel.FromPaginated(
+                AssetHistories,
+                GetPageUrl,
+                "History pagination",
+                showSummary: false,
+                cssClass: "mt-3");
     }
 
     // Add the PaginatedResponse class if not already in Shared.DTOs

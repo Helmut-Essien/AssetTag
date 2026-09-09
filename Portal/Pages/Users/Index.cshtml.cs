@@ -34,9 +34,14 @@ namespace Portal.Pages.Users
         [BindProperty(SupportsGet = true)]
         public bool? IsActive { get; set; }
 
+        [BindProperty(SupportsGet = true)]
         public int CurrentPage { get; set; } = 1;
+
+        [BindProperty(SupportsGet = true)]
         public int PageSize { get; set; } = 10;
+
         public int TotalCount { get; set; }
+        public int TotalPages => PageSize > 0 ? (int)Math.Ceiling(TotalCount / (double)PageSize) : 0;
 
         public List<SelectListItem> Departments { get; set; } = new();
         public List<string> AvailableRoles { get; set; } = new();
@@ -50,9 +55,12 @@ namespace Portal.Pages.Users
 
         public List<InvitationResponseDTO> Invitations { get; set; } = new();
 
-        public async Task<IActionResult> OnGetAsync(int page = 1)
+        public async Task<IActionResult> OnGetAsync()
         {
-            CurrentPage = page;
+            if (CurrentPage < 1) CurrentPage = 1;
+            if (PageSize < 1) PageSize = 10;
+            if (PageSize > AssetConstants.Pagination.MaxPageSize)
+                PageSize = AssetConstants.Pagination.MaxPageSize;
 
             var queryString = $"?page={CurrentPage}&pageSize={PageSize}";
             if (!string.IsNullOrEmpty(Search)) queryString += $"&search={HttpUtility.UrlEncode(Search)}";
@@ -67,6 +75,18 @@ namespace Portal.Pages.Users
                 if (response.Headers.TryGetValues("X-Total-Count", out var totalValues))
                 {
                     TotalCount = int.Parse(totalValues.FirstOrDefault() ?? "0");
+                }
+
+                if (TotalPages > 0 && CurrentPage > TotalPages)
+                {
+                    return RedirectToPage("./Index", new
+                    {
+                        currentPage = TotalPages,
+                        pageSize = PageSize,
+                        search = Search,
+                        departmentId = DepartmentId,
+                        isActive = IsActive
+                    });
                 }
             }
             else
@@ -90,6 +110,38 @@ namespace Portal.Pages.Users
             }
             return Page();
         }
+
+        public string GetPageUrl(int page) =>
+            Url.Page("./Index", new
+            {
+                currentPage = page,
+                pageSize = PageSize,
+                search = Search,
+                departmentId = DepartmentId,
+                isActive = IsActive
+            }) ?? "#";
+
+        public Portal.ViewModels.PaginationViewModel Pagination =>
+            Portal.ViewModels.PaginationViewModel.From(
+                CurrentPage,
+                TotalPages,
+                TotalCount,
+                PageSize,
+                CurrentPage > 1,
+                CurrentPage < TotalPages,
+                GetPageUrl,
+                "Users pagination",
+                small: false,
+                cssClass: "mt-3");
+
+        private object CurrentListRoute() => new
+        {
+            currentPage = CurrentPage,
+            pageSize = PageSize,
+            search = Search,
+            departmentId = DepartmentId,
+            isActive = IsActive
+        };
 
         private async Task LoadDepartments()
         {
@@ -118,7 +170,7 @@ namespace Portal.Pages.Users
         {
             if (!ModelState.IsValid)
             {
-                await OnGetAsync(CurrentPage);
+                await OnGetAsync();
                 return Page();
             }
 
@@ -127,7 +179,7 @@ namespace Portal.Pages.Users
                 var response = await _httpClient.PutAsJsonAsync($"api/users/{updateDto.Id}", updateDto);
                 if (response.IsSuccessStatusCode)
                 {
-                    return RedirectToPage("Index", new { page = CurrentPage, search = Search, departmentId = DepartmentId, isActive = IsActive });
+                    return RedirectToPage("Index", CurrentListRoute());
 
                 }
 
@@ -140,7 +192,7 @@ namespace Portal.Pages.Users
                 ModelState.AddModelError(string.Empty, "An error occurred while updating the user.");
             }
 
-            await OnGetAsync(CurrentPage);
+            await OnGetAsync();
             return Page();
         }
 
@@ -148,7 +200,7 @@ namespace Portal.Pages.Users
         {
             if (string.IsNullOrEmpty(id))
             {
-                return RedirectToPage(new { page = CurrentPage, search = Search, departmentId = DepartmentId, isActive = IsActive });
+                return RedirectToPage(CurrentListRoute());
             }
 
             try
@@ -156,7 +208,7 @@ namespace Portal.Pages.Users
                 var response = await _httpClient.PatchAsJsonAsync($"api/users/{id}/activation", isActive);
                 if (response.IsSuccessStatusCode)
                 {
-                    return RedirectToPage("Index", new { page = CurrentPage, search = Search, departmentId = DepartmentId, isActive = IsActive });
+                    return RedirectToPage("Index", CurrentListRoute());
                 }
 
                 var errorContent = await response.Content.ReadAsStringAsync();
@@ -168,7 +220,7 @@ namespace Portal.Pages.Users
                 ModelState.AddModelError(string.Empty, "An error occurred while updating user status.");
             }
 
-            await OnGetAsync(CurrentPage);
+            await OnGetAsync();
             return Page();
         }
 
@@ -346,7 +398,7 @@ namespace Portal.Pages.Users
         {
             if (string.IsNullOrEmpty(id))
             {
-                return RedirectToPage(new { page = CurrentPage, search = Search, departmentId = DepartmentId, isActive = IsActive });
+                return RedirectToPage(CurrentListRoute());
             }
 
             try
@@ -354,9 +406,7 @@ namespace Portal.Pages.Users
                 var response = await _httpClient.PostAsync($"api/users/{id}/password-reset", null);
                 if (response.IsSuccessStatusCode)
                 {
-                    // Never surface the raw reset token in HTML/logs — delivery is handled by the API/email.
-                    _ = await response.Content.ReadAsStringAsync();
-                    Message = "Password reset was initiated. If the account exists, the user will receive reset instructions via email.";
+                    Message = "Password reset email was sent to the user.";
                 }
                 else
                 {
@@ -370,7 +420,7 @@ namespace Portal.Pages.Users
                 Message = "An error occurred while resetting the password.";
             }
 
-            await OnGetAsync(CurrentPage);
+            await OnGetAsync();
             return Page();
         }
 
@@ -381,7 +431,7 @@ namespace Portal.Pages.Users
             if (string.IsNullOrWhiteSpace(InviteEmails))
             {
                 Message = "Please enter at least one email address.";
-                await OnGetAsync(CurrentPage);
+                await OnGetAsync();
                 return Page();
             }
 
@@ -396,7 +446,7 @@ namespace Portal.Pages.Users
                 if (!emails.Any())
                 {
                     Message = "Please enter valid email addresses.";
-                    await OnGetAsync(CurrentPage);
+                    await OnGetAsync();
                     return Page();
                 }
 
@@ -405,7 +455,7 @@ namespace Portal.Pages.Users
                 if (invalidEmails.Any())
                 {
                     Message = $"Invalid email format: {string.Join(", ", invalidEmails)}";
-                    await OnGetAsync(CurrentPage);
+                    await OnGetAsync();
                     return Page();
                 }
 
@@ -502,7 +552,7 @@ namespace Portal.Pages.Users
                 Message = "An error occurred while resending the invitation.";
             }
 
-            return RedirectToPage("Index", new { page = CurrentPage, search = Search, departmentId = DepartmentId, isActive = IsActive });
+            return RedirectToPage("Index", CurrentListRoute());
         }
 
         // NEW: Handle deleting invitation
@@ -527,7 +577,7 @@ namespace Portal.Pages.Users
                 Message = "An error occurred while deleting the invitation.";
             }
 
-            return RedirectToPage("Index", new { page = CurrentPage, search = Search, departmentId = DepartmentId, isActive = IsActive });
+            return RedirectToPage("Index", CurrentListRoute());
         }
 
         // NEW: Email validation helper
