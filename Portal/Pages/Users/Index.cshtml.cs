@@ -196,7 +196,7 @@ namespace Portal.Pages.Users
             return Page();
         }
 
-        public async Task<IActionResult> OnPostToggleActivationAsync(string id, bool isActive)
+        public async Task<IActionResult> OnPostToggleActivationAsync(string id, bool setActive)
         {
             if (string.IsNullOrEmpty(id))
             {
@@ -206,13 +206,36 @@ namespace Portal.Pages.Users
 
             try
             {
-                var response = await _httpClient.PatchAsJsonAsync($"api/users/{id}/activation", isActive);
+                // Parameter must not be named isActive — that collides with the list filter IsActive
+                // preserved via hidden fields in the modal forms (case-insensitive form binding).
+                var response = await _httpClient.PatchAsJsonAsync($"api/users/{id}/activation", setActive);
                 if (response.IsSuccessStatusCode)
                 {
-                    TempData["SuccessMessage"] = isActive
+                    var message = setActive
                         ? "User activated successfully."
                         : "User deactivated successfully.";
-                    return RedirectToPage("Index", CurrentListRoute());
+
+                    // If the list is filtered to the opposite status, the row will disappear after refresh.
+                    object route;
+                    if (IsActive.HasValue && IsActive.Value != setActive)
+                    {
+                        message += " Status filter cleared so you can see the updated user.";
+                        route = new
+                        {
+                            currentPage = CurrentPage,
+                            pageSize = PageSize,
+                            search = Search,
+                            departmentId = DepartmentId,
+                            isActive = (bool?)null
+                        };
+                    }
+                    else
+                    {
+                        route = CurrentListRoute();
+                    }
+
+                    TempData["SuccessMessage"] = message;
+                    return RedirectToPage("Index", route);
                 }
 
                 var errorContent = await response.Content.ReadAsStringAsync();
