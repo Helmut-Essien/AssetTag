@@ -200,6 +200,7 @@ namespace Portal.Pages.Users
         {
             if (string.IsNullOrEmpty(id))
             {
+                TempData["ErrorMessage"] = "Invalid user ID.";
                 return RedirectToPage(CurrentListRoute());
             }
 
@@ -208,6 +209,9 @@ namespace Portal.Pages.Users
                 var response = await _httpClient.PatchAsJsonAsync($"api/users/{id}/activation", isActive);
                 if (response.IsSuccessStatusCode)
                 {
+                    TempData["SuccessMessage"] = isActive
+                        ? "User activated successfully."
+                        : "User deactivated successfully.";
                     return RedirectToPage("Index", CurrentListRoute());
                 }
 
