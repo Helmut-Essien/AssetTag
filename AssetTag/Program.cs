@@ -179,7 +179,7 @@ if (builder.Environment.IsProduction())
 //        // === END OF ADDITION ===
 //    });
 
-//Added to redeploy api so updated secrets take place
+//Added to redeploy api so updated secrets take pllace
 
 // JWT Authentication with Enhanced Logging
 builder.Services.AddAuthentication(options =>
