@@ -55,7 +55,8 @@ namespace MobileApp
             }
             else
             {
-                // Fallback to default settings if config file not found
+                // Hosted API URL: set ApiSettings:PrimaryApiUrl in MobileApp/appsettings.json
+                // (embedded in the APK). Do not hardcode production hosts elsewhere.
                 builder.Services.Configure<ApiSettings>(options =>
                 {
                     options.PrimaryApiUrl = "https://mugassetapi.runasp.net/";

@@ -12,7 +12,7 @@ namespace Portal.Pages
             _logger = logger;
         }
 
-        public string ReturnUrl { get; set; } =/* "/"*/ "/Diagnostics/TokenDiagnostics";
+        public string ReturnUrl { get; set; } = "/";
         public bool HasFreshTokens { get; set; }
 
         public IActionResult OnGet(string? returnUrl = null)
@@ -24,7 +24,7 @@ namespace Portal.Pages
             }
             else
             {
-                ReturnUrl = "/Diagnostics/TokenDiagnostics";
+                ReturnUrl = "/";
             }
 
             // Check if we have fresh tokens from login

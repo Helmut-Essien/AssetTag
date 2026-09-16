@@ -55,7 +55,8 @@ There are **no test projects** and **no lint/format commands** configured.
 - **ULID, not GUID**: All entity IDs use `Ulid` from the NUlid package. The `BaseModel` class in `Shared` defines `Id` as ULID.
 - **IDs are strings**: Controllers and DTOs expose `id` as `string`, not `Ulid`.
 - **Deleted item tracking**: `ApplicationDbContext.SaveChangesAsync` automatically creates `DeletedItem` records for mobile sync. Do not bypass this without understanding the sync pipeline.
-- **JWT auth logging**: `Program.cs` wires up extremely verbose JWT event logging (OnTokenValidated, OnChallenge, etc.) and a custom middleware that maps `X-Auth-Token` header → `Authorization` header. Auth failures log full token claims and expiry.
+- **JWT auth**: Bearer JWT with security-stamp validation. Middleware maps `X-Auth-Token` → `Authorization`. Production logging is Information-level and does not log token values; verbose request middleware is Development-only.
+- **Health**: Anonymous `GET /health/live` (process) and `GET /health/ready` (SQL). Mobile connectivity still uses `GET /api/test/ping`.
 - **Culture**: Ghanaian Cedi (`en-GH`, `₵`) is forced via `CultureInfo.DefaultThreadCurrentCulture`.
 - **Mobile is Android-only**: `MobileApp.csproj` targets `net9.0-android` only. Other platforms are commented out. CI builds a signed APK.
 - **Mobile compiled bindings**: `MauiEnableXamlCBindingWithSourceCompilation` is enabled globally.
@@ -94,5 +95,6 @@ Triggered on push to `master` when any project source changes. Key jobs: detect-
 | `EMAIL_USERNAME` / `EMAIL_PASSWORD` | API — SMTP auth | test vs production mailboxes |
 | `EMAIL_FROM` | API — `EmailSettings:FromEmail` | address shown as sender |
 | `EMAIL_FROM_NAME` | API — `EmailSettings:FromName` | display name in client |
+| `INITIAL_ADMIN_EMAIL` / `INITIAL_ADMIN_PASSWORD` | API — first admin on empty DB (optional) | production admin mailbox |
 
 Local overrides: `appsettings.Development.json` or user secrets (`FrontendBaseUrl`, `Api:BaseUrl`, `EmailSettings:*`). Do not hardcode hosted URLs or sender identity in workflow or base `appsettings.json`.

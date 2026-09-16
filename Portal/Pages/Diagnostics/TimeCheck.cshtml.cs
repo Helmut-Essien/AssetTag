@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
+using Shared.Constants;
 using System.Net.Http.Json;
 
 namespace Portal.Pages.Diagnostics;
 
+[Authorize(Roles = RoleNames.Admin)]
 public class TimeCheckModel : PageModel
 {
     private readonly HttpClient _http;

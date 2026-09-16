@@ -14,6 +14,7 @@ Razor Pages UI. It does **not** talk to SQL Server directly. All data goes throu
 - Cookie session (`Portal.Session`, 60 min). Production cookies are `SecurePolicy.Always`.
 - Auth pages use `_AuthLayout.cshtml`; app pages use `_Layout.cshtml`.
 - Invitation register and password reset are Portal routes (`/Account/Register`, `/Account/ResetPassword`) linked from API emails via `FrontendBaseUrl`.
+- Diagnostics pages (`/Diagnostics/*`) require the Admin role.
 - Culture is `en-GH` / `₵` in `Program.cs`.
 
 ## Layout
