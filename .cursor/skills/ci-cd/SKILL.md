@@ -31,7 +31,10 @@ Path filters skip API, Portal, or mobile jobs when those trees did not change. `
 | `EMAIL_USERNAME` / `EMAIL_PASSWORD` / `EMAIL_FROM` / `EMAIL_FROM_NAME` | API SMTP |
 | `JWT_SECURITY_KEY` | API JWT |
 | `MONSTERASP_DATABASE_CONNECTION` | API SQL + migrations |
+| `INITIAL_ADMIN_EMAIL` / `INITIAL_ADMIN_PASSWORD` | Optional first-boot admin seed (empty DB only) |
 | `API_*` / `PORTAL_*` deploy | Web Deploy site, URL, credentials |
 | `ANDROID_KEYSTORE_*` | Signed APK |
+
+Deploy uses `.github/scripts/iis-deploy/` (vendored MSDeploy publish). `App_Data`, `logs`, and `data` are excluded from clean sync so DataProtection keys survive deploys. `stdoutLogEnabled` is `false` by default; enable AspNetCore debug logs in MonsterASP Control Panel only while troubleshooting.
 
 Local: `appsettings.Development.json` or user secrets. Do not commit connection strings or hosted URLs.
