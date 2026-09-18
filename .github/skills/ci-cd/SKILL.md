@@ -17,7 +17,7 @@ Path filters skip API, Portal, or mobile jobs when those trees did not change. `
 
 - **Never hardcode** production/test hostnames or sender identity in the workflow or base `appsettings.json`. Inject at deploy time from secrets.
 - `FRONTEND_BASE_URL` → API `FrontendBaseUrl` (invitation / password-reset links).
-- `API_BASE_URL` → Portal `Api:BaseUrl`.
+- `API_BASE_URL` → Portal `Api:BaseUrl` and (on Android CI) `MobileApp` `ApiSettings:PrimaryApiUrl`.
 - Mobile version for tags and API `LatestVersion` comes from `MobileApp/MobileApp.csproj`: `ApplicationDisplayVersion` (name) and `ApplicationVersion` (Android versionCode, must increase).
 - Migrations run in CI against production (`dotnet ef database update`). They are **not** applied on API startup.
 - Android signing uses `ANDROID_KEYSTORE_BASE64`, keystore password, and key alias secrets.

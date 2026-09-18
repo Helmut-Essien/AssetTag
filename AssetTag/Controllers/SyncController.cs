@@ -3,6 +3,7 @@ using AssetTag.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Shared.Constants;
 using Shared.DTOs;
 using Shared.Models;
 using System.Text.Json;
@@ -11,12 +12,13 @@ using System.Security.Claims;
 namespace AssetTag.Controllers;
 
 /// <summary>
-/// Offline sync for mobile clients. Any authenticated user (typically RoleNames.User) may sync;
-/// Portal CRUD remains Admin-only. See RoleNames documentation.
+/// Offline sync for mobile clients. Built-in Admin/User roles may sync (RoleNames.AdminOrUser).
+/// Location create/update for field users uses api/locations; other Portal CRUD stays Admin-only.
+/// See RoleNames documentation.
 /// </summary>
 [Route("api/[controller]")]
 [ApiController]
-[Authorize]
+[Authorize(Roles = RoleNames.AdminOrUser)]
 public class SyncController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

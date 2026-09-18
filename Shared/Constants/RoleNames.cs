@@ -5,7 +5,9 @@ namespace Shared.Constants
     ///
     /// RBAC model:
     /// - Admin: full Portal access (dashboard, CRUD, reports, users/invitations) and privileged API.
-    /// - User: mobile field clients — authenticated Sync (and related mobile auth) only; no Portal org data.
+    /// - User: mobile field clients — Sync (assets), location list/create/update APIs, and mobile auth;
+    ///   no Portal org admin UI (categories/departments/users/reports). Location delete remains Admin-only.
+    /// - Field APIs that allow both roles use <see cref="AdminOrUser"/> (excludes custom roles).
     ///
     /// Custom roles may exist in AspNetRoles but only Admin is enforced for privileged Portal/API operations.
     /// </summary>
@@ -13,6 +15,12 @@ namespace Shared.Constants
     {
         public const string Admin = "Admin";
         public const string User = "User";
+
+        /// <summary>
+        /// Comma-separated roles for <c>[Authorize(Roles = ...)]</c> on field + admin APIs
+        /// (locations list/create/update, sync). Custom roles are excluded by design.
+        /// </summary>
+        public const string AdminOrUser = Admin + "," + User;
 
         /// <summary>Roles created by seed and used as invitation defaults.</summary>
         public static readonly string[] BuiltIn =

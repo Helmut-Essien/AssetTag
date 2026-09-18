@@ -133,7 +133,7 @@ If you did not expect this invitation, you can ignore this email.";
 
         /// <summary>
         /// Maps invitation role to accurate access wording (see RoleNames RBAC).
-        /// User = mobile field sync; Admin = Portal (+ mobile sync as any authenticated user).
+        /// User = mobile field sync + locations; Admin = Portal (+ mobile as any authenticated user).
         /// </summary>
         private static InvitationAccessCopy ResolveInvitationAccessCopy(string? role)
         {
@@ -150,7 +150,7 @@ If you did not expect this invitation, you can ignore this email.";
             {
                 return new InvitationAccessCopy(
                     SubjectAudience: "the MUG ASSETS app",
-                    BodyLine: "This account is for the MUG ASSETS mobile app, where you can sync and update assets in the field. It does not include Asset Management Portal admin access. Create your account in the browser, then sign in on the mobile app.",
+                    BodyLine: "This account is for the MUG ASSETS mobile app, where you can sync assets and add or edit locations in the field. It does not include Asset Management Portal admin access. Create your account in the browser, then sign in on the mobile app.",
                     Preheader: expiry => $"Create your mobile account within {expiry}, then sign in on the app.");
             }
 
