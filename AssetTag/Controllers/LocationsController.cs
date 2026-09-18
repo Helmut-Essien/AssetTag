@@ -10,7 +10,7 @@ namespace AssetTag.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-[Authorize(Roles = RoleNames.Admin)]
+[Authorize(Roles = RoleNames.AdminOrUser)] // Built-in field + admin; delete stays Admin-only
 public class LocationsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -113,6 +113,9 @@ public class LocationsController : ControllerBase
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
+        if (!string.Equals(dto.LocationId, id, StringComparison.Ordinal))
+            return BadRequest("LocationId in the body must match the route id.");
+
         var loc = await _context.Locations.FindAsync(id);
         if (loc is null) return NotFound();
 
@@ -139,8 +142,9 @@ public class LocationsController : ControllerBase
         return NoContent();
     }
 
-    // DELETE: /api/locations/{id}
+    // DELETE: /api/locations/{id} — Portal Admin only (mobile does not delete locations)
     [HttpDelete("{id}")]
+    [Authorize(Roles = RoleNames.Admin)]
     public async Task<IActionResult> Delete(string id)
     {
         var loc = await _context.Locations.FindAsync(id);
